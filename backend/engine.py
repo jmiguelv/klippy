@@ -7,6 +7,8 @@ from llama_index.core import (
     SimpleDirectoryReader,
     Settings,
 )
+from llama_index.core.ingestion import IngestionPipeline, IngestionCache
+from llama_index.storage.kvstore.redis import RedisKVStore as RedisCache
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from llama_index.llms.openai import OpenAI
 from llama_index.embeddings.openai import OpenAIEmbedding
@@ -44,19 +46,24 @@ class KlippyEngine:
         )
         self.storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
         
+        # Initialize Redis Cache for Ingestion
+        self.redis_host = os.getenv("REDIS_HOST", "redis")
+        self.ingest_cache = IngestionCache(
+            cache=RedisCache.from_host_and_port(host=self.redis_host, port=6379),
+            collection=f"ingest_cache_{self.collection_name}"
+        )
+
         # Internal state for the index
         self._index = None
 
     def ingest_data(self):
-        """Loads markdown files from the data directory and indexes them into Qdrant."""
+        """Loads markdown files and indexes them using a cached pipeline."""
         if not os.path.exists(self.data_dir):
             logger.warning(f"Data directory {self.data_dir} does not exist.")
             return
 
         logger.info(f"Ingesting data from {self.data_dir}...")
         
-        # SimpleDirectoryReader with default Markdown support
-        # It handles YAML frontmatter automatically if configured (default is good for v1)
         documents = SimpleDirectoryReader(
             input_dir=self.data_dir,
             recursive=True,
@@ -67,13 +74,25 @@ class KlippyEngine:
             logger.info("No documents found for ingestion.")
             return
 
-        # Create or update the index
-        self._index = VectorStoreIndex.from_documents(
-            documents,
-            storage_context=self.storage_context,
-            show_progress=True
+        # Use IngestionPipeline for automatic caching and transformation
+        pipeline = IngestionPipeline(
+            transformations=[
+                Settings.embed_model, # Caching is most effective at the embedding step
+            ],
+            vector_store=self.vector_store,
+            cache=self.ingest_cache,
         )
-        logger.info(f"Ingested {len(documents)} documents.")
+
+        # Run the pipeline - it will only process new or changed documents
+        nodes = pipeline.run(documents=documents, show_progress=True)
+        
+        # Create or update index from the vector store
+        self._index = VectorStoreIndex.from_vector_store(
+            vector_store=self.vector_store,
+            storage_context=self.storage_context
+        )
+        
+        logger.info(f"Ingestion complete. Processed {len(nodes)} nodes (including cached).")
 
     def get_query_engine(self):
         """Returns a query engine based on the current index."""

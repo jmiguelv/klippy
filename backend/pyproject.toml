@@ -9,6 +9,7 @@ dependencies = [
     "llama-index-vector-stores-qdrant",
     "llama-index-embeddings-openai",
     "llama-index-llms-openai",
+    "llama-index-storage-kvstore-redis",
     "arize-phoenix",
     "llama-index-callbacks-arize-phoenix",
     "qdrant-client",
