@@ -22,12 +22,15 @@ class KlippyEngine:
         
         # Configure LlamaIndex settings
         llm_base_url = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
+        llm_model = os.getenv("LLM_MODEL", "gpt-4-turbo-preview")
+        embed_model = os.getenv("EMBED_MODEL", "text-embedding-3-small")
+        
         Settings.llm = OpenAI(
-            model="gpt-4-turbo-preview", 
+            model=llm_model, 
             api_base=llm_base_url
         )
         Settings.embed_model = OpenAIEmbedding(
-            model="text-embedding-3-small", 
+            model=embed_model, 
             api_base=llm_base_url
         )
         
