@@ -168,7 +168,7 @@ class KlippyEngine:
         
         # Create response synthesizer explicitly with OpenAILike
         response_synthesizer = get_response_synthesizer(
-            response_mode="compact",
+            response_mode="tree_summarize", # Faster and often more accurate synthesis
             llm=Settings.llm,
             text_qa_template=PromptTemplate(template),
             refine_template=PromptTemplate(template),
@@ -180,8 +180,12 @@ class KlippyEngine:
             llm=Settings.llm
         )
 
-    def query(self, text: str) -> str:
-        """Executes a query and returns the LLM-synthesized response."""
+    def query_detailed(self, text: str):
+        """Executes a query and returns the full LlamaIndex response object."""
         engine = self.get_query_engine()
-        response = engine.query(text)
+        return engine.query(text)
+
+    def query(self, text: str) -> str:
+        """Executes a query and returns the synthesized string response."""
+        response = self.query_detailed(text)
         return str(response)

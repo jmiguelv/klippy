@@ -27,6 +27,7 @@ class QueryRequest(BaseModel):
 class QueryResponse(BaseModel):
     answer: str
     cached: bool = False
+    sources: list[dict] = []
 
 class IngestRequest(BaseModel):
     limit: int = None
@@ -65,21 +66,40 @@ app.add_middleware(
 async def query_klippy(request: QueryRequest):
     cache_key = f"query:{request.text}"
     try:
-        cached_answer = redis_client.get(cache_key)
-        if cached_answer:
+        cached_data = redis_client.get(cache_key)
+        if cached_data:
             logger.info(f"Cache hit for query: {request.text}")
-            return QueryResponse(answer=cached_answer, cached=True)
+            parsed = json.loads(cached_data)
+            return QueryResponse(answer=parsed["answer"], cached=True, sources=parsed.get("sources", []))
     except Exception as e:
         logger.warning(f"Redis cache error: {e}")
 
     try:
-        answer = engine.query(request.text)
+        # Update engine to return full response object
+        response_obj = engine.query_detailed(request.text)
+        answer = str(response_obj)
+        
+        # Extract sources
+        sources = []
+        for node in response_obj.source_nodes:
+            metadata = node.node.metadata
+            sources.append({
+                "source": metadata.get("source"),
+                "type": metadata.get("type"),
+                "id": metadata.get("id"),
+                "url": metadata.get("url"),
+                "title": metadata.get("file_name", "Untitled"),
+                "score": float(node.score) if node.score is not None else 0.0
+            })
+
+        # Cache the detailed result
         try:
-            redis_client.setex(cache_key, 3600, str(answer))
+            cache_val = json.dumps({"answer": answer, "sources": sources})
+            redis_client.setex(cache_key, 3600, cache_val)
         except Exception as e:
             logger.warning(f"Failed to write to Redis: {e}")
             
-        return QueryResponse(answer=str(answer), cached=False)
+        return QueryResponse(answer=answer, cached=False, sources=sources)
     except Exception as e:
         logger.error(f"Error during query processing: {e}")
         raise HTTPException(status_code=500, detail=str(e))

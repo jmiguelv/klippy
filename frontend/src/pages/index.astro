@@ -95,7 +95,7 @@
                         <span id="query-time" class="query-time"></span>
                     </header>
                     <div id="answer-content" class="answer-content markdown-body"></div>
-                    <footer class="answer-footer">
+                    <footer class="answer-footer" id="answer-footer">
                         <span class="answer-footer-label"
                             >Sources: ClickUp · GitHub</span
                         >
@@ -465,24 +465,58 @@
                 border-radius: 4px;
             }
 
-            .answer-content.error {
-                font-family: var(--font-mono);
-                font-size: 0.8rem;
-                color: var(--kings-red);
-                font-weight: 300;
-            }
-
             .answer-footer {
-                padding: var(--size-3) var(--size-6);
+                padding: var(--size-4) var(--size-6);
                 border-top: 1px solid var(--border);
+                background: var(--canvas);
             }
 
             .answer-footer-label {
                 font-family: var(--font-mono);
                 font-size: 0.6rem;
                 color: var(--ink-2);
+                font-weight: 500;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+                display: block;
+                margin-bottom: var(--size-3);
+            }
+
+            .sources-list {
+                display: flex;
+                flex-wrap: wrap;
+                gap: var(--size-3);
+            }
+
+            .source-link {
+                display: inline-flex;
+                align-items: center;
+                gap: var(--size-2);
+                padding: 4px var(--size-3);
+                background: var(--surface);
+                border: 1px solid var(--border);
+                border-radius: 4px;
+                text-decoration: none;
+                color: var(--ink-1);
+                font-family: var(--font-sans);
+                font-size: 0.75rem;
+                transition: all 0.15s;
+            }
+
+            .source-link:hover {
+                border-color: var(--kings-red);
+                color: var(--kings-red);
+                transform: translateY(-1px);
+                box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            }
+
+            .source-icon { font-size: 0.9rem; }
+
+            .answer-content.error {
+                font-family: var(--font-mono);
+                font-size: 0.8rem;
+                color: var(--kings-red);
                 font-weight: 300;
-                letter-spacing: 0.05em;
             }
 
             .site-footer {
@@ -545,6 +579,7 @@
             const loader = document.getElementById("loader") as HTMLElement;
             const answerBlock = document.getElementById("answer-block") as HTMLElement;
             const answerContent = document.getElementById("answer-content") as HTMLElement;
+            const answerFooter = document.getElementById("answer-footer") as HTMLElement;
             const cacheBadge = document.getElementById("cache-badge") as HTMLElement;
             const ellipsis = document.getElementById("ellipsis") as HTMLElement;
             const queryTime = document.getElementById("query-time") as HTMLElement;
@@ -615,6 +650,7 @@
                 answerBlock.style.display = "none";
                 answerContent.innerHTML = "";
                 answerContent.classList.remove("error");
+                answerFooter.innerHTML = '<span class="answer-footer-label">Sources: ClickUp · GitHub</span>';
                 cacheBadge.className = "cache-badge hidden";
                 queryTime.textContent = "";
             }
@@ -662,7 +698,33 @@
                     }
 
                     queryTime.textContent = `${elapsed}ms`;
+                    
+                    // Render Markdown
                     answerContent.innerHTML = await marked.parse(data.answer);
+
+                    // Render Sources
+                    if (data.sources && data.sources.length > 0) {
+                        const uniqueSources = new Map();
+                        data.sources.forEach((s: any) => {
+                            if (s.url && !uniqueSources.has(s.url)) {
+                                uniqueSources.set(s.url, s);
+                            }
+                        });
+
+                        if (uniqueSources.size > 0) {
+                            let sourcesHtml = '<div class="sources-list">';
+                            uniqueSources.forEach((s: any) => {
+                                const icon = s.source === 'github' ? '🐙' : '📎';
+                                sourcesHtml += `
+                                    <a href="${s.url}" target="_blank" rel="noopener noreferrer" class="source-link">
+                                        <span class="source-icon">${icon}</span>
+                                        <span class="source-title">${s.title.replace('.md', '')}</span>
+                                    </a>`;
+                            });
+                            sourcesHtml += '</div>';
+                            answerFooter.innerHTML = `<span class="answer-footer-label">Referenced Sources</span>${sourcesHtml}`;
+                        }
+                    }
                     
                 } catch (error: any) {
                     const elapsed = Date.now() - startTime;
