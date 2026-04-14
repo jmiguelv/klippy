@@ -37,10 +37,10 @@ services:
       - LLM_BASE_URL=${LLM_BASE_URL}
       - LLM_MODEL=${LLM_MODEL}
       - EMBED_MODEL=${EMBED_MODEL}
-      # PHOENIX_COLLECTOR_ENDPOINT tells LlamaIndex where to send traces
       - PHOENIX_COLLECTOR_ENDPOINT=http://phoenix:6006
     volumes:
-      - ./harvester/data:/app/data
+      # Backend reads from processed/ (or raw/ if we point it there)
+      - ./storage:/app/storage
     depends_on:
       - qdrant
       - redis
@@ -58,11 +58,11 @@ services:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_ORGS=${GITHUB_ORGS}
       - GITHUB_USERS=${GITHUB_USERS}
-      - DATA_DIR=/app/data
-      - STATE_FILE=/app/data/state.json
+      - DATA_DIR=/app/storage/raw
+      - STATE_FILE=/app/storage/state.json
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
     volumes:
-      - ./harvester/data:/app/data
+      - ./storage:/app/storage
     restart: "no"
 
 volumes:

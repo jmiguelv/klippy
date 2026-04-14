@@ -34,7 +34,7 @@ redis_client = redis.Redis(
 # Engine initialization
 engine = KlippyEngine(
     qdrant_host=os.getenv("QDRANT_HOST", "localhost"),
-    data_dir=os.getenv("DATA_DIR", "/app/data")
+    data_dir=os.getenv("DATA_DIR", "/app/storage/raw")
 )
 
 @asynccontextmanager
