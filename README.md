@@ -4,7 +4,7 @@ Enterprise Search Aggregator and RAG system for ClickUp and GitHub.
 
 ## Architecture and Workflow
 
-Klippy operates as a data pipeline that transforms siloed company knowledge into a searchable semantic index. The system follows a layered architecture to ensure separation of concerns and data integrity.
+Klippy operates as a data pipeline that transforms siloed company knowledge into a searchable semantic index.
 
 ```mermaid
 graph TD
@@ -43,43 +43,81 @@ graph TD
     FAST --> LI
 ```
 
-### Data Flow
+### Data Pipeline
 
-1.  **Harvesting**: The Harvester runs parallel threads to discover and fetch data. It maps ClickUp tasks, docs, and pages, and GitHub repositories, commits, and READMEs.
-2.  **Normalization**: Fetched data is converted into structured Markdown files. Metadata is preserved using YAML frontmatter to facilitate downstream filtering and attribution.
-3.  **Storage**: Files are saved to a hierarchical data directory (`data/raw`).
-4.  **Retrieval**: The Backend monitors the data directory. When a query is received, it performs a hybrid search across the vector store.
-5.  **Synthesis**: The system retrieves relevant context chunks and passes them to an LLM to generate a natural language response with citations.
-6.  **Optimization**: Frequent queries are served from a Redis cache, and all RAG operations are traced via Arize Phoenix for quality monitoring.
+1.  **Harvesting**: The Harvester runs parallel threads to discover and fetch data.
+    - **ClickUp**: Discovers all spaces (filtering ignored ones), folders, and lists. Incremental sync for tasks and full sync for docs/pages.
+    - **GitHub**: Discovers all repositories for specified orgs/users. Incremental sync for commits and full sync for READMEs.
+2.  **Normalization**: Data is converted to Markdown with YAML frontmatter containing metadata (IDs, URLs, authors, timestamps).
+3.  **Storage**: Files are saved to `data/raw/`. Sync state is tracked in `data/state.json`.
+4.  **Indexing**: The Backend uses an `IngestionPipeline` with Redis caching. It only re-processes files if their content hash has changed.
+5.  **Retrieval**: Performs hybrid search (semantic + metadata) across Qdrant.
+6.  **Synthesis**: Synthesizes answers using the selected LLM, providing citations to original sources.
 
-## Setup and Usage
+## Services
 
-### Prerequisites
-- Docker and Docker Compose
-- Access to ClickUp and GitHub APIs
-- OpenAI-compatible LLM endpoint
+| Service | Technology | Description |
+| :--- | :--- | :--- |
+| **backend** | FastAPI / LlamaIndex | RAG Orchestration and Query API |
+| **harvester** | Python / uv | Data ingestion worker (runs on-demand or via cron) |
+| **qdrant** | Qdrant | Vector database for embeddings and metadata |
+| **redis** | Redis | Caching for LLM responses and ingestion pipeline |
+| **phoenix** | Arize Phoenix | Observability and RAG tracing |
+| **frontend** | Astro | Web-based search interface |
 
-### Launch
+## Configuration
+
+Environment variables are managed in the `.env` file.
+
+### LLM Settings
+- `LLM_API_KEY`: API key for your LLM provider.
+- `LLM_BASE_URL`: Base URL for OpenAI-compatible endpoints (e.g., vLLM, Ollama).
+- `LLM_MODEL`: The specific LLM model name (e.g., `gpt-4`).
+- `EMBED_MODEL`: The specific embedding model name (e.g., `text-embedding-3-small`).
+
+### ClickUp Settings
+- `CLICKUP_API_KEY`: Personal API Key.
+- `CLICKUP_WORKSPACE_ID`: Team/Workspace ID to harvest.
+- `CLICKUP_IGNORE_SPACES`: Comma-separated list of space names to skip.
+
+### GitHub Settings
+- `GITHUB_TOKEN`: Fine-grained PAT with `metadata:read` and `contents:read` permissions.
+- `GITHUB_ORGS`: Comma-separated list of organizations to harvest.
+- `GITHUB_USERS`: Comma-separated list of users to harvest.
+
+## Operational Guide
+
+### 1. Initial Launch
+Start the infrastructure and services:
 ```bash
-docker compose up --build
+docker compose up -d
 ```
 
-### Access
-- Search Interface: http://localhost:4321
-- API Documentation: http://localhost:8000/docs
-- Observability UI: http://localhost:6006
+### 2. Harvesting Data
+The harvester runs once on startup. To trigger a manual sync:
+```bash
+docker compose start harvester
+```
+You can monitor progress in `data/harvester.log`.
+
+### 3. Updating the Index
+The backend loads data on startup. To trigger an incremental re-index after a harvest:
+```bash
+curl -X POST http://localhost:8000/ingest
+```
+
+### 4. Observability
+Access Arize Phoenix at `http://localhost:6006` to trace queries and evaluate retrieval quality.
 
 ## Development
 
 ### Harvester
-Python-based engine using `uv` for dependency management and `pytest` for verification.
 ```bash
 cd harvester
 uv run pytest
 ```
 
 ### Backend
-FastAPI service using LlamaIndex for RAG orchestration.
 ```bash
 cd backend
 uv run pytest
