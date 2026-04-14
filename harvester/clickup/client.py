@@ -10,9 +10,12 @@ class ClickUpClient:
             "Accept": "application/json"
         }
 
-    def get_tasks(self, list_id: str) -> list:
+    def get_tasks(self, list_id: str, updated_since: str = None) -> list:
         url = f"{self.base_url_v2}/list/{list_id}/task"
-        response = requests.get(url, headers=self.headers)
+        params = {}
+        if updated_since:
+            params["date_updated_gt"] = updated_since
+        response = requests.get(url, headers=self.headers, params=params)
         response.raise_for_status()
         return response.json().get("tasks", [])
 

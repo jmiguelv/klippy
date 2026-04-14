@@ -64,15 +64,21 @@ class Orchestrator:
                 logger.warning(f"  Failed to list folders: {e}")
 
         logger.info(f"Discovered a total of {len(all_list_ids)} lists. Fetching tasks...")
-        
+        # 3. Process discovered Tasks
+        current_sync_time_ms = str(int(datetime.now().timestamp() * 1000))
         task_count = 0
         for list_id in all_list_ids:
             try:
-                tasks = self.clickup.get_tasks(list_id)
+                last_sync = self.state.get_last_sync(f"clickup_list_{list_id}")
+                tasks = self.clickup.get_tasks(list_id, updated_since=last_sync)
                 for task in tasks:
                     md = task_to_markdown(task)
                     self._save_markdown(f"clickup_task_{task['id']}.md", md)
                     task_count += 1
+
+                # Save state for THIS list
+                self.state.set_last_sync(f"clickup_list_{list_id}", current_sync_time_ms)
+                self.state.save()
             except Exception as e:
                 logger.warning(f"Failed to fetch tasks for list {list_id}: {e}")
         
@@ -114,7 +120,7 @@ class Orchestrator:
 
         for repo in repos:
             logger.info(f"Processing repository: {repo}")
-            # README
+            # README full sync
             try:
                 readme_data = self.github.get_readme(repo)
                 raw_content = self.github.decode_content(readme_data["content"])
@@ -125,7 +131,7 @@ class Orchestrator:
             except Exception:
                 logger.debug(f"  - No README found for {repo}")
 
-            # Commits
+            # Commits Incremental
             last_sync = self.state.get_last_sync(f"github_repo_{repo}")
             logger.info(f"  Fetching commits since {last_sync or 'the beginning'}...")
             try:
@@ -135,10 +141,11 @@ class Orchestrator:
                     safe_repo_name = repo.replace("/", "_")
                     self._save_markdown(f"github_commit_{safe_repo_name}_{commit['sha']}.md", md)
                 logger.info(f"  ✓ Harvested {len(commits)} commits")
+
+                # Save state for THIS repo immediately
+                self.state.set_last_sync(f"github_repo_{repo}", current_sync_time)
+                self.state.save()
             except Exception as e:
                 logger.error(f"  Failed to fetch commits for {repo}: {e}")
-            
-            self.state.set_last_sync(f"github_repo_{repo}", current_sync_time)
-        
-        self.state.save()
+
         logger.info("GitHub harvesting complete.")
