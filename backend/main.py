@@ -2,6 +2,7 @@ import os
 import logging
 import argparse
 from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import redis
 from contextlib import asynccontextmanager
@@ -50,6 +51,14 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(lifespan=lifespan, title="Klippy Backend API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.post("/query", response_model=QueryResponse)
 async def query_klippy(request: QueryRequest):
