@@ -637,6 +637,11 @@
                         body: JSON.stringify({ text: query }),
                     });
 
+                    if (!response.ok) {
+                        const errorBody = await response.text();
+                        throw new Error(`Backend returned ${response.status}: ${errorBody}`);
+                    }
+
                     const data = await response.json();
                     const elapsed = Date.now() - startTime;
 
@@ -657,11 +662,9 @@
                     }
 
                     queryTime.textContent = `${elapsed}ms`;
-                    
-                    // Render Markdown
                     answerContent.innerHTML = await marked.parse(data.answer);
                     
-                } catch (error) {
+                } catch (error: any) {
                     const elapsed = Date.now() - startTime;
                     stopLoadingEffects();
                     loader.classList.add("hidden");
@@ -669,8 +672,11 @@
                     void answerBlock.offsetHeight;
                     answerBlock.classList.add("visible");
                     answerContent.classList.add("error");
-                    answerContent.textContent = "Error: Could not connect to backend at localhost:8000";
+                    
+                    const message = error.message || "Unknown error";
+                    answerContent.textContent = `Error: ${message}. (Check if backend is running and CORS is enabled)`;
                     queryTime.textContent = `${elapsed}ms`;
+                    console.error("Search Error:", error);
                 }
             }
 
