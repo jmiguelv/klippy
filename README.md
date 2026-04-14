@@ -1,60 +1,85 @@
-# Klippy 📎
+# Klippy
 
-An Enterprise Search Aggregator and RAG (Retrieval-Augmented Generation) system that unified company knowledge from ClickUp and GitHub.
+Enterprise Search Aggregator and RAG system for ClickUp and GitHub.
 
-## 🚀 Overview
+## Architecture and Workflow
 
-Klippy automates the harvesting of project management data and source code history, indexing it into a high-performance vector database to answer natural language questions like:
-- *"What is project X about?"*
-- *"What has been happening in project Y recently?"*
-- *"Have we implemented a feature similar to Z before?"*
+Klippy operates as a data pipeline that transforms siloed company knowledge into a searchable semantic index. The system follows a layered architecture to ensure separation of concerns and data integrity.
 
-## 🏗️ Architecture
+```mermaid
+graph TD
+    subgraph External
+        CU[ClickUp API]
+        GH[GitHub API]
+    end
 
-- **Data Harvester:** A parallelized Python engine that incrementally pulls tasks, documents, and pages from ClickUp, alongside repositories, commits, and READMEs from GitHub.
-- **Backend (FastAPI + LlamaIndex):** Orchestrates the RAG pipeline, performing hybrid search against Qdrant and synthesizing answers using OpenAI-compatible LLMs.
-- **Vector Store (Qdrant):** Stores high-dimensional embeddings and rich metadata.
-- **Cache (Redis):** Provides low-latency responses for frequent queries.
-- **Observability (Arize Phoenix):** Real-time tracing of retrieval and synthesis for debugging and evaluation.
-- **Frontend (Astro):** A fast, minimal search interface.
+    subgraph Harvester
+        ORCH[Orchestrator]
+        CU_C[ClickUp Client]
+        GH_C[GitHub Client]
+        DATA_RAW[(data/raw)]
+    end
 
-## 🛠️ Setup
+    subgraph Backend
+        FAST[FastAPI]
+        LI[LlamaIndex]
+        QD[(Qdrant Vector DB)]
+        RD[(Redis Cache)]
+    end
+
+    subgraph Frontend
+        AST[Astro UI]
+    end
+
+    CU --> CU_C
+    GH --> GH_C
+    CU_C --> ORCH
+    GH_C --> ORCH
+    ORCH --> DATA_RAW
+    DATA_RAW --> LI
+    LI --> QD
+    AST --> FAST
+    FAST --> RD
+    FAST --> LI
+```
+
+### Data Flow
+
+1.  **Harvesting**: The Harvester runs parallel threads to discover and fetch data. It maps ClickUp tasks, docs, and pages, and GitHub repositories, commits, and READMEs.
+2.  **Normalization**: Fetched data is converted into structured Markdown files. Metadata is preserved using YAML frontmatter to facilitate downstream filtering and attribution.
+3.  **Storage**: Files are saved to a hierarchical data directory (`data/raw`).
+4.  **Retrieval**: The Backend monitors the data directory. When a query is received, it performs a hybrid search across the vector store.
+5.  **Synthesis**: The system retrieves relevant context chunks and passes them to an LLM to generate a natural language response with citations.
+6.  **Optimization**: Frequent queries are served from a Redis cache, and all RAG operations are traced via Arize Phoenix for quality monitoring.
+
+## Setup and Usage
 
 ### Prerequisites
-- Docker & Docker Compose
-- LLM API Key (OpenAI or compatible)
-- ClickUp API Key & Workspace ID
-- GitHub Personal Access Token (Fine-grained)
-
-### Configuration
-1. Copy `.env.example` to `.env`:
-   ```bash
-   cp .env.example .env
-   ```
-2. Fill in your credentials and model preferences.
+- Docker and Docker Compose
+- Access to ClickUp and GitHub APIs
+- OpenAI-compatible LLM endpoint
 
 ### Launch
 ```bash
 docker compose up --build
 ```
 
-## 📖 Usage
+### Access
+- Search Interface: http://localhost:4321
+- API Documentation: http://localhost:8000/docs
+- Observability UI: http://localhost:6006
 
-- **Search Interface:** [http://localhost:4321](http://localhost:4321)
-- **API Documentation:** [http://localhost:8000/docs](http://localhost:8000/docs)
-- **Tracing & Traces:** [http://localhost:6006](http://localhost:6006)
-
-## 🧪 Development
+## Development
 
 ### Harvester
-Uses `uv` for management and `pytest` for TDD.
+Python-based engine using `uv` for dependency management and `pytest` for verification.
 ```bash
 cd harvester
 uv run pytest
 ```
 
 ### Backend
-FastAPI with strict type checking and LlamaIndex.
+FastAPI service using LlamaIndex for RAG orchestration.
 ```bash
 cd backend
 uv run pytest
