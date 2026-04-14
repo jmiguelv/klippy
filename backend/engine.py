@@ -27,12 +27,12 @@ class KlippyEngine:
         embed_model = os.getenv("EMBED_MODEL", "text-embedding-3-small")
         
         Settings.llm = OpenAI(
-            model=llm_model, 
+            model_name=llm_model, 
             api_base=llm_base_url,
             api_key=llm_api_key
         )
         Settings.embed_model = OpenAIEmbedding(
-            model=embed_model, 
+            model_name=embed_model, 
             api_base=llm_base_url,
             api_key=llm_api_key
         )
