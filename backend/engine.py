@@ -175,8 +175,12 @@ def ingest_data(self, limit: int = None):
         # Apply prompt from file
         system_prompt = self._get_system_prompt()
         template = system_prompt + "\n\nContext:\n{context_str}\n\nQuestion: {query_str}\n\nAnswer:"
+        
         engine.update_prompts(
-            {"response_synthesizer:text_qa_template": PromptTemplate(template)}
+            {
+                "response_synthesizer:text_qa_template": PromptTemplate(template),
+                "response_synthesizer:refine_template": PromptTemplate(template)
+            }
         )
         
         return engine
