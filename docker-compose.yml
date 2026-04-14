@@ -14,6 +14,12 @@ services:
     ports:
       - "6379:6379"
 
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    container_name: klippy-phoenix
+    ports:
+      - "6006:6006" # Arize Phoenix UI
+
   backend:
     build:
       context: ./backend
@@ -25,11 +31,31 @@ services:
       - QDRANT_HOST=qdrant
       - REDIS_HOST=redis
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PHOENIX_COLLECTOR_ENDPOINT=http://phoenix:6006
     volumes:
       - ./harvester/data:/app/data
     depends_on:
       - qdrant
       - redis
+      - phoenix
+
+  harvester:
+    build:
+      context: ./harvester
+      dockerfile: Dockerfile
+    container_name: klippy-harvester
+    environment:
+      - CLICKUP_API_KEY=${CLICKUP_API_KEY}
+      - CLICKUP_WORKSPACE_ID=${CLICKUP_WORKSPACE_ID}
+      - CLICKUP_LIST_IDS=${CLICKUP_LIST_IDS}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_ORGS=${GITHUB_ORGS}
+      - GITHUB_USERS=${GITHUB_USERS}
+      - DATA_DIR=/app/data
+      - STATE_FILE=/app/data/state.json
+    volumes:
+      - ./harvester/data:/app/data
+    restart: "no" # This runs as a job/on-demand in this simple setup
 
 volumes:
   qdrant_storage:
