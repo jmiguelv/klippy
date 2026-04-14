@@ -14,12 +14,6 @@ services:
     ports:
       - "6379:6379"
 
-  phoenix:
-    image: arizephoenix/phoenix:latest
-    container_name: klippy-phoenix
-    ports:
-      - "6006:6006" # Arize Phoenix UI
-
   backend:
     build:
       context: ./backend
@@ -27,17 +21,17 @@ services:
     container_name: klippy-backend
     ports:
       - "8000:8000"
+      - "6006:6006" # Arize Phoenix UI (launched from within backend)
     environment:
       - QDRANT_HOST=qdrant
       - REDIS_HOST=redis
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - PHOENIX_COLLECTOR_ENDPOINT=http://phoenix:6006
+      - LLM_BASE_URL=${LLM_BASE_URL}
     volumes:
       - ./harvester/data:/app/data
     depends_on:
       - qdrant
       - redis
-      - phoenix
 
   harvester:
     build:
