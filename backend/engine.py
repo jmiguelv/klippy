@@ -96,34 +96,34 @@ class KlippyEngine:
             except Exception as e:
                 logger.error(f"Failed to read prompt file {self.prompt_file}: {e}")
         return DEFAULT_SYSTEM_PROMPT
-def ingest_data(self, limit: int = None):
-    """Loads markdown files and indexes them. If limit is set, samples a random subset."""
-    if not os.path.exists(self.data_dir):
-        logger.warning(f"Data directory {self.data_dir} does not exist.")
-        return
 
-    logger.info(f"Scanning directory {self.data_dir} for markdown files...")
+    def ingest_data(self, limit: int = None):
+        """Loads markdown files and indexes them. If limit is set, samples a random subset."""
+        if not os.path.exists(self.data_dir):
+            logger.warning(f"Data directory {self.data_dir} does not exist.")
+            return
 
-    reader = SimpleDirectoryReader(
-        input_dir=self.data_dir,
-        recursive=True,
-        required_exts=[".md"]
-    )
+        logger.info(f"Scanning directory {self.data_dir} for markdown files...")
+        
+        reader = SimpleDirectoryReader(
+            input_dir=self.data_dir,
+            recursive=True,
+            required_exts=[".md"]
+        )
+        
+        documents = reader.load_data(show_progress=True)
 
-    documents = reader.load_data(show_progress=True)
+        if not documents:
+            logger.info("No documents found for ingestion.")
+            return
 
-    if not documents:
-        logger.info("No documents found for ingestion.")
-        return
+        # Handle random sampling if limit is set
+        if limit and limit < len(documents):
+            import random
+            logger.info(f"Limiting ingestion to {limit} random documents out of {len(documents)}...")
+            documents = random.sample(documents, limit)
 
-    # Handle random sampling if limit is set
-    if limit and limit < len(documents):
-        import random
-        logger.info(f"Limiting ingestion to {limit} random documents out of {len(documents)}...")
-        documents = random.sample(documents, limit)
-
-    # Ensure documents have deterministic UUIDs based on file path for Qdrant compatibility
-...
+        # Ensure documents have deterministic UUIDs based on file path for Qdrant compatibility
         for doc in documents:
             file_path = doc.metadata.get("file_path", "")
             if file_path:
