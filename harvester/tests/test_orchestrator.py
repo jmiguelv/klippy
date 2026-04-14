@@ -11,6 +11,8 @@ def test_orchestrator_runs_clickup(mocker):
     mock_github = MagicMock()
     mock_github.list_org_repos.return_value = []
     
+    mock_state = MagicMock()
+    
     # Mock parser to return a string
     mocker.patch("clickup.parser.task_to_markdown", return_value="task md")
     mocker.patch("clickup.parser.page_to_markdown", return_value="page md")
@@ -19,7 +21,7 @@ def test_orchestrator_runs_clickup(mocker):
     mock_write = mocker.patch("builtins.open", mocker.mock_open())
     mocker.patch("os.makedirs")
     
-    orch = Orchestrator(clickup_client=mock_clickup, github_client=mock_github, data_dir="/tmp/data")
+    orch = Orchestrator(clickup_client=mock_clickup, github_client=mock_github, state_store=mock_state, data_dir="/tmp/data")
     
     # Execute
     orch.run_clickup(list_ids=["l1"], workspace_id="w1")
@@ -28,3 +30,36 @@ def test_orchestrator_runs_clickup(mocker):
     assert mock_clickup.get_tasks.called
     assert mock_clickup.get_docs.called
     assert mock_write.called
+
+def test_orchestrator_runs_github(mocker):
+    # Setup
+    mock_clickup = MagicMock()
+    
+    mock_github = MagicMock()
+    mock_github.list_org_repos.return_value = ["org/repo1"]
+    mock_github.get_readme.return_value = {"content": "IyBSRUFETUU=", "html_url": "url"}
+    mock_github.decode_content.return_value = "README content"
+    mock_github.get_commits.return_value = [{"sha": "s1", "commit": {"author": {"name": "a1", "date": "d1"}, "message": "m1"}, "html_url": "u1"}]
+    
+    mock_state = MagicMock()
+    mock_state.get_last_sync.return_value = None
+    
+    # Mock parser
+    mocker.patch("github.parser.readme_to_markdown", return_value="readme md")
+    mocker.patch("github.parser.commit_to_markdown", return_value="commit md")
+    
+    # Mock file writing
+    mock_write = mocker.patch("builtins.open", mocker.mock_open())
+    mocker.patch("os.makedirs")
+    
+    orch = Orchestrator(clickup_client=mock_clickup, github_client=mock_github, state_store=mock_state, data_dir="/tmp/data")
+    
+    # Execute
+    orch.run_github(org_names=["my-org"])
+    
+    # Assert
+    assert mock_github.list_org_repos.called
+    assert mock_github.get_readme.called
+    assert mock_github.get_commits.called
+    assert mock_write.called
+    assert mock_state.save.called
