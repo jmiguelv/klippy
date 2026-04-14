@@ -1,0 +1,25 @@
+[project]
+name = "harvester"
+version = "0.1.0"
+description = "Data harvester for ClickUp and GitHub"
+dependencies = [
+    "requests",
+    "python-dotenv",
+    "pydantic",
+    "markdown-it-py",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-mock",
+    "ruff",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
