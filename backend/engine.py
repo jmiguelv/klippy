@@ -19,7 +19,7 @@ from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 # Setup logging
 logger = logging.getLogger("backend.engine")
 
-STRICT_SYSTEM_PROMPT = (
+DEFAULT_SYSTEM_PROMPT = (
     "You are Klippy, an expert research assistant for King's Digital Lab. "
     "Your goal is to answer questions strictly using the provided context from ClickUp and GitHub. "
     "\n\nRules:\n"
@@ -36,6 +36,7 @@ class KlippyEngine:
         self.qdrant_host = qdrant_host
         self.data_dir = data_dir
         self.collection_name = collection_name
+        self.prompt_file = "/app/data/final/prompt.md"
         
         # Configure LlamaIndex settings
         llm_api_key = os.getenv("LLM_API_KEY")
@@ -85,6 +86,16 @@ class KlippyEngine:
 
         # Internal state for the index
         self._index = None
+
+    def _get_system_prompt(self) -> str:
+        """Loads system prompt from file, fallback to default."""
+        if os.path.exists(self.prompt_file):
+            try:
+                with open(self.prompt_file, "r") as f:
+                    return f.read().strip()
+            except Exception as e:
+                logger.error(f"Failed to read prompt file {self.prompt_file}: {e}")
+        return DEFAULT_SYSTEM_PROMPT
 
     def ingest_data(self):
         """Loads markdown files and indexes them using a cached pipeline with manual batching."""
@@ -156,8 +167,9 @@ class KlippyEngine:
             llm=Settings.llm
         )
 
-        # Apply strict prompt
-        template = STRICT_SYSTEM_PROMPT + "\n\nContext:\n{context_str}\n\nQuestion: {query_str}\n\nAnswer:"
+        # Apply prompt from file
+        system_prompt = self._get_system_prompt()
+        template = system_prompt + "\n\nContext:\n{context_str}\n\nQuestion: {query_str}\n\nAnswer:"
         engine.update_prompts(
             {"response_synthesizer:text_qa_template": PromptTemplate(template)}
         )
