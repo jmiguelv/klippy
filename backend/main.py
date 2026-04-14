@@ -29,6 +29,8 @@ class QueryResponse(BaseModel):
     answer: str
     cached: bool = False
     sources: list[dict] = []
+    retrieval_time_ms: int = 0
+    synthesis_time_ms: int = 0
 
 class IngestRequest(BaseModel):
     limit: int = None
@@ -71,7 +73,13 @@ async def query_klippy(request: QueryRequest):
         if cached_data:
             logger.info(f"Cache hit for query: {request.text}")
             parsed = json.loads(cached_data)
-            return QueryResponse(answer=parsed["answer"], cached=True, sources=parsed.get("sources", []))
+            return QueryResponse(
+                answer=parsed["answer"], 
+                cached=True, 
+                sources=parsed.get("sources", []),
+                retrieval_time_ms=parsed.get("retrieval_time_ms", 0),
+                synthesis_time_ms=parsed.get("synthesis_time_ms", 0)
+            )
     except Exception as e:
         logger.warning(f"Redis cache error: {e}")
 
@@ -80,30 +88,67 @@ async def query_klippy(request: QueryRequest):
         response_obj = engine.query_detailed(request.text)
         answer = str(response_obj)
         
-        # Extract sources
+        # Extract timings
+        timings = response_obj.metadata if hasattr(response_obj, 'metadata') and response_obj.metadata else {}
+        retrieval_time_ms = timings.get("retrieval_time_ms", 0)
+        synthesis_time_ms = timings.get("synthesis_time_ms", 0)
+        
+        # Extract sources using regex to parse YAML frontmatter from raw node text
+        import re
         sources = []
         for node in response_obj.source_nodes:
-            metadata = node.node.metadata
+            text = node.node.get_text()
+            
+            # Simple regex to extract quoted values from YAML frontmatter
+            source_match = re.search(r'^source:\s*"?(.*?)"?\s*$', text, re.MULTILINE)
+            url_match = re.search(r'^url:\s*"?(.*?)"?\s*$', text, re.MULTILINE)
+            title_match = re.search(r'^#\s+(.+)$', text, re.MULTILINE)
+            
+            source = source_match.group(1) if source_match else "unknown"
+            url = url_match.group(1) if url_match else None
+            title = title_match.group(1) if title_match else node.node.metadata.get("file_name", "Untitled")
+            
             sources.append({
-                "source": metadata.get("source"),
-                "type": metadata.get("type"),
-                "id": metadata.get("id"),
-                "url": metadata.get("url"),
-                "title": metadata.get("file_name", "Untitled"),
+                "source": source,
+                "url": url,
+                "title": title,
                 "score": float(node.score) if node.score is not None else 0.0
             })
 
         # Cache the detailed result
         try:
-            cache_val = json.dumps({"answer": answer, "sources": sources})
+            cache_val = json.dumps({
+                "answer": answer, 
+                "sources": sources,
+                "retrieval_time_ms": retrieval_time_ms,
+                "synthesis_time_ms": synthesis_time_ms
+            })
             redis_client.setex(cache_key, 3600, cache_val)
         except Exception as e:
             logger.warning(f"Failed to write to Redis: {e}")
             
-        return QueryResponse(answer=answer, cached=False, sources=sources)
+        return QueryResponse(
+            answer=answer, 
+            cached=False, 
+            sources=sources,
+            retrieval_time_ms=retrieval_time_ms,
+            synthesis_time_ms=synthesis_time_ms
+        )
     except Exception as e:
         logger.error(f"Error during query processing: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+class FeedbackRequest(BaseModel):
+    text: str
+    is_positive: bool
+
+@app.post("/feedback")
+async def process_feedback(request: FeedbackRequest):
+    if not request.is_positive:
+        cache_key = f"query:{request.text}"
+        redis_client.delete(cache_key)
+        logger.info(f"Cleared cache for query due to negative feedback: {request.text}")
+    return {"status": "Feedback received"}
 
 @app.post("/ingest")
 async def trigger_ingestion(request: IngestRequest, background_tasks: BackgroundTasks):
