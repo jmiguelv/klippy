@@ -38,7 +38,7 @@ class KlippyEngine:
         self.qdrant_host = qdrant_host
         self.data_dir = data_dir
         self.collection_name = collection_name
-        self.prompt_file = "/app/data/final/prompt.md"
+        self.prompt_file = "/app/config/prompt.md"
         
         # Configure LlamaIndex settings
         llm_api_key = os.getenv("LLM_API_KEY")
@@ -181,9 +181,30 @@ class KlippyEngine:
         )
 
     def query_detailed(self, text: str):
-        """Executes a query and returns the full LlamaIndex response object."""
+        """Executes a query and returns the full LlamaIndex response object with timings."""
+        import time
+        from llama_index.core import QueryBundle
+        
         engine = self.get_query_engine()
-        return engine.query(text)
+        query_bundle = QueryBundle(text)
+        
+        # 1. Retrieval
+        retrieval_start = time.time()
+        nodes = engine.retrieve(query_bundle)
+        retrieval_time_ms = int((time.time() - retrieval_start) * 1000)
+        
+        # 2. Synthesis
+        synthesis_start = time.time()
+        response = engine.synthesize(query_bundle, nodes)
+        synthesis_time_ms = int((time.time() - synthesis_start) * 1000)
+        
+        # Add timings to metadata
+        if response.metadata is None:
+            response.metadata = {}
+        response.metadata["retrieval_time_ms"] = retrieval_time_ms
+        response.metadata["synthesis_time_ms"] = synthesis_time_ms
+        
+        return response
 
     def query(self, text: str) -> str:
         """Executes a query and returns the synthesized string response."""
