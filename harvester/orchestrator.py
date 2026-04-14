@@ -22,9 +22,9 @@ class Orchestrator:
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(content)
 
-    def run_clickup(self, workspace_id: str, ignore_spaces: list[str] = None):
+    def run_clickup(self, workspace_id: str, ignore_spaces: list[str] = None, force: bool = False):
         """Orchestrates ClickUp ingestion by discovering all lists (excluding ignored spaces)."""
-        logger.info(f"Starting ClickUp harvesting for workspace: {workspace_id}")
+        logger.info(f"Starting ClickUp harvesting for workspace: {workspace_id} (force={force})")
         ignore_spaces = [s.strip().lower() for s in (ignore_spaces or [])]
         
         try:
@@ -71,7 +71,7 @@ class Orchestrator:
         task_count = 0
         for list_id, list_name, folder_name, space_name in all_lists:
             try:
-                last_sync = self.state.get_last_sync(f"clickup_list_{list_id}")
+                last_sync = None if force else self.state.get_last_sync(f"clickup_list_{list_id}")
                 tasks = self.clickup.get_tasks(list_id, updated_since=last_sync)
                 for task in tasks:
                     md = task_to_markdown(task, space_name=space_name, folder_name=folder_name, list_name=list_name)
@@ -104,9 +104,9 @@ class Orchestrator:
         except Exception as e:
             logger.warning(f"Failed to fetch docs: {e}")
 
-    def run_github(self, org_names: list[str] = None, user_names: list[str] = None):
+    def run_github(self, org_names: list[str] = None, user_names: list[str] = None, force: bool = False):
         """Orchestrates GitHub ingestion with incremental sync."""
-        logger.info("Starting GitHub harvesting...")
+        logger.info(f"Starting GitHub harvesting (force={force})...")
         repos = []
         if org_names:
             for org in org_names:
@@ -134,7 +134,7 @@ class Orchestrator:
                 logger.debug(f"  - No README found for {repo}")
 
             # Commits Incremental
-            last_sync = self.state.get_last_sync(f"github_repo_{repo}")
+            last_sync = None if force else self.state.get_last_sync(f"github_repo_{repo}")
             logger.info(f"  Fetching commits since {last_sync or 'the beginning'}...")
             try:
                 commits = self.github.get_commits(repo, since=last_sync)

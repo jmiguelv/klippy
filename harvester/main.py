@@ -35,13 +35,14 @@ def main():
     parser.add_argument("--clickup", action="store_true", help="Run ClickUp harvester")
     parser.add_argument("--github", action="store_true", help="Run GitHub harvester")
     parser.add_argument("--all", action="store_true", help="Run all harvesters")
+    parser.add_argument("--force", action="store_true", help="Force full sync (ignore state)")
     args = parser.parse_args()
 
     # Configuration from .env
     log_level_str = os.getenv("LOG_LEVEL", "INFO").upper()
     log_level = getattr(logging, log_level_str, logging.INFO)
     data_dir = os.getenv("DATA_DIR", "./data/raw")
-    log_file = os.path.join(os.path.dirname(data_dir), "harvester.log") # Save log in data/harvester.log
+    log_file = os.path.join(os.path.dirname(data_dir), "harvester.log")
     
     setup_logging(level=log_level, log_file=log_file)
     logger = logging.getLogger("harvester")
@@ -74,8 +75,12 @@ def main():
         if clickup_client and clickup_workspace_id:
             ignore_spaces = [s for s in clickup_ignore_spaces if s]
             def run_cu():
-                logger.info("Thread: Starting ClickUp harvesting...")
-                orchestrator.run_clickup(workspace_id=clickup_workspace_id, ignore_spaces=ignore_spaces)
+                logger.info(f"Thread: Starting ClickUp harvesting (force={args.force})...")
+                orchestrator.run_clickup(
+                    workspace_id=clickup_workspace_id, 
+                    ignore_spaces=ignore_spaces,
+                    force=args.force
+                )
             
             t = threading.Thread(target=run_cu, name="ClickUpThread")
             threads.append(t)
@@ -88,8 +93,12 @@ def main():
             orgs = [o for o in github_orgs if o]
             users = [u for u in github_users if u]
             def run_gh():
-                logger.info("Thread: Starting GitHub harvesting...")
-                orchestrator.run_github(org_names=orgs, user_names=users)
+                logger.info(f"Thread: Starting GitHub harvesting (force={args.force})...")
+                orchestrator.run_github(
+                    org_names=orgs, 
+                    user_names=users,
+                    force=args.force
+                )
             
             t = threading.Thread(target=run_gh, name="GitHubThread")
             threads.append(t)
