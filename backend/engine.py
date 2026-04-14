@@ -139,7 +139,8 @@ class KlippyEngine:
             
         return self._index.as_query_engine(
             similarity_top_k=5,
-            response_mode="compact" # Good for synthesizing across multiple chunks
+            response_mode="compact",
+            llm=Settings.llm
         )
 
     def query(self, text: str) -> str:
