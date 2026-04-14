@@ -1,0 +1,183 @@
+---
+---
+
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<title>Klippy - Enterprise Search</title>
+	</head>
+	<body>
+		<main class="container">
+			<header>
+				<h1>Klippy 📎</h1>
+				<p>Ask anything about our ClickUp projects and GitHub history.</p>
+			</header>
+
+			<section class="search-section">
+				<div class="search-box">
+					<input 
+						type="text" 
+						id="search-input" 
+						placeholder="What is project X about?" 
+						autocomplete="off"
+					/>
+					<button id="search-button">Search</button>
+				</div>
+			</section>
+
+			<section id="results-section" class="results-section hidden">
+				<div class="loader hidden" id="loader">Searching...</div>
+				<div id="answer-content" class="answer-content"></div>
+				<div id="metadata" class="metadata"></div>
+			</section>
+		</main>
+
+		<style>
+			:root {
+				--primary: #4f46e5;
+				--bg: #f9fafb;
+				--text: #111827;
+				--card: #ffffff;
+				--border: #e5e7eb;
+			}
+
+			body {
+				font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+				background-color: var(--bg);
+				color: var(--text);
+				margin: 0;
+				padding: 0;
+			}
+
+			.container {
+				max-width: 800px;
+				margin: 0 auto;
+				padding: 4rem 2rem;
+			}
+
+			header {
+				text-align: center;
+				margin-bottom: 3rem;
+			}
+
+			h1 {
+				font-size: 3rem;
+				margin-bottom: 0.5rem;
+			}
+
+			.search-box {
+				display: flex;
+				gap: 1rem;
+				background: var(--card);
+				padding: 0.5rem;
+				border-radius: 12px;
+				box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+				border: 1px solid var(--border);
+			}
+
+			input {
+				flex: 1;
+				border: none;
+				padding: 1rem;
+				font-size: 1.1rem;
+				outline: none;
+				background: transparent;
+			}
+
+			button {
+				background-color: var(--primary);
+				color: white;
+				border: none;
+				padding: 0 1.5rem;
+				border-radius: 8px;
+				font-weight: 600;
+				cursor: pointer;
+				transition: opacity 0.2s;
+			}
+
+			button:hover {
+				opacity: 0.9;
+			}
+
+			.results-section {
+				margin-top: 3rem;
+				background: var(--card);
+				padding: 2rem;
+				border-radius: 12px;
+				border: 1px solid var(--border);
+				line-height: 1.6;
+			}
+
+			.hidden {
+				display: none;
+			}
+
+			.loader {
+				text-align: center;
+				color: #6b7280;
+				font-style: italic;
+			}
+
+			.answer-content {
+				font-size: 1.1rem;
+				white-space: pre-wrap;
+			}
+
+			.metadata {
+				margin-top: 2rem;
+				padding-top: 1rem;
+				border-top: 1px solid var(--border);
+				font-size: 0.875rem;
+				color: #6b7280;
+			}
+		</style>
+
+		<script>
+			const searchInput = document.getElementById('search-input') as HTMLInputElement;
+			const searchButton = document.getElementById('search-button');
+			const resultsSection = document.getElementById('results-section');
+			const loader = document.getElementById('loader');
+			const answerContent = document.getElementById('answer-content');
+			const metadata = document.getElementById('metadata');
+
+			async function handleSearch() {
+				const query = searchInput.value.trim();
+				if (!query) return;
+
+				// UI State
+				resultsSection?.classList.remove('hidden');
+				loader?.classList.remove('hidden');
+				if (answerContent) answerContent.innerHTML = '';
+				if (metadata) metadata.innerHTML = '';
+
+				try {
+					const response = await fetch('http://localhost:8000/query', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ text: query })
+					});
+
+					const data = await response.json();
+					
+					loader?.classList.add('hidden');
+					if (answerContent) answerContent.innerText = data.answer;
+					if (metadata) {
+						metadata.innerText = data.cached ? '⚡ Result served from cache' : '✨ Freshly synthesized';
+					}
+				} catch (error) {
+					loader?.classList.add('hidden');
+					if (answerContent) answerContent.innerText = 'Error: Could not connect to the backend.';
+					console.error(error);
+				}
+			}
+
+			searchButton?.addEventListener('click', handleSearch);
+			searchInput?.addEventListener('keypress', (e) => {
+				if (e.key === 'Enter') handleSearch();
+			});
+		</script>
+	</body>
+</html>
