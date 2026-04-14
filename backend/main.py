@@ -28,6 +28,9 @@ class QueryResponse(BaseModel):
     answer: str
     cached: bool = False
 
+class IngestRequest(BaseModel):
+    limit: int = None
+
 # Redis for Caching
 redis_client = redis.Redis(
     host=os.getenv("REDIS_HOST", "localhost"),
@@ -44,19 +47,8 @@ engine = KlippyEngine(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Trigger initial data ingestion in the background
-    # This allows the server to start and become reachable immediately
-    import asyncio
-    
-    async def run_initial_ingest():
-        logger.info("Starting initial background ingestion...")
-        try:
-            # We run in a thread to not block the event loop
-            await asyncio.to_thread(engine.ingest_data)
-        except Exception as e:
-            logger.error(f"Background ingestion failed: {e}")
-
-    asyncio.create_task(run_initial_ingest())
+    # No longer running initial ingestion on startup
+    logger.info("Backend started. Ingestion must be triggered manually.")
     yield
 
 app = FastAPI(lifespan=lifespan, title="Klippy Backend API")
@@ -93,9 +85,10 @@ async def query_klippy(request: QueryRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/ingest")
-async def trigger_ingestion(background_tasks: BackgroundTasks):
-    background_tasks.add_task(engine.ingest_data)
-    return {"status": "Ingestion task started in background"}
+async def trigger_ingestion(request: IngestRequest, background_tasks: BackgroundTasks):
+    """Triggers a manual ingestion. Can optionally limit number of docs."""
+    background_tasks.add_task(engine.ingest_data, limit=request.limit)
+    return {"status": "Ingestion task started in background", "limit": request.limit}
 
 @app.get("/health")
 async def health_check():
@@ -104,14 +97,14 @@ async def health_check():
 def main():
     parser = argparse.ArgumentParser(description="Klippy Backend and Indexer")
     parser.add_argument("--ingest", action="store_true", help="Run indexing and exit")
+    parser.add_argument("--limit", type=int, help="Limit number of documents to ingest (random sampling)")
     parser.add_argument("--serve", action="store_true", default=True, help="Run FastAPI server (default)")
     
-    # Argparse default=True logic is tricky when mixed, let's just check for --ingest
     args, unknown = parser.parse_known_args()
 
     if args.ingest:
-        logger.info("CLI: Starting manual ingestion...")
-        engine.ingest_data()
+        logger.info(f"CLI: Starting manual ingestion (limit={args.limit})...")
+        engine.ingest_data(limit=args.limit)
         logger.info("CLI: Ingestion complete. Exiting.")
     else:
         import uvicorn

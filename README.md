@@ -90,20 +90,20 @@ Environment variables are managed in the `.env` file.
 
 ## Operational Guide
 
-### 1. Initial Launch
+Both harvesting and indexing are manual processes. They do not run automatically on startup to allow for better control over resource usage.
 
-Start the infrastructure and services:
+### 1. Launching the Infrastructure
+Start the database and API services:
 
 ```bash
 docker compose up -d
 ```
 
 ### 2. Harvesting Data
-
-The harvester runs once on startup. To trigger a manual incremental sync:
+To trigger a manual incremental sync:
 
 ```bash
-docker compose start harvester
+docker compose run --rm harvester uv run python main.py --all
 ```
 
 To force a full re-harvest (ignoring saved state):
@@ -112,21 +112,25 @@ To force a full re-harvest (ignoring saved state):
 docker compose run --rm harvester uv run python main.py --all --force
 ```
 
-You can monitor progress in `data/harvester.log`.
-
 ### 3. Updating the Index
+The backend provides two ways to index the harvested data.
 
-The backend loads data on startup. You can trigger an incremental re-index in two ways:
-
-**Via API:**
-
+**Via CLI (Recommended for testing with limits):**
 ```bash
-curl -X POST http://localhost:8000/ingest
+# Ingest all documents
+docker compose run --rm backend uv run python main.py --ingest
+
+# Ingest a random sample of 100 documents for testing
+docker compose run --rm backend uv run python main.py --ingest --limit 100
 ```
 
-**Via CLI (Docker):**
+**Via API:**
 ```bash
-docker compose run --rm backend uv run python main.py --ingest
+# Ingest all
+curl -X POST http://localhost:8000/ingest -H "Content-Type: application/json" -d '{"limit": null}'
+
+# Ingest a random sample
+curl -X POST http://localhost:8000/ingest -H "Content-Type: application/json" -d '{"limit": 50}'
 ```
 
 ### 4. Observability
