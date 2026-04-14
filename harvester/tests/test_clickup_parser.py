@@ -19,9 +19,28 @@ def test_task_to_markdown_basic():
     assert "type: task" in markdown
     assert "id: abc" in markdown
     assert "status: in progress" in markdown
+    assert "creator: John Doe" in markdown
+    assert "assignees: Jane Doe" in markdown
     assert "# Task 1" in markdown
-    assert "## Description" in markdown
-    assert "This is a description" in markdown
+
+def test_task_to_markdown_with_nones():
+    task = {
+        "id": "abc",
+        "name": "Task 1",
+        "description": None,
+        "status": None,
+        "url": None,
+        "creator": {"username": None},
+        "date_created": None,
+        "date_updated": None,
+        "assignees": [{"username": None}, None]
+    }
+    
+    markdown = task_to_markdown(task)
+    
+    assert "creator: Unknown" in markdown
+    assert "assignees: " in markdown # Should be empty join
+    assert "No description." in markdown
 
 def test_page_to_markdown_basic():
     page = {

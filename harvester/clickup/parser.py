@@ -9,23 +9,32 @@ def format_timestamp(ts: str) -> str:
 
 def task_to_markdown(task: dict) -> str:
     """Converts a ClickUp task to Markdown with YAML frontmatter."""
+    creator = task.get('creator', {}) or {}
+    creator_name = creator.get('username') or 'Unknown'
+    
+    assignees = task.get('assignees', []) or []
+    assignee_names = [a.get('username') for a in assignees if a and a.get('username')]
+    
+    status_info = task.get('status', {}) or {}
+    status_name = status_info.get('status') or 'Unknown'
+    
     metadata = [
         "---",
         "source: clickup",
         "type: task",
         f"id: {task.get('id')}",
-        f"status: {task.get('status', {}).get('status')}",
+        f"status: {status_name}",
         f"url: {task.get('url')}",
-        f"creator: {task.get('creator', {}).get('username')}",
+        f"creator: {creator_name}",
         f"created_at: {format_timestamp(task.get('date_created'))}",
         f"updated_at: {format_timestamp(task.get('date_updated'))}",
-        f"assignees: {', '.join(a.get('username', '') for a in task.get('assignees', []))}",
+        f"assignees: {', '.join(assignee_names)}",
         "---",
         f"# {task.get('name', 'Untitled Task')}",
         "",
         "## Description",
         "",
-        task.get('description', 'No description.'),
+        task.get('description') or 'No description.',
         ""
     ]
     return "\n".join(metadata)
