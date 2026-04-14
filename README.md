@@ -100,10 +100,16 @@ docker compose up -d
 
 ### 2. Harvesting Data
 
-The harvester runs once on startup. To trigger a manual sync:
+The harvester runs once on startup. To trigger a manual incremental sync:
 
 ```bash
 docker compose start harvester
+```
+
+To force a full re-harvest (ignoring saved state):
+
+```bash
+docker compose run --rm harvester uv run python main.py --all --force
 ```
 
 You can monitor progress in `data/harvester.log`.
