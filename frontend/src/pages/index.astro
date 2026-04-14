@@ -716,13 +716,16 @@
                             uniqueSources.forEach((s: any) => {
                                 const icon = s.source === 'github' ? '🐙' : '📎';
                                 sourcesHtml += `
-                                    <a href="${s.url}" target="_blank" rel="noopener noreferrer" class="source-link">
+                                    <a href="${s.url}" target="_blank" rel="noopener noreferrer" class="source-link" style="cursor: pointer; position: relative; z-index: 10;">
                                         <span class="source-icon">${icon}</span>
                                         <span class="source-title">${s.title.replace('.md', '')}</span>
                                     </a>`;
                             });
                             sourcesHtml += '</div>';
-                            answerFooter.innerHTML = `<span class="answer-footer-label">Referenced Sources</span>${sourcesHtml}`;
+                            const footer = document.getElementById("answer-footer");
+                            if (footer) {
+                                footer.innerHTML = `<span class="answer-footer-label">Referenced Sources</span>${sourcesHtml}`;
+                            }
                         }
                     }
                     

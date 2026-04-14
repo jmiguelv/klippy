@@ -175,7 +175,7 @@ class KlippyEngine:
         )
 
         return self._index.as_query_engine(
-            similarity_top_k=5,
+            similarity_top_k=20,
             response_synthesizer=response_synthesizer,
             llm=Settings.llm
         )
