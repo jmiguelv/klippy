@@ -73,14 +73,13 @@ class KlippyEngine:
         self._index = None
 
     def ingest_data(self):
-        """Loads markdown files and indexes them using a cached pipeline."""
+        """Loads markdown files and indexes them using a cached pipeline with manual batching."""
         if not os.path.exists(self.data_dir):
             logger.warning(f"Data directory {self.data_dir} does not exist.")
             return
 
         logger.info(f"Scanning directory {self.data_dir} for markdown files...")
         
-        # SimpleDirectoryReader with filename_as_id to help caching
         reader = SimpleDirectoryReader(
             input_dir=self.data_dir,
             recursive=True,
@@ -88,7 +87,6 @@ class KlippyEngine:
             filename_as_id=True
         )
         
-        # Load data in batches if memory is an issue, but for now let's load references
         documents = reader.load_data(show_progress=True)
 
         if not documents:
@@ -96,10 +94,6 @@ class KlippyEngine:
             return
 
         logger.info(f"Loaded {len(documents)} documents. Starting transformation pipeline...")
-
-        # Use IngestionPipeline with workers for parallel execution
-        # Note: workers > 1 only helps if EMBED_DEVICE is 'cpu' or you have multiple GPUs.
-        num_workers = 4 if os.getenv("EMBED_DEVICE", "cpu") == "cpu" else 1
 
         pipeline = IngestionPipeline(
             transformations=[
@@ -109,12 +103,15 @@ class KlippyEngine:
             cache=self.ingest_cache,
         )
 
-        # Run pipeline with workers
-        nodes = pipeline.run(
-            documents=documents, 
-            show_progress=True, 
-            num_workers=num_workers
-        )
+        # Process in manual batches to avoid pickling errors and manage memory
+        batch_size = 100
+        all_nodes = []
+        
+        for i in range(0, len(documents), batch_size):
+            batch = documents[i:i + batch_size]
+            logger.info(f"Processing batch {i//batch_size + 1}/{(len(documents)-1)//batch_size + 1} ({len(batch)} docs)...")
+            nodes = pipeline.run(documents=batch, show_progress=False)
+            all_nodes.extend(nodes)
         
         # Create or update index from the vector store
         self._index = VectorStoreIndex.from_vector_store(
@@ -122,7 +119,7 @@ class KlippyEngine:
             storage_context=self.storage_context
         )
         
-        logger.info(f"Ingestion complete. Total nodes in vector store: {len(nodes)} (including cached).")
+        logger.info(f"Ingestion complete. Total nodes processed: {len(all_nodes)}.")
 
     def get_query_engine(self):
         """Returns a query engine based on the current index."""
