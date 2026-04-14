@@ -1,15 +1,18 @@
 import os
 import logging
 import argparse
+import uuid
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import redis
 import json
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 from engine import KlippyEngine
 from llama_index.core import set_global_handler
+from llama_index.core.base.llms.types import ChatMessage, MessageRole
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -24,18 +27,23 @@ set_global_handler("arize_phoenix", endpoint=phoenix_endpoint)
 
 class QueryRequest(BaseModel):
     text: str
+    session_id: str = None
 
 class QueryResponse(BaseModel):
     answer: str
-    cached: bool = False
+    session_id: str
     sources: list[dict] = []
-    retrieval_time_ms: int = 0
-    synthesis_time_ms: int = 0
+    total_time_ms: int = 0
+    cached_at: str = None
 
 class IngestRequest(BaseModel):
     limit: int = None
 
-# Redis for Caching
+class FeedbackRequest(BaseModel):
+    session_id: str
+    is_positive: bool
+
+# Redis for Caching and Memory
 redis_client = redis.Redis(
     host=os.getenv("REDIS_HOST", "localhost"),
     port=int(os.getenv("REDIS_PORT", 6379)),
@@ -51,7 +59,6 @@ engine = KlippyEngine(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # No longer running initial ingestion on startup
     logger.info("Backend started. Ingestion must be triggered manually.")
     yield
 
@@ -65,41 +72,42 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+def get_history_from_redis(session_id: str) -> list[ChatMessage]:
+    """Retrieves and deserializes chat history from Redis."""
+    history_json = redis_client.get(f"chat_history:{session_id}")
+    if not history_json:
+        return []
+    
+    raw_history = json.loads(history_json)
+    return [ChatMessage(role=m["role"], content=m["content"]) for m in raw_history]
+
+def save_history_to_redis(session_id: str, history: list[dict]):
+    """Serializes and saves chat history to Redis."""
+    redis_client.setex(f"chat_history:{session_id}", 3600 * 24, json.dumps(history))
+
 @app.post("/query", response_model=QueryResponse)
 async def query_klippy(request: QueryRequest):
-    cache_key = f"query:{request.text}"
+    session_id = request.session_id or str(uuid.uuid4())
+    
     try:
-        cached_data = redis_client.get(cache_key)
-        if cached_data:
-            logger.info(f"Cache hit for query: {request.text}")
-            parsed = json.loads(cached_data)
-            return QueryResponse(
-                answer=parsed["answer"], 
-                cached=True, 
-                sources=parsed.get("sources", []),
-                retrieval_time_ms=parsed.get("retrieval_time_ms", 0),
-                synthesis_time_ms=parsed.get("synthesis_time_ms", 0)
-            )
-    except Exception as e:
-        logger.warning(f"Redis cache error: {e}")
-
-    try:
-        # Update engine to return full response object
-        response_obj = engine.query_detailed(request.text)
+        now = datetime.now().isoformat()
+        
+        # Load history
+        chat_history = get_history_from_redis(session_id)
+        
+        # Execute chat turn
+        response_obj = engine.chat(request.text, chat_history=chat_history)
         answer = str(response_obj)
         
-        # Extract timings
-        timings = response_obj.metadata if hasattr(response_obj, 'metadata') and response_obj.metadata else {}
-        retrieval_time_ms = timings.get("retrieval_time_ms", 0)
-        synthesis_time_ms = timings.get("synthesis_time_ms", 0)
+        # Save updated history
+        updated_history = response_obj.metadata.get("chat_history", [])
+        save_history_to_redis(session_id, updated_history)
         
-        # Extract sources using regex to parse YAML frontmatter from raw node text
+        # Extract sources using regex
         import re
         sources = []
         for node in response_obj.source_nodes:
             text = node.node.get_text()
-            
-            # Simple regex to extract quoted values from YAML frontmatter
             source_match = re.search(r'^source:\s*"?(.*?)"?\s*$', text, re.MULTILINE)
             url_match = re.search(r'^url:\s*"?(.*?)"?\s*$', text, re.MULTILINE)
             title_match = re.search(r'^#\s+(.+)$', text, re.MULTILINE)
@@ -115,44 +123,27 @@ async def query_klippy(request: QueryRequest):
                 "score": float(node.score) if node.score is not None else 0.0
             })
 
-        # Cache the detailed result
-        try:
-            cache_val = json.dumps({
-                "answer": answer, 
-                "sources": sources,
-                "retrieval_time_ms": retrieval_time_ms,
-                "synthesis_time_ms": synthesis_time_ms
-            })
-            redis_client.setex(cache_key, 3600, cache_val)
-        except Exception as e:
-            logger.warning(f"Failed to write to Redis: {e}")
-            
         return QueryResponse(
             answer=answer, 
-            cached=False, 
+            session_id=session_id,
             sources=sources,
-            retrieval_time_ms=retrieval_time_ms,
-            synthesis_time_ms=synthesis_time_ms
+            total_time_ms=response_obj.metadata.get("total_time_ms", 0),
+            cached_at=now
         )
     except Exception as e:
-        logger.error(f"Error during query processing: {e}")
+        logger.error(f"Error during chat turn: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-class FeedbackRequest(BaseModel):
-    text: str
-    is_positive: bool
 
 @app.post("/feedback")
 async def process_feedback(request: FeedbackRequest):
     if not request.is_positive:
-        cache_key = f"query:{request.text}"
-        redis_client.delete(cache_key)
-        logger.info(f"Cleared cache for query due to negative feedback: {request.text}")
+        # For chat, thumbs down clears the entire session history to restart fresh
+        redis_client.delete(f"chat_history:{request.session_id}")
+        logger.info(f"Cleared chat history for session due to negative feedback: {request.session_id}")
     return {"status": "Feedback received"}
 
 @app.post("/ingest")
 async def trigger_ingestion(request: IngestRequest, background_tasks: BackgroundTasks):
-    """Triggers a manual ingestion. Can optionally limit number of docs."""
     background_tasks.add_task(engine.ingest_data, limit=request.limit)
     return {"status": "Ingestion task started in background", "limit": request.limit}
 
@@ -164,7 +155,6 @@ def main():
     parser = argparse.ArgumentParser(description="Klippy Backend and Indexer")
     parser.add_argument("--ingest", action="store_true", help="Run indexing and exit")
     parser.add_argument("--limit", type=int, help="Limit number of documents to ingest (random sampling)")
-    parser.add_argument("--serve", action="store_true", default=True, help="Run FastAPI server (default)")
     
     args, unknown = parser.parse_known_args()
 

@@ -10,6 +10,7 @@ from llama_index.core import (
     PromptTemplate,
     get_response_synthesizer,
 )
+from llama_index.core.memory import ChatMemoryBuffer
 from llama_index.core.ingestion import IngestionPipeline, IngestionCache
 from llama_index.storage.kvstore.redis import RedisKVStore as RedisCache
 from llama_index.vector_stores.qdrant import QdrantVectorStore
@@ -46,7 +47,7 @@ class KlippyEngine:
         llm_model = os.getenv("LLM_MODEL", "gpt-4-turbo-preview")
         embed_model = os.getenv("EMBED_MODEL", "text-embedding-3-small")
         
-        # Use OpenAILike for OpenAI-compatible endpoints to avoid internal defaults
+        # Use OpenAILike for OpenAI-compatible endpoints
         Settings.llm = OpenAILike(
             model=llm_model, 
             api_base=llm_base_url,
@@ -138,14 +139,12 @@ class KlippyEngine:
             cache=self.ingest_cache,
         )
 
-        # Process in batches
         batch_size = 100
         for i in range(0, len(documents), batch_size):
             batch = documents[i:i + batch_size]
             logger.info(f"Processing batch {i//batch_size + 1}/{(len(documents)-1)//batch_size + 1}...")
             pipeline.run(documents=batch, show_progress=False)
         
-        # Load index explicitly with Settings
         self._index = VectorStoreIndex.from_vector_store(
             vector_store=self.vector_store,
             storage_context=self.storage_context,
@@ -154,8 +153,8 @@ class KlippyEngine:
         
         logger.info("Ingestion complete.")
 
-    def get_query_engine(self):
-        """Returns a query engine with a strict system prompt and explicit LLM."""
+    def get_chat_engine(self, chat_history=None):
+        """Returns a chat engine with conversational memory."""
         if self._index is None:
             self._index = VectorStoreIndex.from_vector_store(
                 vector_store=self.vector_store,
@@ -164,49 +163,34 @@ class KlippyEngine:
             )
             
         system_prompt = self._get_system_prompt()
-        template = system_prompt + "\n\nContext:\n{context_str}\n\nQuestion: {query_str}\n\nAnswer:"
         
-        # Create response synthesizer explicitly with OpenAILike
-        response_synthesizer = get_response_synthesizer(
-            response_mode="simple_summarize", # Fast concatenating synthesis
-            llm=Settings.llm,
-            text_qa_template=PromptTemplate(template),
-            refine_template=PromptTemplate(template),
-        )
+        # Memory buffer for the conversation
+        memory = ChatMemoryBuffer.from_defaults(chat_history=chat_history or [], token_limit=3000)
 
-        return self._index.as_query_engine(
+        # Use condense_plus_context for robust RAG chat
+        return self._index.as_chat_engine(
+            chat_mode="condense_plus_context",
+            memory=memory,
+            system_prompt=system_prompt,
             similarity_top_k=10,
-            response_synthesizer=response_synthesizer,
             llm=Settings.llm
         )
 
-    def query_detailed(self, text: str):
-        """Executes a query and returns the full LlamaIndex response object with timings."""
+    def chat(self, message: str, chat_history=None):
+        """Executes a chat turn and returns the response object with timings."""
         import time
-        from llama_index.core import QueryBundle
         
-        engine = self.get_query_engine()
-        query_bundle = QueryBundle(text)
+        engine = self.get_chat_engine(chat_history=chat_history)
         
-        # 1. Retrieval
-        retrieval_start = time.time()
-        nodes = engine.retrieve(query_bundle)
-        retrieval_time_ms = int((time.time() - retrieval_start) * 1000)
+        start_time = time.time()
+        response = engine.chat(message)
+        total_time_ms = int((time.time() - start_time) * 1000)
         
-        # 2. Synthesis
-        synthesis_start = time.time()
-        response = engine.synthesize(query_bundle, nodes)
-        synthesis_time_ms = int((time.time() - synthesis_start) * 1000)
-        
-        # Add timings to metadata
+        # Add timings and history to metadata
         if response.metadata is None:
             response.metadata = {}
-        response.metadata["retrieval_time_ms"] = retrieval_time_ms
-        response.metadata["synthesis_time_ms"] = synthesis_time_ms
+        response.metadata["total_time_ms"] = total_time_ms
+        # Return the updated history so the API can store it
+        response.metadata["chat_history"] = [m.dict() for m in engine.memory.get()]
         
         return response
-
-    def query(self, text: str) -> str:
-        """Executes a query and returns the synthesized string response."""
-        response = self.query_detailed(text)
-        return str(response)

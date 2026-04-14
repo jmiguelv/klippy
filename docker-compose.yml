@@ -76,5 +76,15 @@ services:
       - ./data:/app/data
     restart: "no"
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: klippy-frontend
+    ports:
+      - "4321:80"
+    depends_on:
+      - backend
+
 volumes:
   qdrant_storage:

@@ -1,0 +1,100 @@
+@import "open-props/style";
+@import "open-props/buttons";
+
+/* ── Custom Tokens ─────────────────────────────────────── */
+:root {
+    --kings-red: #d6001c;
+    --kings-red-light: #f2e5e7;
+    --canvas: #faf9f7;
+    --surface: #ffffff;
+    --border: #e2ddd8;
+    --border-dark: #c8c2bb;
+
+    --ink-0: #1a1614;
+    --ink-1: #3d3733;
+    --ink-2: #7a7470;
+
+    --teal: #1f7a6e;
+    --teal-light: #e0f0ee;
+
+    /* Typography */
+    --font-display: "Cormorant Garamond", Georgia, serif;
+    --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", "Courier New", monospace;
+}
+
+/* ── Base ───────────────────────────────────────── */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html {
+    background-color: var(--canvas);
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: var(--font-sans);
+    color: var(--ink-0);
+    background-color: var(--canvas);
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    -webkit-font-smoothing: antialiased;
+    margin: 0;
+}
+
+h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    line-height: var(--font-lineheight-1);
+    font-weight: var(--font-weight-6);
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+/* ── Layout Utilities ────────────────────────────── */
+.container {
+    max-width: 1040px;
+    margin-inline: auto;
+    padding-inline: var(--size-6);
+}
+
+.page-rule {
+    height: 3px;
+    background: var(--kings-red);
+}
+
+/* ── Markdown Content Styling ─────────────────────── */
+.markdown-body {
+    line-height: 1.75;
+}
+
+.markdown-body h1, .markdown-body h2 {
+    font-family: var(--font-sans);
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--kings-red);
+    margin: 1.8rem 0 0.8rem;
+}
+
+.markdown-body p {
+    margin-bottom: 1.4rem;
+}
+
+.markdown-body ul {
+    padding-left: 1.8rem;
+    margin-bottom: 1.4rem;
+}
+
+.markdown-body li {
+    margin-bottom: 0.6rem;
+}
+
+.markdown-body a {
+    color: var(--kings-red);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
