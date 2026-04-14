@@ -1,5 +1,6 @@
 import os
 import logging
+import uuid
 import qdrant_client
 from llama_index.core import (
     VectorStoreIndex,
@@ -83,15 +84,21 @@ class KlippyEngine:
         reader = SimpleDirectoryReader(
             input_dir=self.data_dir,
             recursive=True,
-            required_exts=[".md"],
-            filename_as_id=True
+            required_exts=[".md"]
         )
         
+        # Load documents normally
         documents = reader.load_data(show_progress=True)
 
         if not documents:
             logger.info("No documents found for ingestion.")
             return
+
+        # Ensure documents have deterministic UUIDs based on file path for Qdrant compatibility
+        for doc in documents:
+            file_path = doc.metadata.get("file_path", "")
+            if file_path:
+                doc.id_ = str(uuid.uuid5(uuid.NAMESPACE_URL, file_path))
 
         logger.info(f"Loaded {len(documents)} documents. Starting transformation pipeline...")
 
