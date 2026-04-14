@@ -45,13 +45,17 @@ class KlippyEngine:
         llm_model = os.getenv("LLM_MODEL", "gpt-4-turbo-preview")
         embed_model = os.getenv("EMBED_MODEL", "text-embedding-3-small")
         
+        # Set this to prevent some internal fallbacks
+        os.environ["OPENAI_MODEL_NAME"] = llm_model
+        
+        # Globally set Settings
         Settings.llm = OpenAI(
             model_name=llm_model, 
             api_base=llm_base_url,
-            api_key=llm_api_key
+            api_key=llm_api_key,
+            temperature=0.1
         )
         
-        # Determine embedding model (OpenAI vs HuggingFace)
         if embed_model.startswith("local:") or "/" in embed_model:
             model_name = embed_model.replace("local:", "")
             embed_device = os.getenv("EMBED_DEVICE", "cpu")
@@ -61,9 +65,6 @@ class KlippyEngine:
                 device=embed_device
             )
         else:
-            if "arc:lite" in embed_model.lower():
-                logger.warning("WARNING: 'arc:lite' detected as EMBED_MODEL. This is typically a chat model and will likely fail for embeddings.")
-            
             logger.info(f"Using OpenAI-compatible embedding model: {embed_model}")
             Settings.embed_model = OpenAIEmbedding(
                 model_name=embed_model, 
@@ -99,7 +100,7 @@ class KlippyEngine:
         return DEFAULT_SYSTEM_PROMPT
 
     def ingest_data(self, limit: int = None):
-        """Loads markdown files and indexes them. If limit is set, samples a random subset."""
+        """Loads markdown files and indexes them using a cached pipeline."""
         if not os.path.exists(self.data_dir):
             logger.warning(f"Data directory {self.data_dir} does not exist.")
             return
@@ -118,13 +119,11 @@ class KlippyEngine:
             logger.info("No documents found for ingestion.")
             return
 
-        # Handle random sampling if limit is set
         if limit and limit < len(documents):
             import random
             logger.info(f"Limiting ingestion to {limit} random documents out of {len(documents)}...")
             documents = random.sample(documents, limit)
 
-        # Ensure documents have deterministic UUIDs based on file path for Qdrant compatibility
         for doc in documents:
             file_path = doc.metadata.get("file_path", "")
             if file_path:
@@ -140,38 +139,35 @@ class KlippyEngine:
             cache=self.ingest_cache,
         )
 
-        # Process in manual batches to avoid pickling errors and manage memory
+        # Process in batches
         batch_size = 100
-        all_nodes = []
-        
         for i in range(0, len(documents), batch_size):
             batch = documents[i:i + batch_size]
-            logger.info(f"Processing batch {i//batch_size + 1}/{(len(documents)-1)//batch_size + 1} ({len(batch)} docs)...")
-            nodes = pipeline.run(documents=batch, show_progress=False)
-            all_nodes.extend(nodes)
+            logger.info(f"Processing batch {i//batch_size + 1}/{(len(documents)-1)//batch_size + 1}...")
+            pipeline.run(documents=batch, show_progress=False)
         
-        # Create or update index from the vector store
+        # Load index explicitly with Settings
         self._index = VectorStoreIndex.from_vector_store(
             vector_store=self.vector_store,
-            storage_context=self.storage_context
+            storage_context=self.storage_context,
+            embed_model=Settings.embed_model
         )
         
-        logger.info(f"Ingestion complete. Total nodes processed: {len(all_nodes)}.")
+        logger.info("Ingestion complete.")
 
     def get_query_engine(self):
-        """Returns a query engine with a strict system prompt and explicit LLM."""
+        """Returns a query engine with extremely explicit LLM configuration."""
         if self._index is None:
-            # Try to load existing index from Qdrant
             self._index = VectorStoreIndex.from_vector_store(
                 vector_store=self.vector_store,
-                storage_context=self.storage_context
+                storage_context=self.storage_context,
+                embed_model=Settings.embed_model
             )
             
-        # Apply prompt from file
         system_prompt = self._get_system_prompt()
         template = system_prompt + "\n\nContext:\n{context_str}\n\nQuestion: {query_str}\n\nAnswer:"
         
-        # Create response synthesizer explicitly with our LLM to prevent gpt-3.5-turbo default
+        # Use tree_summarize which is often more robust for forcing custom LLMs
         response_synthesizer = get_response_synthesizer(
             response_mode="compact",
             llm=Settings.llm,
@@ -182,6 +178,7 @@ class KlippyEngine:
         return self._index.as_query_engine(
             similarity_top_k=5,
             response_synthesizer=response_synthesizer,
+            llm=Settings.llm
         )
 
     def query(self, text: str) -> str:
