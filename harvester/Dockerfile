@@ -14,8 +14,8 @@ COPY . .
 
 # Environment variables for the harvester
 ENV PYTHONUNBUFFERED=1
-ENV DATA_DIR=/app/storage/raw
-ENV STATE_FILE=/app/storage/state.json
+ENV DATA_DIR=/app/data/raw
+ENV STATE_FILE=/app/data/state.json
 
 # Default command: run all harvesters
 # In a real setup, this might be a while loop or a scheduler

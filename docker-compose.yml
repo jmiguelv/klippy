@@ -40,7 +40,7 @@ services:
       - PHOENIX_COLLECTOR_ENDPOINT=http://phoenix:6006
     volumes:
       # Backend reads from processed/ (or raw/ if we point it there)
-      - ./storage:/app/storage
+      - ./data:/app/data
     depends_on:
       - qdrant
       - redis
@@ -58,11 +58,11 @@ services:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_ORGS=${GITHUB_ORGS}
       - GITHUB_USERS=${GITHUB_USERS}
-      - DATA_DIR=/app/storage/raw
-      - STATE_FILE=/app/storage/state.json
+      - DATA_DIR=/app/data/raw
+      - STATE_FILE=/app/data/state.json
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
     volumes:
-      - ./storage:/app/storage
+      - ./data:/app/data
     restart: "no"
 
 volumes:
