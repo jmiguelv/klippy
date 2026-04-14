@@ -168,14 +168,14 @@ class KlippyEngine:
         
         # Create response synthesizer explicitly with OpenAILike
         response_synthesizer = get_response_synthesizer(
-            response_mode="tree_summarize", # Faster and often more accurate synthesis
+            response_mode="simple_summarize", # Fast concatenating synthesis
             llm=Settings.llm,
             text_qa_template=PromptTemplate(template),
             refine_template=PromptTemplate(template),
         )
 
         return self._index.as_query_engine(
-            similarity_top_k=20,
+            similarity_top_k=10,
             response_synthesizer=response_synthesizer,
             llm=Settings.llm
         )
