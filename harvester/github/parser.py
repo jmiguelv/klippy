@@ -8,13 +8,13 @@ def commit_to_markdown(commit: dict, repo_name: str) -> str:
 
     metadata = [
         "---",
-        "source: github",
-        "type: commit",
-        f"repo: {repo_name}",
-        f"sha: {sha}",
-        f"author: {author.get('name', 'Unknown')}",
-        f"date: {author.get('date', 'Unknown')}",
-        f"url: {url}",
+        "source: \"github\"",
+        "type: \"commit\"",
+        f"repo: \"{repo_name}\"",
+        f"sha: \"{sha}\"",
+        f"author: \"{author.get('name', 'Unknown')}\"",
+        f"date: \"{author.get('date', 'Unknown')}\"",
+        f"url: \"{url}\"",
         "---",
         f"# Commit in {repo_name}",
         "",
@@ -29,10 +29,10 @@ def readme_to_markdown(content: str, repo_name: str, url: str) -> str:
     """Converts a GitHub README to Markdown with YAML frontmatter."""
     metadata = [
         "---",
-        "source: github",
-        "type: readme",
-        f"repo: {repo_name}",
-        f"url: {url}",
+        "source: \"github\"",
+        "type: \"readme\"",
+        f"repo: \"{repo_name}\"",
+        f"url: \"{url}\"",
         "---",
         content
     ]
