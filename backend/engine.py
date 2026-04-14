@@ -14,6 +14,7 @@ from llama_index.core.ingestion import IngestionPipeline, IngestionCache
 from llama_index.storage.kvstore.redis import RedisKVStore as RedisCache
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from llama_index.llms.openai import OpenAI
+from llama_index.llms.openai_like import OpenAILike
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
@@ -45,14 +46,12 @@ class KlippyEngine:
         llm_model = os.getenv("LLM_MODEL", "gpt-4-turbo-preview")
         embed_model = os.getenv("EMBED_MODEL", "text-embedding-3-small")
         
-        # Set this to prevent some internal fallbacks
-        os.environ["OPENAI_MODEL_NAME"] = llm_model
-        
-        # Globally set Settings
-        Settings.llm = OpenAI(
-            model_name=llm_model, 
+        # Use OpenAILike for OpenAI-compatible endpoints to avoid internal defaults
+        Settings.llm = OpenAILike(
+            model=llm_model, 
             api_base=llm_base_url,
             api_key=llm_api_key,
+            is_chat_model=True,
             temperature=0.1
         )
         
@@ -156,7 +155,7 @@ class KlippyEngine:
         logger.info("Ingestion complete.")
 
     def get_query_engine(self):
-        """Returns a query engine with extremely explicit LLM configuration."""
+        """Returns a query engine with a strict system prompt and explicit LLM."""
         if self._index is None:
             self._index = VectorStoreIndex.from_vector_store(
                 vector_store=self.vector_store,
@@ -167,7 +166,7 @@ class KlippyEngine:
         system_prompt = self._get_system_prompt()
         template = system_prompt + "\n\nContext:\n{context_str}\n\nQuestion: {query_str}\n\nAnswer:"
         
-        # Use tree_summarize which is often more robust for forcing custom LLMs
+        # Create response synthesizer explicitly with OpenAILike
         response_synthesizer = get_response_synthesizer(
             response_mode="compact",
             llm=Settings.llm,

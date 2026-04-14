@@ -11,6 +11,7 @@ dependencies = [
     "llama-index-embeddings-openai",
     "llama-index-embeddings-huggingface",
     "llama-index-llms-openai",
+    "llama-index-llms-openai-like",
     "llama-index-storage-kvstore-redis",
     "arize-phoenix",
     "llama-index-callbacks-arize-phoenix",
