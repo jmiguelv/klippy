@@ -29,7 +29,7 @@ def main():
     # Configuration from .env
     clickup_api_key = os.getenv("CLICKUP_API_KEY")
     clickup_workspace_id = os.getenv("CLICKUP_WORKSPACE_ID")
-    clickup_list_ids = os.getenv("CLICKUP_LIST_IDS", "").split(",")
+    clickup_ignore_spaces = os.getenv("CLICKUP_IGNORE_SPACES", "").split(",")
     
     github_token = os.getenv("GITHUB_TOKEN")
     github_orgs = os.getenv("GITHUB_ORGS", "").split(",")
@@ -53,7 +53,9 @@ def main():
     if args.all or args.clickup:
         if clickup_client and clickup_workspace_id:
             logger.info("Starting ClickUp harvesting...")
-            orchestrator.run_clickup(list_ids=clickup_list_ids, workspace_id=clickup_workspace_id)
+            # Filter out empty strings from split
+            ignore_spaces = [s for s in clickup_ignore_spaces if s]
+            orchestrator.run_clickup(workspace_id=clickup_workspace_id, ignore_spaces=ignore_spaces)
         else:
             logger.warning("ClickUp configuration missing.")
 

@@ -30,3 +30,31 @@ class ClickUpClient:
         response = requests.get(url, headers=self.headers, params=params)
         response.raise_for_status()
         return response.json().get("pages", [])
+
+    def get_spaces(self, team_id: str) -> list:
+        """Lists all spaces in a team/workspace."""
+        url = f"{self.base_url_v2}/team/{team_id}/space"
+        response = requests.get(url, headers=self.headers)
+        response.raise_for_status()
+        return response.json().get("spaces", [])
+
+    def get_folders(self, space_id: str) -> list:
+        """Lists all folders in a space."""
+        url = f"{self.base_url_v2}/space/{space_id}/folder"
+        response = requests.get(url, headers=self.headers)
+        response.raise_for_status()
+        return response.json().get("folders", [])
+
+    def get_lists_in_folder(self, folder_id: str) -> list:
+        """Lists all lists in a folder."""
+        url = f"{self.base_url_v2}/folder/{folder_id}/list"
+        response = requests.get(url, headers=self.headers)
+        response.raise_for_status()
+        return response.json().get("lists", [])
+
+    def get_lists_in_space(self, space_id: str) -> list:
+        """Lists all folderless lists in a space."""
+        url = f"{self.base_url_v2}/space/{space_id}/list"
+        response = requests.get(url, headers=self.headers)
+        response.raise_for_status()
+        return response.json().get("lists", [])

@@ -1,15 +1,18 @@
+import pytest
 from unittest.mock import MagicMock
 from orchestrator import Orchestrator
 
 def test_orchestrator_runs_clickup(mocker):
     # Setup
     mock_clickup = MagicMock()
+    mock_clickup.get_spaces.return_value = [{"id": "s1", "name": "Space 1"}]
+    mock_clickup.get_lists_in_space.return_value = [{"id": "l1", "name": "List 1"}]
+    mock_clickup.get_folders.return_value = []
     mock_clickup.get_tasks.return_value = [{"id": "t1", "name": "Task 1"}]
     mock_clickup.get_docs.return_value = [{"id": "d1", "name": "Doc 1"}]
     mock_clickup.get_pages.return_value = [{"id": "p1", "name": "Page 1", "markdown": "content"}]
     
     mock_github = MagicMock()
-    mock_github.list_org_repos.return_value = []
     
     mock_state = MagicMock()
     
@@ -24,9 +27,10 @@ def test_orchestrator_runs_clickup(mocker):
     orch = Orchestrator(clickup_client=mock_clickup, github_client=mock_github, state_store=mock_state, data_dir="/tmp/data")
     
     # Execute
-    orch.run_clickup(list_ids=["l1"], workspace_id="w1")
+    orch.run_clickup(workspace_id="w1", ignore_spaces=["ignored"])
     
     # Assert
+    assert mock_clickup.get_spaces.called
     assert mock_clickup.get_tasks.called
     assert mock_clickup.get_docs.called
     assert mock_write.called
