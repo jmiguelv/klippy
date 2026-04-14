@@ -14,6 +14,14 @@ services:
     ports:
       - "6379:6379"
 
+  redis-insight:
+    image: redis/redisinsight:latest
+    container_name: klippy-redis-insight
+    ports:
+      - "5540:5540"
+    depends_on:
+      - redis
+
   phoenix:
     image: arizephoenix/phoenix:latest
     container_name: klippy-phoenix

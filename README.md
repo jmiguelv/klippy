@@ -62,6 +62,7 @@ graph LR
 | **harvester** | Python / uv          | Data ingestion worker (runs on-demand or via cron) |
 | **qdrant**    | Qdrant               | Vector database for embeddings and metadata        |
 | **redis**     | Redis                | Caching for LLM responses and ingestion pipeline   |
+| **redis-insight** | Redis Insight    | Web interface for browsing Redis data              |
 | **phoenix**   | Arize Phoenix        | Observability and RAG tracing                      |
 | **frontend**  | Astro                | Web-based search interface                         |
 
@@ -133,9 +134,12 @@ curl -X POST http://localhost:8000/ingest -H "Content-Type: application/json" -d
 curl -X POST http://localhost:8000/ingest -H "Content-Type: application/json" -d '{"limit": 50}'
 ```
 
-### 4. Observability
+### 4. Observability and Monitoring
 
-Access Arize Phoenix at `http://localhost:6006` to trace queries and evaluate retrieval quality.
+- **Search Interface:** http://localhost:4321
+- **API Documentation:** http://localhost:8000/docs
+- **Arize Phoenix (RAG Traces):** http://localhost:6006
+- **Redis Insight (Cache Browser):** http://localhost:5540
 
 ## Development
 
