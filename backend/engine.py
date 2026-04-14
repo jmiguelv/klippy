@@ -37,10 +37,13 @@ class KlippyEngine:
         
         # Determine embedding model (OpenAI vs HuggingFace)
         if embed_model.startswith("local:") or "/" in embed_model:
-            # Example: local:BAAI/bge-small-en-v1.5 or just BAAI/bge-small-en-v1.5
             model_name = embed_model.replace("local:", "")
-            logger.info(f"Using local HuggingFace embedding model: {model_name}")
-            Settings.embed_model = HuggingFaceEmbedding(model_name=model_name)
+            embed_device = os.getenv("EMBED_DEVICE", "cpu")
+            logger.info(f"Using local HuggingFace embedding model: {model_name} on device: {embed_device}")
+            Settings.embed_model = HuggingFaceEmbedding(
+                model_name=model_name,
+                device=embed_device
+            )
         else:
             if "arc:lite" in embed_model.lower():
                 logger.warning("WARNING: 'arc:lite' detected as EMBED_MODEL. This is typically a chat model and will likely fail for embeddings.")
