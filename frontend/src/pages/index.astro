@@ -89,16 +89,37 @@
                     <header class="answer-meta">
                         <div class="answer-meta-left">
                             <span class="answer-tag">Synthesis</span>
-                            <span id="cache-badge" class="cache-badge hidden"
-                            ></span>
+                            <span id="cache-badge" class="cache-badge hidden"></span>
+                            <span id="cache-date" class="cache-date hidden"></span>
                         </div>
-                        <span id="query-time" class="query-time"></span>
+                        <div class="answer-meta-right">
+                            <div class="feedback-tools">
+                                <button id="thumbs-up" class="feedback-btn" title="Helpful answer">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v12"></path><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z"></path></svg>
+                                </button>
+                                <button id="thumbs-down" class="feedback-btn" title="Not helpful (clears cache)">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14V2"></path><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22h0a3.13 3.13 0 0 1-3-3.88Z"></path></svg>
+                                </button>
+                                <div class="feedback-sep"></div>
+                                <button id="refresh-query" class="feedback-btn" title="Refresh (ignore cache)">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M3 21v-5h5"></path></svg>
+                                </button>
+                            </div>
+                            <div id="timing-breakdown" class="timing-breakdown hidden">
+                                <span title="Retrieval time">R: <span id="retrieval-time"></span>ms</span>
+                                <span class="timing-sep">|</span>
+                                <span title="LLM Synthesis time">S: <span id="synthesis-time"></span>ms</span>
+                            </div>
+                            <span id="query-time" class="query-time"></span>
+                        </div>
                     </header>
                     <div id="answer-content" class="answer-content markdown-body"></div>
                     <footer class="answer-footer" id="answer-footer">
-                        <span class="answer-footer-label"
-                            >Sources: ClickUp · GitHub</span
-                        >
+                        <button class="sources-toggle" id="sources-toggle">
+                            <span class="sources-toggle-label">Referenced Sources</span>
+                            <span class="sources-toggle-icon" id="sources-toggle-icon">▼</span>
+                        </button>
+                        <div id="sources-container" class="sources-list"></div>
                     </footer>
                 </article>
             </section>
@@ -380,6 +401,76 @@
                 gap: var(--size-3);
             }
 
+            .answer-meta-right {
+                display: flex;
+                align-items: center;
+                gap: var(--size-4);
+            }
+
+            .feedback-tools {
+                display: flex;
+                align-items: center;
+                gap: var(--size-2);
+                margin-right: var(--size-2);
+            }
+
+            .feedback-btn {
+                background: none;
+                border: 1px solid var(--border);
+                border-radius: 4px;
+                padding: 4px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                color: var(--ink-2);
+                transition: all 0.15s;
+                opacity: 0.6;
+            }
+
+            .feedback-btn:hover {
+                opacity: 1;
+                background: var(--kings-red-light);
+                border-color: var(--kings-red);
+                color: var(--kings-red);
+            }
+
+            .feedback-btn.active {
+                opacity: 1;
+                background: var(--kings-red-light);
+                border-color: var(--kings-red);
+                color: var(--kings-red);
+                box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+            }
+
+            .feedback-sep {
+                width: 1px;
+                height: 14px;
+                background: var(--border);
+                margin: 0 2px;
+            }
+
+            .timing-breakdown {
+                display: flex;
+                align-items: center;
+                gap: var(--size-2);
+                font-family: var(--font-mono);
+                font-size: 0.6rem;
+                color: var(--ink-2);
+                font-weight: 300;
+                background: var(--kings-red-light);
+                padding: 2px var(--size-2);
+                border-radius: 4px;
+            }
+
+            .timing-breakdown.hidden {
+                display: none;
+            }
+
+            .timing-sep {
+                opacity: 0.3;
+            }
+
             .answer-tag {
                 font-family: var(--font-mono);
                 font-size: 0.6rem;
@@ -413,6 +504,15 @@
                 color: var(--ink-2);
                 border-color: var(--border-dark);
             }
+
+            .cache-date {
+                font-family: var(--font-mono);
+                font-size: 0.6rem;
+                color: var(--ink-2);
+                font-weight: 300;
+            }
+
+            .cache-date.hidden { display: none; }
 
             .query-time {
                 font-family: var(--font-mono);
@@ -466,26 +566,64 @@
             }
 
             .answer-footer {
-                padding: var(--size-4) var(--size-6);
+                padding: 0;
                 border-top: 1px solid var(--border);
                 background: var(--canvas);
+                display: none;
             }
 
-            .answer-footer-label {
+            .answer-footer.visible {
+                display: block;
+            }
+
+            .sources-toggle {
+                width: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: var(--size-3) var(--size-6);
+                background: none;
+                border: none;
+                cursor: pointer;
+                text-align: left;
+            }
+
+            .sources-toggle:hover {
+                background: rgba(0,0,0,0.02);
+            }
+
+            .sources-toggle-label {
                 font-family: var(--font-mono);
                 font-size: 0.6rem;
                 color: var(--ink-2);
                 font-weight: 500;
                 letter-spacing: 0.1em;
                 text-transform: uppercase;
-                display: block;
-                margin-bottom: var(--size-3);
+            }
+
+            .sources-toggle-icon {
+                font-size: 0.6rem;
+                color: var(--ink-2);
+                transition: transform 0.2s;
+            }
+
+            .sources-toggle-icon.expanded {
+                transform: rotate(180deg);
             }
 
             .sources-list {
                 display: flex;
                 flex-wrap: wrap;
                 gap: var(--size-3);
+                padding: 0 var(--size-6);
+                max-height: 0;
+                overflow: hidden;
+                transition: max-height 0.3s ease-out, padding 0.3s;
+            }
+
+            .sources-list.expanded {
+                max-height: 500px;
+                padding: 0 var(--size-6) var(--size-6);
             }
 
             .source-link {
@@ -496,16 +634,18 @@
                 background: var(--surface);
                 border: 1px solid var(--border);
                 border-radius: 4px;
-                text-decoration: none;
-                color: var(--ink-1);
+                text-decoration: none !important;
+                color: var(--ink-1) !important;
                 font-family: var(--font-sans);
                 font-size: 0.75rem;
                 transition: all 0.15s;
+                position: relative;
+                z-index: 20;
             }
 
             .source-link:hover {
-                border-color: var(--kings-red);
-                color: var(--kings-red);
+                border-color: var(--kings-red) !important;
+                color: var(--kings-red) !important;
                 transform: translateY(-1px);
                 box-shadow: 0 2px 8px rgba(0,0,0,0.05);
             }
@@ -580,10 +720,22 @@
             const answerBlock = document.getElementById("answer-block") as HTMLElement;
             const answerContent = document.getElementById("answer-content") as HTMLElement;
             const answerFooter = document.getElementById("answer-footer") as HTMLElement;
+            const sourcesContainer = document.getElementById("sources-container") as HTMLElement;
+            const sourcesToggle = document.getElementById("sources-toggle") as HTMLButtonElement;
+            const sourcesToggleIcon = document.getElementById("sources-toggle-icon") as HTMLElement;
             const cacheBadge = document.getElementById("cache-badge") as HTMLElement;
+            const cacheDate = document.getElementById("cache-date") as HTMLElement;
             const ellipsis = document.getElementById("ellipsis") as HTMLElement;
             const queryTime = document.getElementById("query-time") as HTMLElement;
+            const timingBreakdown = document.getElementById("timing-breakdown") as HTMLElement;
+            const retrievalTime = document.getElementById("retrieval-time") as HTMLElement;
+            const synthesisTime = document.getElementById("synthesis-time") as HTMLElement;
             const loaderVerb = document.getElementById("loader-verb") as HTMLElement;
+            const thumbsUp = document.getElementById("thumbs-up") as HTMLButtonElement;
+            const thumbsDown = document.getElementById("thumbs-down") as HTMLButtonElement;
+            const refreshQuery = document.getElementById("refresh-query") as HTMLButtonElement;
+
+            let currentQuery = "";
 
             function rotatePlaceholder() {
                 let current = 0;
@@ -648,16 +800,29 @@
             function resetResults() {
                 answerBlock.classList.remove("visible");
                 answerBlock.style.display = "none";
+                answerFooter.classList.remove("visible");
                 answerContent.innerHTML = "";
                 answerContent.classList.remove("error");
-                answerFooter.innerHTML = '<span class="answer-footer-label">Sources: ClickUp · GitHub</span>';
+                sourcesContainer.innerHTML = "";
+                sourcesContainer.classList.remove("expanded");
+                sourcesToggleIcon.classList.remove("expanded");
                 cacheBadge.className = "cache-badge hidden";
+                cacheDate.classList.add("hidden");
                 queryTime.textContent = "";
+                timingBreakdown.classList.add("hidden");
+                thumbsUp.classList.remove("active");
+                thumbsDown.classList.remove("active");
             }
 
-            async function handleSearch() {
+            async function handleSearch(ignoreCache = false) {
                 const query = searchInput.value.trim();
                 if (!query) return;
+                currentQuery = query;
+
+                if (ignoreCache) {
+                    // Manual refresh: clear cache first
+                    await sendFeedback(false, true); 
+                }
 
                 resetResults();
                 resultsSection.classList.remove("hidden");
@@ -688,21 +853,32 @@
                     void answerBlock.offsetHeight;
                     answerBlock.classList.add("visible");
 
-                    cacheBadge.classList.remove("hidden");
                     if (data.cached) {
                         cacheBadge.textContent = "⚡ Cached";
-                        cacheBadge.classList.add("cache-badge--cached");
+                        cacheBadge.className = "cache-badge cache-badge--cached";
+                        cacheBadge.classList.remove("hidden");
+                        
+                        if (data.cached_at) {
+                            const date = new Date(data.cached_at);
+                            cacheDate.textContent = `at ${date.toLocaleTimeString()} on ${date.toLocaleDateString()}`;
+                            cacheDate.classList.remove("hidden");
+                        }
                     } else {
                         cacheBadge.textContent = "Fresh";
-                        cacheBadge.classList.add("cache-badge--fresh");
+                        cacheBadge.className = "cache-badge cache-badge--fresh";
+                        cacheBadge.classList.remove("hidden");
                     }
 
                     queryTime.textContent = `${elapsed}ms`;
                     
-                    // Render Markdown
+                    if (data.retrieval_time_ms || data.synthesis_time_ms) {
+                        retrievalTime.textContent = data.retrieval_time_ms.toString();
+                        synthesisTime.textContent = data.synthesis_time_ms.toString();
+                        timingBreakdown.classList.remove("hidden");
+                    }
+
                     answerContent.innerHTML = await marked.parse(data.answer);
 
-                    // Render Sources
                     if (data.sources && data.sources.length > 0) {
                         const uniqueSources = new Map();
                         data.sources.forEach((s: any) => {
@@ -712,20 +888,17 @@
                         });
 
                         if (uniqueSources.size > 0) {
-                            let sourcesHtml = '<div class="sources-list">';
+                            answerFooter.classList.add("visible");
                             uniqueSources.forEach((s: any) => {
-                                const icon = s.source === 'github' ? '🐙' : '📎';
-                                sourcesHtml += `
-                                    <a href="${s.url}" target="_blank" rel="noopener noreferrer" class="source-link" style="cursor: pointer; position: relative; z-index: 10;">
-                                        <span class="source-icon">${icon}</span>
-                                        <span class="source-title">${s.title.replace('.md', '')}</span>
-                                    </a>`;
+                                const icon = s.source === 'github' ? '<span class="source-icon">🐙</span>' : '';
+                                const link = document.createElement('a');
+                                link.href = s.url;
+                                link.target = "_blank";
+                                link.rel = "noopener noreferrer";
+                                link.className = "source-link";
+                                link.innerHTML = `${icon}<span class="source-title">${s.title.replace('.md', '')}</span>`;
+                                sourcesContainer.appendChild(link);
                             });
-                            sourcesHtml += '</div>';
-                            const footer = document.getElementById("answer-footer");
-                            if (footer) {
-                                footer.innerHTML = `<span class="answer-footer-label">Referenced Sources</span>${sourcesHtml}`;
-                            }
                         }
                     }
                     
@@ -739,13 +912,45 @@
                     answerContent.classList.add("error");
                     
                     const message = error.message || "Unknown error";
-                    answerContent.textContent = `Error: ${message}. (Check if backend is running and CORS is enabled)`;
+                    answerContent.textContent = `Error: ${message}.`;
                     queryTime.textContent = `${elapsed}ms`;
                     console.error("Search Error:", error);
                 }
             }
 
-            searchButton.addEventListener("click", handleSearch);
+            async function sendFeedback(isPositive: boolean, silent = false) {
+                if (!currentQuery) return;
+                
+                if (!silent) {
+                    const btn = isPositive ? thumbsUp : thumbsDown;
+                    btn.classList.add("active");
+                }
+                
+                try {
+                    await fetch("http://localhost:8000/feedback", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ text: currentQuery, is_positive: isPositive }),
+                    });
+                    
+                    if (!isPositive && !silent) {
+                        alert("Feedback noted. Cache cleared for this query.");
+                    }
+                } catch (error) {
+                    console.error("Feedback error:", error);
+                }
+            }
+
+            sourcesToggle.addEventListener("click", () => {
+                const isExpanded = sourcesContainer.classList.toggle("expanded");
+                sourcesToggleIcon.classList.toggle("expanded", isExpanded);
+            });
+
+            thumbsUp.addEventListener("click", () => sendFeedback(true));
+            thumbsDown.addEventListener("click", () => sendFeedback(false));
+            refreshQuery.addEventListener("click", () => handleSearch(true));
+
+            searchButton.addEventListener("click", () => handleSearch());
             searchInput.addEventListener("keydown", (e: KeyboardEvent) => {
                 if (e.key === "Enter") handleSearch();
             });
