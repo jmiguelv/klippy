@@ -41,7 +41,12 @@ engine = KlippyEngine(
 async def lifespan(app: FastAPI):
     # Initial data ingestion
     logger.info("Initializing engine with current data...")
-    engine.ingest_data()
+    try:
+        engine.ingest_data()
+    except ValueError as e:
+        logger.warning(f"Initial ingestion skipped: {e}")
+    except Exception as e:
+        logger.error(f"Unexpected error during initial ingestion: {e}")
     yield
 
 app = FastAPI(lifespan=lifespan, title="Klippy Backend API")
