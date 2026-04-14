@@ -6,15 +6,14 @@ import redis
 from contextlib import asynccontextmanager
 
 from engine import KlippyEngine
-import phoenix as px
 from llama_index.core import set_global_handler
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("backend.main")
 
-# Arize Phoenix Observability
-px.launch_app()
+# Arize Phoenix Observability via OpenInference (OTLP)
+# This connects to the collector endpoint configured in the environment
 set_global_handler("arize_phoenix")
 
 class QueryRequest(BaseModel):
@@ -35,7 +34,7 @@ redis_client = redis.Redis(
 # Engine initialization
 engine = KlippyEngine(
     qdrant_host=os.getenv("QDRANT_HOST", "localhost"),
-    data_dir=os.getenv("DATA_DIR", "./data")
+    data_dir=os.getenv("DATA_DIR", "/app/data")
 )
 
 @asynccontextmanager
@@ -51,15 +50,22 @@ app = FastAPI(lifespan=lifespan, title="Klippy Backend API")
 async def query_klippy(request: QueryRequest):
     # Check cache
     cache_key = f"query:{request.text}"
-    cached_answer = redis_client.get(cache_key)
-    if cached_answer:
-        logger.info(f"Cache hit for query: {request.text}")
-        return QueryResponse(answer=cached_answer, cached=True)
+    try:
+        cached_answer = redis_client.get(cache_key)
+        if cached_answer:
+            logger.info(f"Cache hit for query: {request.text}")
+            return QueryResponse(answer=cached_answer, cached=True)
+    except Exception as e:
+        logger.warning(f"Redis cache error: {e}")
 
     try:
         answer = engine.query(request.text)
         # Store in cache (expire in 1 hour)
-        redis_client.setex(cache_key, 3600, str(answer))
+        try:
+            redis_client.setex(cache_key, 3600, str(answer))
+        except Exception as e:
+            logger.warning(f"Failed to write to Redis: {e}")
+            
         return QueryResponse(answer=str(answer), cached=False)
     except Exception as e:
         logger.error(f"Error during query processing: {e}")

@@ -14,6 +14,15 @@ services:
     ports:
       - "6379:6379"
 
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    container_name: klippy-phoenix
+    ports:
+      - "6006:6006" # Arize Phoenix UI
+    environment:
+      - PHOENIX_HOST=0.0.0.0
+      - PHOENIX_PORT=6006
+
   backend:
     build:
       context: ./backend
@@ -21,7 +30,6 @@ services:
     container_name: klippy-backend
     ports:
       - "8000:8000"
-      - "6006:6006" # Arize Phoenix UI (launched from within backend)
     environment:
       - QDRANT_HOST=qdrant
       - REDIS_HOST=redis
@@ -29,11 +37,14 @@ services:
       - LLM_BASE_URL=${LLM_BASE_URL}
       - LLM_MODEL=${LLM_MODEL}
       - EMBED_MODEL=${EMBED_MODEL}
+      # PHOENIX_COLLECTOR_ENDPOINT tells LlamaIndex where to send traces
+      - PHOENIX_COLLECTOR_ENDPOINT=http://phoenix:6006
     volumes:
       - ./harvester/data:/app/data
     depends_on:
       - qdrant
       - redis
+      - phoenix
 
   harvester:
     build:
@@ -51,7 +62,7 @@ services:
       - STATE_FILE=/app/data/state.json
     volumes:
       - ./harvester/data:/app/data
-    restart: "no" # This runs as a job/on-demand in this simple setup
+    restart: "no"
 
 volumes:
   qdrant_storage:
