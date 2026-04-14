@@ -44,14 +44,19 @@ engine = KlippyEngine(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initial data ingestion
-    logger.info("Initializing engine with current data...")
-    try:
-        engine.ingest_data()
-    except ValueError as e:
-        logger.warning(f"Initial ingestion skipped: {e}")
-    except Exception as e:
-        logger.error(f"Unexpected error during initial ingestion: {e}")
+    # Trigger initial data ingestion in the background
+    # This allows the server to start and become reachable immediately
+    import asyncio
+    
+    async def run_initial_ingest():
+        logger.info("Starting initial background ingestion...")
+        try:
+            # We run in a thread to not block the event loop
+            await asyncio.to_thread(engine.ingest_data)
+        except Exception as e:
+            logger.error(f"Background ingestion failed: {e}")
+
+    asyncio.create_task(run_initial_ingest())
     yield
 
 app = FastAPI(lifespan=lifespan, title="Klippy Backend API")
