@@ -23,7 +23,9 @@ def main():
     parser.add_argument("--all", action="store_true", help="Run all harvesters")
     args = parser.parse_args()
 
-    setup_logging()
+    log_level_str = os.getenv("LOG_LEVEL", "INFO").upper()
+    log_level = getattr(logging, log_level_str, logging.INFO)
+    setup_logging(level=log_level)
     logger = logging.getLogger("harvester")
 
     # Configuration from .env

@@ -60,6 +60,7 @@ services:
       - GITHUB_USERS=${GITHUB_USERS}
       - DATA_DIR=/app/data
       - STATE_FILE=/app/data/state.json
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
     volumes:
       - ./harvester/data:/app/data
     restart: "no"
