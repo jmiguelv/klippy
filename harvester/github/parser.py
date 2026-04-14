@@ -24,3 +24,16 @@ def commit_to_markdown(commit: dict, repo_name: str) -> str:
         ""
     ]
     return "\n".join(metadata)
+
+def readme_to_markdown(content: str, repo_name: str, url: str) -> str:
+    """Converts a GitHub README to Markdown with YAML frontmatter."""
+    metadata = [
+        "---",
+        "source: github",
+        "type: readme",
+        f"repo: {repo_name}",
+        f"url: {url}",
+        "---",
+        content
+    ]
+    return "\n".join(metadata)

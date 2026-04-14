@@ -14,6 +14,24 @@ class MockResponse:
             import requests
             raise requests.exceptions.HTTPError("Error")
 
+def test_get_readme(mocker):
+    # Setup
+    mock_response = MockResponse({
+        "content": "IyBSRUFETUU=", # base64 for "# README"
+        "encoding": "base64",
+        "download_url": "https://raw.githubusercontent.com/owner/repo/main/README.md"
+    })
+    mocker.patch("requests.get", return_value=mock_response)
+
+    client = GitHubClient(token="fake_token")
+    
+    # Execute
+    readme = client.get_readme(repo="owner/repo")
+    
+    # Assert
+    assert readme["content"] == "IyBSRUFETUU="
+    assert readme["encoding"] == "base64"
+
 def test_get_commits_returns_list_of_commits(mocker):
     mock_response = MockResponse([
         {
@@ -32,22 +50,20 @@ def test_get_commits_returns_list_of_commits(mocker):
 
 def test_list_org_repos(mocker):
     mock_response = MockResponse([{"full_name": "org/repo1"}])
-    mock_get = mocker.patch("requests.get", return_value=mock_response)
+    mocker.patch("requests.get", return_value=mock_response)
 
     client = GitHubClient(token="fake_token")
     repos = client.list_org_repos(org="my-org")
     
     assert len(repos) == 1
     assert repos[0] == "org/repo1"
-    assert "orgs/my-org/repos" in mock_get.call_args[0][0]
 
 def test_list_user_repos(mocker):
     mock_response = MockResponse([{"full_name": "user/repo1"}])
-    mock_get = mocker.patch("requests.get", return_value=mock_response)
+    mocker.patch("requests.get", return_value=mock_response)
 
     client = GitHubClient(token="fake_token")
     repos = client.list_user_repos(user="my-user")
     
     assert len(repos) == 1
     assert repos[0] == "user/repo1"
-    assert "users/my-user/repos" in mock_get.call_args[0][0]

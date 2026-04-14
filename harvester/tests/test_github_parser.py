@@ -1,4 +1,4 @@
-from github.parser import commit_to_markdown
+from github.parser import commit_to_markdown, readme_to_markdown
 
 def test_commit_to_markdown_basic():
     commit = {
@@ -20,3 +20,17 @@ def test_commit_to_markdown_basic():
     assert "## Message" in markdown
     assert "Feat: Add authentication" in markdown
     assert "https://github.com/owner/repo/commit/sha123" in markdown
+
+def test_readme_to_markdown_basic():
+    readme_content = "# Project X\nThis is a cool project."
+    repo_name = "owner/project-x"
+    url = "https://github.com/owner/project-x/blob/main/README.md"
+    
+    markdown = readme_to_markdown(readme_content, repo_name, url)
+    
+    assert "source: github" in markdown
+    assert "type: readme" in markdown
+    assert "repo: owner/project-x" in markdown
+    assert "url: https://github.com/owner/project-x/blob/main/README.md" in markdown
+    assert "# Project X" in markdown
+    assert "This is a cool project." in markdown
