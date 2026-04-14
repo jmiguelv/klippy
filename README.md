@@ -7,7 +7,7 @@ Enterprise Search Aggregator and RAG system for ClickUp and GitHub.
 Klippy operates as a data pipeline that transforms siloed company knowledge into a searchable semantic index.
 
 ```mermaid
-graph TD
+graph LR
     subgraph External
         CU[ClickUp API]
         GH[GitHub API]
@@ -56,31 +56,34 @@ graph TD
 
 ## Services
 
-| Service | Technology | Description |
-| :--- | :--- | :--- |
-| **backend** | FastAPI / LlamaIndex | RAG Orchestration and Query API |
-| **harvester** | Python / uv | Data ingestion worker (runs on-demand or via cron) |
-| **qdrant** | Qdrant | Vector database for embeddings and metadata |
-| **redis** | Redis | Caching for LLM responses and ingestion pipeline |
-| **phoenix** | Arize Phoenix | Observability and RAG tracing |
-| **frontend** | Astro | Web-based search interface |
+| Service       | Technology           | Description                                        |
+| :------------ | :------------------- | :------------------------------------------------- |
+| **backend**   | FastAPI / LlamaIndex | RAG Orchestration and Query API                    |
+| **harvester** | Python / uv          | Data ingestion worker (runs on-demand or via cron) |
+| **qdrant**    | Qdrant               | Vector database for embeddings and metadata        |
+| **redis**     | Redis                | Caching for LLM responses and ingestion pipeline   |
+| **phoenix**   | Arize Phoenix        | Observability and RAG tracing                      |
+| **frontend**  | Astro                | Web-based search interface                         |
 
 ## Configuration
 
 Environment variables are managed in the `.env` file.
 
 ### LLM Settings
+
 - `LLM_API_KEY`: API key for your LLM provider.
 - `LLM_BASE_URL`: Base URL for OpenAI-compatible endpoints (e.g., vLLM, Ollama).
 - `LLM_MODEL`: The specific LLM model name (e.g., `gpt-4`).
 - `EMBED_MODEL`: The specific embedding model name (e.g., `text-embedding-3-small`).
 
 ### ClickUp Settings
+
 - `CLICKUP_API_KEY`: Personal API Key.
 - `CLICKUP_WORKSPACE_ID`: Team/Workspace ID to harvest.
 - `CLICKUP_IGNORE_SPACES`: Comma-separated list of space names to skip.
 
 ### GitHub Settings
+
 - `GITHUB_TOKEN`: Fine-grained PAT with `metadata:read` and `contents:read` permissions.
 - `GITHUB_ORGS`: Comma-separated list of organizations to harvest.
 - `GITHUB_USERS`: Comma-separated list of users to harvest.
@@ -88,43 +91,53 @@ Environment variables are managed in the `.env` file.
 ## Operational Guide
 
 ### 1. Initial Launch
+
 Start the infrastructure and services:
+
 ```bash
 docker compose up -d
 ```
 
 ### 2. Harvesting Data
+
 The harvester runs once on startup. To trigger a manual sync:
+
 ```bash
 docker compose start harvester
 ```
+
 You can monitor progress in `data/harvester.log`.
 
 ### 3. Updating the Index
+
 The backend loads data on startup. You can trigger an incremental re-index in two ways:
 
 **Via API:**
+
 ```bash
 curl -X POST http://localhost:8000/ingest
 ```
 
 **Via CLI (Docker):**
 ```bash
-docker compose run --rm backend python main.py --ingest
+docker compose run --rm backend uv run python main.py --ingest
 ```
 
 ### 4. Observability
+
 Access Arize Phoenix at `http://localhost:6006` to trace queries and evaluate retrieval quality.
 
 ## Development
 
 ### Harvester
+
 ```bash
 cd harvester
 uv run pytest
 ```
 
 ### Backend
+
 ```bash
 cd backend
 uv run pytest
