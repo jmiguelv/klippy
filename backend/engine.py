@@ -78,29 +78,43 @@ class KlippyEngine:
             logger.warning(f"Data directory {self.data_dir} does not exist.")
             return
 
-        logger.info(f"Ingesting data from {self.data_dir}...")
+        logger.info(f"Scanning directory {self.data_dir} for markdown files...")
         
-        documents = SimpleDirectoryReader(
+        # SimpleDirectoryReader with filename_as_id to help caching
+        reader = SimpleDirectoryReader(
             input_dir=self.data_dir,
             recursive=True,
-            required_exts=[".md"]
-        ).load_data()
+            required_exts=[".md"],
+            filename_as_id=True
+        )
+        
+        # Load data in batches if memory is an issue, but for now let's load references
+        documents = reader.load_data(show_progress=True)
 
         if not documents:
             logger.info("No documents found for ingestion.")
             return
 
-        # Use IngestionPipeline for automatic caching and transformation
+        logger.info(f"Loaded {len(documents)} documents. Starting transformation pipeline...")
+
+        # Use IngestionPipeline with workers for parallel execution
+        # Note: workers > 1 only helps if EMBED_DEVICE is 'cpu' or you have multiple GPUs.
+        num_workers = 4 if os.getenv("EMBED_DEVICE", "cpu") == "cpu" else 1
+
         pipeline = IngestionPipeline(
             transformations=[
-                Settings.embed_model, # Caching is most effective at the embedding step
+                Settings.embed_model,
             ],
             vector_store=self.vector_store,
             cache=self.ingest_cache,
         )
 
-        # Run the pipeline - it will only process new or changed documents
-        nodes = pipeline.run(documents=documents, show_progress=True)
+        # Run pipeline with workers
+        nodes = pipeline.run(
+            documents=documents, 
+            show_progress=True, 
+            num_workers=num_workers
+        )
         
         # Create or update index from the vector store
         self._index = VectorStoreIndex.from_vector_store(
@@ -108,7 +122,7 @@ class KlippyEngine:
             storage_context=self.storage_context
         )
         
-        logger.info(f"Ingestion complete. Processed {len(nodes)} nodes (including cached).")
+        logger.info(f"Ingestion complete. Total nodes in vector store: {len(nodes)} (including cached).")
 
     def get_query_engine(self):
         """Returns a query engine based on the current index."""

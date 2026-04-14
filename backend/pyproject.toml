@@ -16,6 +16,7 @@ dependencies = [
     "llama-index-callbacks-arize-phoenix",
     "qdrant-client",
     "redis",
+    "nltk",
     "python-dotenv",
     "pydantic",
 ]
