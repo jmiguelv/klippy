@@ -8,6 +8,7 @@ from llama_index.core import (
     SimpleDirectoryReader,
     Settings,
     PromptTemplate,
+    get_response_synthesizer,
 )
 from llama_index.core.ingestion import IngestionPipeline, IngestionCache
 from llama_index.storage.kvstore.redis import RedisKVStore as RedisCache
@@ -158,7 +159,7 @@ class KlippyEngine:
         logger.info(f"Ingestion complete. Total nodes processed: {len(all_nodes)}.")
 
     def get_query_engine(self):
-        """Returns a query engine with a strict system prompt."""
+        """Returns a query engine with a strict system prompt and explicit LLM."""
         if self._index is None:
             # Try to load existing index from Qdrant
             self._index = VectorStoreIndex.from_vector_store(
@@ -166,24 +167,22 @@ class KlippyEngine:
                 storage_context=self.storage_context
             )
             
-        engine = self._index.as_query_engine(
-            similarity_top_k=5,
-            response_mode="compact",
-            llm=Settings.llm
-        )
-
         # Apply prompt from file
         system_prompt = self._get_system_prompt()
         template = system_prompt + "\n\nContext:\n{context_str}\n\nQuestion: {query_str}\n\nAnswer:"
         
-        engine.update_prompts(
-            {
-                "response_synthesizer:text_qa_template": PromptTemplate(template),
-                "response_synthesizer:refine_template": PromptTemplate(template)
-            }
+        # Create response synthesizer explicitly with our LLM to prevent gpt-3.5-turbo default
+        response_synthesizer = get_response_synthesizer(
+            response_mode="compact",
+            llm=Settings.llm,
+            text_qa_template=PromptTemplate(template),
+            refine_template=PromptTemplate(template),
         )
-        
-        return engine
+
+        return self._index.as_query_engine(
+            similarity_top_k=5,
+            response_synthesizer=response_synthesizer,
+        )
 
     def query(self, text: str) -> str:
         """Executes a query and returns the LLM-synthesized response."""
