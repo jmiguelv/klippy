@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import redis
+import json
 from contextlib import asynccontextmanager
 
 from engine import KlippyEngine
