@@ -7,6 +7,7 @@ dependencies = [
     "uvicorn",
     "llama-index",
     "llama-index-vector-stores-qdrant",
+    "llama-index-readers-file",
     "llama-index-embeddings-openai",
     "llama-index-llms-openai",
     "llama-index-storage-kvstore-redis",
