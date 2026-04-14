@@ -21,17 +21,20 @@ class KlippyEngine:
         self.collection_name = collection_name
         
         # Configure LlamaIndex settings
+        llm_api_key = os.getenv("LLM_API_KEY")
         llm_base_url = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
         llm_model = os.getenv("LLM_MODEL", "gpt-4-turbo-preview")
         embed_model = os.getenv("EMBED_MODEL", "text-embedding-3-small")
         
         Settings.llm = OpenAI(
             model=llm_model, 
-            api_base=llm_base_url
+            api_base=llm_base_url,
+            api_key=llm_api_key
         )
         Settings.embed_model = OpenAIEmbedding(
             model=embed_model, 
-            api_base=llm_base_url
+            api_base=llm_base_url,
+            api_key=llm_api_key
         )
         
         # Initialize Qdrant Client
