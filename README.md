@@ -101,9 +101,16 @@ docker compose start harvester
 You can monitor progress in `data/harvester.log`.
 
 ### 3. Updating the Index
-The backend loads data on startup. To trigger an incremental re-index after a harvest:
+The backend loads data on startup. You can trigger an incremental re-index in two ways:
+
+**Via API:**
 ```bash
 curl -X POST http://localhost:8000/ingest
+```
+
+**Via CLI (Docker):**
+```bash
+docker compose run --rm backend python main.py --ingest
 ```
 
 ### 4. Observability

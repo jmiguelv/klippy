@@ -1,5 +1,6 @@
 import os
 import logging
+import argparse
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 import redis
@@ -13,7 +14,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("backend.main")
 
 # Arize Phoenix Observability via OpenInference (OTLP)
-# This connects to the collector endpoint configured in the environment
 set_global_handler("arize_phoenix")
 
 class QueryRequest(BaseModel):
@@ -53,7 +53,6 @@ app = FastAPI(lifespan=lifespan, title="Klippy Backend API")
 
 @app.post("/query", response_model=QueryResponse)
 async def query_klippy(request: QueryRequest):
-    # Check cache
     cache_key = f"query:{request.text}"
     try:
         cached_answer = redis_client.get(cache_key)
@@ -65,7 +64,6 @@ async def query_klippy(request: QueryRequest):
 
     try:
         answer = engine.query(request.text)
-        # Store in cache (expire in 1 hour)
         try:
             redis_client.setex(cache_key, 3600, str(answer))
         except Exception as e:
@@ -78,7 +76,6 @@ async def query_klippy(request: QueryRequest):
 
 @app.post("/ingest")
 async def trigger_ingestion(background_tasks: BackgroundTasks):
-    """Triggers an incremental ingestion of the data directory."""
     background_tasks.add_task(engine.ingest_data)
     return {"status": "Ingestion task started in background"}
 
@@ -86,6 +83,22 @@ async def trigger_ingestion(background_tasks: BackgroundTasks):
 async def health_check():
     return {"status": "healthy"}
 
+def main():
+    parser = argparse.ArgumentParser(description="Klippy Backend and Indexer")
+    parser.add_argument("--ingest", action="store_true", help="Run indexing and exit")
+    parser.add_argument("--serve", action="store_true", default=True, help="Run FastAPI server (default)")
+    
+    # Argparse default=True logic is tricky when mixed, let's just check for --ingest
+    args, unknown = parser.parse_known_args()
+
+    if args.ingest:
+        logger.info("CLI: Starting manual ingestion...")
+        engine.ingest_data()
+        logger.info("CLI: Ingestion complete. Exiting.")
+    else:
+        import uvicorn
+        logger.info("CLI: Starting FastAPI server...")
+        uvicorn.run(app, host="0.0.0.0", port=8000)
+
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    main()
