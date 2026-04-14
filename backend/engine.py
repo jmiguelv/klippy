@@ -12,6 +12,7 @@ from llama_index.storage.kvstore.redis import RedisKVStore as RedisCache
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from llama_index.llms.openai import OpenAI
 from llama_index.embeddings.openai import OpenAIEmbedding
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
 # Setup logging
 logger = logging.getLogger("backend.engine")
@@ -33,14 +34,23 @@ class KlippyEngine:
             api_base=llm_base_url,
             api_key=llm_api_key
         )
-        if "arc:lite" in embed_model.lower():
-            logger.warning("WARNING: 'arc:lite' detected as EMBED_MODEL. This is typically a chat model and will likely fail for embeddings.")
         
-        Settings.embed_model = OpenAIEmbedding(
-            model_name=embed_model, 
-            api_base=llm_base_url,
-            api_key=llm_api_key
-        )
+        # Determine embedding model (OpenAI vs HuggingFace)
+        if embed_model.startswith("local:") or "/" in embed_model:
+            # Example: local:BAAI/bge-small-en-v1.5 or just BAAI/bge-small-en-v1.5
+            model_name = embed_model.replace("local:", "")
+            logger.info(f"Using local HuggingFace embedding model: {model_name}")
+            Settings.embed_model = HuggingFaceEmbedding(model_name=model_name)
+        else:
+            if "arc:lite" in embed_model.lower():
+                logger.warning("WARNING: 'arc:lite' detected as EMBED_MODEL. This is typically a chat model and will likely fail for embeddings.")
+            
+            logger.info(f"Using OpenAI-compatible embedding model: {embed_model}")
+            Settings.embed_model = OpenAIEmbedding(
+                model_name=embed_model, 
+                api_base=llm_base_url,
+                api_key=llm_api_key
+            )
         
         # Initialize Qdrant Client
         self.client = qdrant_client.QdrantClient(host=self.qdrant_host, port=6333)
