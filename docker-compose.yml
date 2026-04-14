@@ -48,6 +48,7 @@ services:
       - phoenix
 
   harvester:
+    profiles: ["manual"]
     build:
       context: ./harvester
       dockerfile: Dockerfile

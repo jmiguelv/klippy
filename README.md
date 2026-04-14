@@ -103,13 +103,13 @@ docker compose up -d
 To trigger a manual incremental sync:
 
 ```bash
-docker compose run --rm harvester uv run python main.py --all
+docker compose --profile manual run --rm harvester uv run python main.py --all
 ```
 
 To force a full re-harvest (ignoring saved state):
 
 ```bash
-docker compose run --rm harvester uv run python main.py --all --force
+docker compose --profile manual run --rm harvester uv run python main.py --all --force
 ```
 
 ### 3. Updating the Index
