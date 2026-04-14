@@ -7,6 +7,7 @@ from llama_index.core import (
     StorageContext,
     SimpleDirectoryReader,
     Settings,
+    PromptTemplate,
 )
 from llama_index.core.ingestion import IngestionPipeline, IngestionCache
 from llama_index.storage.kvstore.redis import RedisKVStore as RedisCache
@@ -17,6 +18,18 @@ from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
 # Setup logging
 logger = logging.getLogger("backend.engine")
+
+STRICT_SYSTEM_PROMPT = (
+    "You are Klippy, an expert research assistant for King's Digital Lab. "
+    "Your goal is to answer questions strictly using the provided context from ClickUp and GitHub. "
+    "\n\nRules:\n"
+    "1. Only use the provided context to answer the question.\n"
+    "2. If the context does not contain enough information to answer the question, clearly state: "
+    "'I am sorry, but I do not have enough information in my current index to answer that question.'\n"
+    "3. Do not use any external knowledge or make up information.\n"
+    "4. When possible, mention whether the information came from ClickUp or GitHub based on the metadata.\n"
+    "5. Be concise and professional."
+)
 
 class KlippyEngine:
     def __init__(self, qdrant_host: str, data_dir: str, collection_name: str = "klippy_data"):
@@ -129,7 +142,7 @@ class KlippyEngine:
         logger.info(f"Ingestion complete. Total nodes processed: {len(all_nodes)}.")
 
     def get_query_engine(self):
-        """Returns a query engine based on the current index."""
+        """Returns a query engine with a strict system prompt."""
         if self._index is None:
             # Try to load existing index from Qdrant
             self._index = VectorStoreIndex.from_vector_store(
@@ -137,11 +150,19 @@ class KlippyEngine:
                 storage_context=self.storage_context
             )
             
-        return self._index.as_query_engine(
+        engine = self._index.as_query_engine(
             similarity_top_k=5,
             response_mode="compact",
             llm=Settings.llm
         )
+
+        # Apply strict prompt
+        template = STRICT_SYSTEM_PROMPT + "\n\nContext:\n{context_str}\n\nQuestion: {query_str}\n\nAnswer:"
+        engine.update_prompts(
+            {"response_synthesizer:text_qa_template": PromptTemplate(template)}
+        )
+        
+        return engine
 
     def query(self, text: str) -> str:
         """Executes a query and returns the LLM-synthesized response."""
