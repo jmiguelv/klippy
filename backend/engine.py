@@ -33,6 +33,9 @@ class KlippyEngine:
             api_base=llm_base_url,
             api_key=llm_api_key
         )
+        if "arc:lite" in embed_model.lower():
+            logger.warning("WARNING: 'arc:lite' detected as EMBED_MODEL. This is typically a chat model and will likely fail for embeddings.")
+        
         Settings.embed_model = OpenAIEmbedding(
             model_name=embed_model, 
             api_base=llm_base_url,

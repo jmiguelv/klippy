@@ -15,7 +15,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("backend.main")
 
 # Arize Phoenix Observability via OpenInference (OTLP)
-set_global_handler("arize_phoenix")
+phoenix_endpoint = os.getenv("PHOENIX_COLLECTOR_ENDPOINT", "http://phoenix:6006")
+if not phoenix_endpoint.endswith("/v1/traces"):
+    phoenix_endpoint = f"{phoenix_endpoint}/v1/traces"
+
+set_global_handler("arize_phoenix", endpoint=phoenix_endpoint)
 
 class QueryRequest(BaseModel):
     text: str
