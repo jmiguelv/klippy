@@ -7,7 +7,7 @@ def format_timestamp(ts: str) -> str:
     except (ValueError, TypeError):
         return "Unknown"
 
-def task_to_markdown(task: dict) -> str:
+def task_to_markdown(task: dict, space_name: str = "Unknown", folder_name: str = "Unknown", list_name: str = "Unknown") -> str:
     """Converts a ClickUp task to Markdown with YAML frontmatter."""
     creator = task.get('creator', {}) or {}
     creator_name = creator.get('username') or 'Unknown'
@@ -23,6 +23,9 @@ def task_to_markdown(task: dict) -> str:
         "source: clickup",
         "type: task",
         f"id: {task.get('id')}",
+        f"space: {space_name}",
+        f"folder: {folder_name}",
+        f"list: {list_name}",
         f"status: {status_name}",
         f"url: {task.get('url')}",
         f"creator: {creator_name}",
@@ -39,13 +42,14 @@ def task_to_markdown(task: dict) -> str:
     ]
     return "\n".join(metadata)
 
-def page_to_markdown(page: dict, doc_name: str) -> str:
+def page_to_markdown(page: dict, doc_name: str, workspace_id: str = "Unknown") -> str:
     """Converts a ClickUp Page to Markdown with YAML frontmatter."""
     metadata = [
         "---",
         "source: clickup",
         "type: page",
         f"id: {page.get('id')}",
+        f"workspace: {workspace_id}",
         f"doc_name: {doc_name}",
         f"created_at: {format_timestamp(page.get('date_created'))}",
         f"updated_at: {format_timestamp(page.get('date_updated'))}",

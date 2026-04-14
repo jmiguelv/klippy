@@ -34,7 +34,7 @@ class Orchestrator:
             logger.error(f"Failed to list spaces: {e}")
             return
 
-        all_list_ids = []
+        all_lists = [] # Store tuple of (list_id, list_name, folder_name, space_name)
         for space in spaces:
             space_name = space.get("name", "Unknown")
             if space_name.lower() in ignore_spaces:
@@ -47,9 +47,10 @@ class Orchestrator:
             # Folderless lists
             try:
                 folderless_lists = self.clickup.get_lists_in_space(space_id)
+                for l in folderless_lists:
+                    all_lists.append((l["id"], l["name"], "None", space_name))
                 if folderless_lists:
                     logger.info(f"  Found {len(folderless_lists)} folderless lists.")
-                    all_list_ids.extend([l["id"] for l in folderless_lists])
             except Exception as e:
                 logger.warning(f"  Failed to list folderless lists: {e}")
 
@@ -59,20 +60,21 @@ class Orchestrator:
                 for folder in folders:
                     logger.info(f"  Processing folder: {folder['name']}")
                     folder_lists = self.clickup.get_lists_in_folder(folder["id"])
-                    all_list_ids.extend([l["id"] for l in folder_lists])
+                    for l in folder_lists:
+                        all_lists.append((l["id"], l["name"], folder["name"], space_name))
             except Exception as e:
                 logger.warning(f"  Failed to list folders: {e}")
 
-        logger.info(f"Discovered a total of {len(all_list_ids)} lists. Fetching tasks...")
+        logger.info(f"Discovered a total of {len(all_lists)} lists. Fetching tasks...")
         # 3. Process discovered Tasks
         current_sync_time_ms = str(int(datetime.now().timestamp() * 1000))
         task_count = 0
-        for list_id in all_list_ids:
+        for list_id, list_name, folder_name, space_name in all_lists:
             try:
                 last_sync = self.state.get_last_sync(f"clickup_list_{list_id}")
                 tasks = self.clickup.get_tasks(list_id, updated_since=last_sync)
                 for task in tasks:
-                    md = task_to_markdown(task)
+                    md = task_to_markdown(task, space_name=space_name, folder_name=folder_name, list_name=list_name)
                     self._save_markdown(f"clickup_task_{task['id']}.md", md)
                     task_count += 1
 
@@ -95,7 +97,7 @@ class Orchestrator:
                 pages = self.clickup.get_pages(workspace_id, doc["id"])
                 doc_count += 1
                 for page in pages:
-                    md = page_to_markdown(page, doc_name)
+                    md = page_to_markdown(page, doc_name, workspace_id=workspace_id)
                     self._save_markdown(f"clickup_page_{page['id']}.md", md)
                     page_count += 1
             logger.info(f"Harvested {page_count} pages from {doc_count} docs.")
