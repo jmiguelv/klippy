@@ -380,7 +380,19 @@
 						autocomplete="off"
 					/>
 					<button type="submit" disabled={isLoading}>
-						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+						<svg
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<circle cx="11" cy="11" r="8"></circle>
+							<line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+						</svg>
 						<span>Send</span>
 					</button>
 				</form>
@@ -599,18 +611,66 @@
 	.source-link:hover { border-color: var(--kings-red); color: var(--kings-red); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
 
 	.query-area {
-		position: sticky; bottom: 0; background: linear-gradient(transparent, var(--canvas) 40%);
-		padding: var(--size-12) var(--size-6) var(--size-10); z-index: 100;
+		position: sticky;
+		bottom: 0;
+		background: linear-gradient(transparent, var(--canvas) 40%);
+		padding: var(--size-12) var(--size-6) var(--size-10);
+		z-index: 100;
 	}
 
 	.query-box {
-		display: flex; gap: var(--size-5); padding: var(--size-6) var(--size-8);
-		background: var(--surface); border: 1px solid var(--border);
-		border-top: 4px solid var(--kings-red); box-shadow: 0 -12px 64px rgba(0,0,0,0.08);
+		display: flex;
+        flex-direction: column;
+		gap: var(--size-3);
+		padding: var(--size-6) var(--size-7);
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-top: 4px solid var(--kings-red);
+		box-shadow: 0 4px 32px rgba(0, 0, 0, 0.03);
 	}
 
-	#chat-input { flex: 1; border: none; outline: none; font-size: 1.15rem; font-weight: 300; background: transparent; }
-	button[type='submit'] { background: var(--kings-red); color: white; border: none; padding: 12px 24px; border-radius: 4px; font-weight: 600; cursor: pointer; transition: background 0.15s; font-size: 0.95rem; text-shadow: none; }
+    .query-label {
+        font-family: var(--font-mono);
+        font-size: 0.65rem;
+        font-weight: 600;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--kings-red);
+    }
+
+    .query-input-row {
+        display: flex;
+        align-items: center;
+        gap: var(--size-4);
+        border-bottom: 1px solid var(--border-dark);
+        padding-bottom: var(--size-2);
+    }
+
+	#chat-input {
+		flex: 1;
+		border: none;
+		outline: none;
+		font-size: 1.1rem;
+		font-weight: 300;
+		background: transparent;
+        color: var(--ink-0);
+	}
+
+	button[type='submit'] {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--size-2);
+		background: var(--kings-red);
+		color: white;
+		border: none;
+		padding: 8px 16px;
+		font-weight: 500;
+		cursor: pointer;
+		transition: background 0.15s;
+		font-size: 0.85rem;
+        border-radius: 2px;
+        text-shadow: none;
+	}
     button[type='submit']:hover { background: #b00018; }
 
 	.loader { margin-top: 3rem; text-align: center; }
