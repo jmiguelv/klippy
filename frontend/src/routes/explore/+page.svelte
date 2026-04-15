@@ -28,13 +28,14 @@
 		updatedAt: number;
 	}
 
-	// State
+	// State (Svelte 5 Runes)
 	let sessions = $state<Session[]>([]);
 	let currentSessionId = $state('');
 	let query = $state('');
 	let isLoading = $state(false);
 	let loaderVerb = $state('Synthesising');
-	let expandedSources = $state<Set<number>>(new Set());
+	let sessionId = $state('');
+	let expandedSources = $state<Set<number>>(new Set()); // Track expanded state for each message
 	let isSidebarOpen = $state(true);
 
 	const LOADER_VERBS = [
@@ -48,9 +49,26 @@
 		'Lemmatising'
 	];
 
-	// Derived
-	let currentSession = $derived(sessions.find((s) => s.id === currentSessionId));
-	let chatHistory = $derived(currentSession?.messages || []);
+	function getSessionId() {
+		if (typeof window === 'undefined') return '';
+		if (!sessionId) {
+			sessionId = localStorage.getItem('klippy_session_id') || '';
+			if (!sessionId) {
+				sessionId = crypto.randomUUID();
+				localStorage.setItem('klippy_session_id', sessionId);
+			}
+		}
+		return sessionId;
+	}
+
+	function toggleSources(index: number) {
+		if (expandedSources.has(index)) {
+			expandedSources.delete(index);
+		} else {
+			expandedSources.add(index);
+		}
+		expandedSources = new Set(expandedSources); // Trigger update
+	}
 
 	// Persistence
 	function saveSessions() {
@@ -64,13 +82,12 @@
 			const stored = localStorage.getItem('klippy_sessions');
 			if (stored) {
 				sessions = JSON.parse(stored);
-				// Sort by most recent
 				sessions.sort((a, b) => b.updatedAt - a.updatedAt);
 			}
 		}
 	}
 
-	// CRUD Operations
+	// CRUD
 	function createNewChat(initialQuery = '') {
 		const newId = crypto.randomUUID();
 		const newSession: Session = {
@@ -117,44 +134,58 @@
 		return str.length > n ? str.slice(0, n - 1) + '...' : str;
 	}
 
-	function toggleSources(index: number) {
-		if (expandedSources.has(index)) {
-			expandedSources.delete(index);
-		} else {
-			expandedSources.add(index);
+	async function sendFeedback(isPositive: boolean, sId: string) {
+		try {
+			await fetch('http://localhost:8000/feedback', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ session_id: sId, is_positive: isPositive })
+			});
+			if (!isPositive) {
+				alert('Session history cleared on server. Starting fresh!');
+				const sIdx = sessions.findIndex(s => s.id === sId);
+				if (sIdx !== -1) {
+					sessions[sIdx].messages = [];
+					saveSessions();
+				}
+			}
+		} catch (e) {
+			console.error(e);
 		}
-		expandedSources = new Set(expandedSources);
 	}
 
 	async function handleSend(textOverride?: string, isRefresh = false) {
 		const text = textOverride || query.trim();
 		if (!text) return;
 
-		// Ensure we have a session
-		if (!currentSessionId) {
-			createNewChat(text);
-		}
+		if (!currentSessionId) createNewChat(text);
 
 		if (!textOverride) query = '';
+		const sIdx = sessions.findIndex((s) => s.id === currentSessionId);
+		if (sIdx === -1) return;
 
-		const sessionIndex = sessions.findIndex((s) => s.id === currentSessionId);
-		if (sessionIndex === -1) return;
-
-		// Update title if it's the first message
-		if (sessions[sessionIndex].messages.length === 0) {
-			sessions[sessionIndex].title = truncate(text, 35);
+		if (sessions[sIdx].messages.length === 0) {
+			sessions[sIdx].title = truncate(text, 35);
 		}
 
 		if (!isRefresh) {
-			sessions[sessionIndex].messages.push({ role: 'user', content: text });
+			sessions[sIdx].messages = [...sessions[sIdx].messages, { role: 'user', content: text }];
 		}
-		sessions[sessionIndex].updatedAt = Date.now();
+		sessions[sIdx].updatedAt = Date.now();
 
 		isLoading = true;
 		let verbIndex = 0;
 		const interval = setInterval(() => {
 			loaderVerb = LOADER_VERBS[++verbIndex % LOADER_VERBS.length];
 		}, 2000);
+
+		if (isRefresh) {
+			await fetch('http://localhost:8000/feedback', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ session_id: currentSessionId, is_positive: false })
+			});
+		}
 
 		try {
 			const response = await fetch('http://localhost:8000/query', {
@@ -175,18 +206,15 @@
 			};
 
 			if (isRefresh) {
-				sessions[sessionIndex].messages[sessions[sessionIndex].messages.length - 1] = newMessage;
+				sessions[sIdx].messages[sessions[sIdx].messages.length - 1] = newMessage;
 			} else {
-				sessions[sessionIndex].messages.push(newMessage);
+				sessions[sIdx].messages = [...sessions[sIdx].messages, newMessage];
 			}
-			sessions[sessionIndex].updatedAt = Date.now();
+			sessions[sIdx].updatedAt = Date.now();
 			saveSessions();
 		} catch (e) {
 			console.error(e);
-			sessions[sessionIndex].messages.push({
-				role: 'klippy',
-				content: 'Error: Could not connect to the research engine.'
-			});
+			sessions[sIdx].messages = [...sessions[sIdx].messages, { role: 'klippy', content: 'Error: Could not connect to the research engine.' }];
 		} finally {
 			clearInterval(interval);
 			isLoading = false;
@@ -194,28 +222,22 @@
 		}
 	}
 
-	async function sendFeedback(isPositive: boolean, sessionId: string) {
-		try {
-			await fetch('http://localhost:8000/feedback', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ session_id: sessionId, is_positive: isPositive })
-			});
-			if (!isPositive) {
-				alert('Feedback received. You can refresh to get a new answer.');
-			}
-		} catch (e) {
-			console.error(e);
+	// Derived
+	let currentSession = $derived(sessions.find((s) => s.id === currentSessionId));
+	let chatHistory = $derived(currentSession?.messages || []);
+
+	// Svelte 5 Effect for URL parameters
+	$effect(() => {
+		const q = page.url.searchParams.get('q');
+		if (q && sessions.length === 0 && !isLoading) {
+			handleSend(q);
 		}
-	}
+	});
 
 	onMount(() => {
 		loadSessions();
-		const q = page.url.searchParams.get('q');
-		if (q) {
-			createNewChat(q);
-			handleSend(q);
-		} else if (sessions.length > 0 && !currentSessionId) {
+		getSessionId();
+		if (sessions.length > 0 && !currentSessionId) {
 			currentSessionId = sessions[0].id;
 		}
 	});
@@ -236,14 +258,21 @@
 
 		<div class="session-list">
 			{#each sessions as s}
-				<button class="session-item" class:active={currentSessionId === s.id} onclick={() => selectChat(s.id)}>
+				<div 
+                    role="button"
+                    tabindex="0"
+                    class="session-item" 
+                    class:active={currentSessionId === s.id} 
+                    onclick={() => selectChat(s.id)}
+                    onkeydown={(e) => e.key === 'Enter' && selectChat(s.id)}
+                >
 					<svg class="session-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
 					<span class="session-title">{s.title}</span>
 					<div class="session-actions">
 						<button onclick={(e) => renameChat(s.id, e)} title="Rename">✏️</button>
 						<button onclick={(e) => deleteChat(s.id, e)} title="Delete">🗑️</button>
 					</div>
-				</button>
+				</div>
 			{/each}
 		</div>
 	</aside>
@@ -284,15 +313,15 @@
 									<div class="meta-right">
 										<div class="actions">
 											<button class="icon-btn" onclick={() => sendFeedback(true, currentSessionId)} title="Helpful">
-												<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v12"></path><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z"></path></svg>
-											</button>
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v12"></path><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z"></path></svg>
+                                            </button>
 											<button class="icon-btn" onclick={() => sendFeedback(false, currentSessionId)} title="Not helpful">
-												<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14V2"></path><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22h0a3.13 3.13 0 0 1-3-3.88Z"></path></svg>
-											</button>
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14V2"></path><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22h0a3.13 3.13 0 0 1-3-3.88Z"></path></svg>
+                                            </button>
 											<div class="sep"></div>
 											<button class="icon-btn" onclick={() => handleSend(chatHistory[i-1]?.content, true)} title="Refresh">
-												<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M3 21v-5h5"></path></svg>
-											</button>
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M3 21v-5h5"></path></svg>
+                                            </button>
 										</div>
 										{#if msg.total_time_ms}
 											<span class="timing">{msg.total_time_ms}ms</span>
@@ -427,7 +456,6 @@
 		text-align: left;
 		transition: background 0.15s;
 		position: relative;
-		group: hover;
 	}
 
 	.session-item:hover {
@@ -550,20 +578,22 @@
 	.icon-btn {
 		background: none; border: 1px solid var(--border); border-radius: 4px;
 		cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; color: var(--ink-2); opacity: 0.5; transition: all 0.15s;
+        text-shadow: none;
 	}
 	.icon-btn:hover { opacity: 1; background: var(--kings-red-light); border-color: var(--kings-red); color: var(--kings-red); }
 
 	.card-content { padding: var(--size-8) var(--size-6); font-family: var(--font-display); font-size: 1.25rem; line-height: 1.8; }
 
 	.card-footer { border-top: 1px solid var(--border); background: var(--canvas); }
-	.toggle-btn { width: 100%; display: flex; justify-content: space-between; padding: var(--size-4) var(--size-6); background: none; border: none; cursor: pointer; }
+	.toggle-btn { width: 100%; display: flex; justify-content: space-between; padding: var(--size-4) var(--size-6); background: none; border: none; cursor: pointer; transition: background 0.1s; text-shadow: none; }
+    .toggle-btn:hover { background: rgba(0,0,0,0.02); }
 	.toggle-label { font-family: var(--font-mono); font-size: 0.7rem; text-transform: uppercase; color: var(--ink-2); letter-spacing: 0.08em; }
 	.toggle-icon { transition: transform 0.2s; font-size: 0.7rem; color: var(--ink-2); }
 	.rotated { transform: rotate(180deg); }
 	
 	.sources-grid { display: flex; flex-wrap: wrap; gap: var(--size-3); padding: 0 var(--size-6) var(--size-6); }
-	.source-link { display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; font-size: 0.8rem; color: var(--ink-1); transition: all 0.15s; }
-	.source-link:hover { border-color: var(--kings-red); color: var(--kings-red); }
+	.source-link { display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; font-size: 0.8rem; color: var(--ink-1); transition: all 0.15s; text-shadow: none; }
+	.source-link:hover { border-color: var(--kings-red); color: var(--kings-red); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
 
 	.query-area {
 		position: sticky; bottom: 0; background: linear-gradient(transparent, var(--canvas) 40%);
@@ -577,7 +607,8 @@
 	}
 
 	#chat-input { flex: 1; border: none; outline: none; font-size: 1.15rem; font-weight: 300; background: transparent; }
-	button[type='submit'] { background: var(--kings-red); color: white; border: none; padding: 12px 24px; border-radius: 4px; font-weight: 600; cursor: pointer; }
+	button[type='submit'] { background: var(--kings-red); color: white; border: none; padding: 12px 24px; border-radius: 4px; font-weight: 600; cursor: pointer; transition: background 0.15s; font-size: 0.95rem; text-shadow: none; }
+    button[type='submit']:hover { background: #b00018; }
 
 	.loader { margin-top: 3rem; text-align: center; }
 	.loader-bar { height: 2px; background: var(--border); position: relative; overflow: hidden; }

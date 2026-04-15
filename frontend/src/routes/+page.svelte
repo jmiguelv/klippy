@@ -15,57 +15,57 @@
 </svelte:head>
 
 <main class="landing-page">
-	<section class="landing-hero">
-		<div class="container hero-inner">
-			<header class="hero-text">
-				<p class="hero-eyebrow">King's Digital Lab</p>
-				<h1 class="hero-heading">Ask anything about<br />your research projects.</h1>
-				<p class="hero-description">
-					Search across ClickUp tasks, GitHub repositories,<br class="break" /> and internal documentation.
-				</p>
-			</header>
+    <section class="landing-hero">
+        <div class="container hero-inner">
+            <header class="hero-text">
+                <p class="hero-eyebrow">King's Digital Lab</p>
+                <h1 class="hero-heading">Ask anything about<br/>your research projects.</h1>
+                <p class="hero-description">
+                    Search across ClickUp tasks, GitHub repositories,<br class="break" /> and internal documentation.
+                </p>
+            </header>
 
-			<form class="search-form" onsubmit={handleSearch}>
-				<div class="query-box">
-					<label for="landing-search" class="query-label">Query</label>
-					<div class="query-input-row">
-						<input
-							id="landing-search"
-							type="text"
-							bind:value={query}
-							placeholder="What needs doing on the Slavery in War project?"
-							autocomplete="off"
-						/>
-						<button type="submit" aria-label="Search">
-							<svg
-								width="16"
-								height="16"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-							>
-								<line x1="5" y1="12" x2="19" y2="12"></line>
-								<polyline points="12 5 19 12 12 19"></polyline>
-							</svg>
-							<span>Search</span>
-						</button>
-					</div>
-					<p class="query-hint">Press <kbd>↵ Enter</kbd> to search</p>
-				</div>
-			</form>
-		</div>
-	</section>
+            <form class="search-form" onsubmit={handleSearch}>
+                <div class="query-box">
+                    <label for="landing-search" class="query-label">Query</label>
+                    <div class="query-input-row">
+                        <input
+                            id="landing-search"
+                            type="text"
+                            bind:value={query}
+                            placeholder="What needs doing on the Slavery in War project?"
+                            autocomplete="off"
+                        />
+                        <button type="submit" aria-label="Explore">
+                            <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            >
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                                <polyline points="12 5 19 12 12 19"></polyline>
+                            </svg>
+                            <span>Explore</span>
+                        </button>
+                    </div>
+                    <p class="query-hint">Press <kbd>↵ Enter</kbd> to search</p>
+                </div>
+            </form>
+        </div>
+    </section>
 </main>
 
 <style>
-	.landing-page {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-	}
+    .landing-page {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
 
 	.landing-hero {
 		flex: 1;
@@ -81,7 +81,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--size-12);
-		padding-bottom: 10vh;
+        padding-bottom: 10vh;
 	}
 
 	.hero-eyebrow {
@@ -90,7 +90,7 @@
 		color: var(--kings-red);
 		text-transform: uppercase;
 		letter-spacing: 0.12em;
-		margin-bottom: var(--size-4);
+		margin-bottom: var(--size-6);
 	}
 
 	.hero-heading {
@@ -116,32 +116,32 @@
 	}
 
 	.query-box {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-3);
-		padding: var(--size-6) var(--size-7);
-		background: var(--surface);
-		border: 1px solid var(--border);
-		border-top: 4px solid var(--kings-red);
-		box-shadow: 0 4px 32px rgba(0, 0, 0, 0.03);
+        display: flex;
+        flex-direction: column;
+        gap: var(--size-3);
+        padding: var(--size-6) var(--size-7);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-top: 4px solid var(--kings-red);
+        box-shadow: 0 4px 32px rgba(0, 0, 0, 0.03);
 	}
 
-	.query-label {
-		font-family: var(--font-mono);
-		font-size: 0.65rem;
-		font-weight: 600;
-		letter-spacing: 0.15em;
-		text-transform: uppercase;
-		color: var(--kings-red);
-	}
+    .query-label {
+        font-family: var(--font-mono);
+        font-size: 0.65rem;
+        font-weight: 600;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--kings-red);
+    }
 
-	.query-input-row {
-		display: flex;
-		align-items: center;
-		gap: var(--size-4);
-		border-bottom: 1px solid var(--border-dark);
-		padding-bottom: var(--size-2);
-	}
+    .query-input-row {
+        display: flex;
+        align-items: center;
+        gap: var(--size-4);
+        border-bottom: 1px solid var(--border-dark);
+        padding-bottom: var(--size-2);
+    }
 
 	input {
 		flex: 1;
@@ -152,13 +152,13 @@
 		outline: none;
 		background: transparent;
 		font-weight: 300;
-		color: var(--ink-0);
+        color: var(--ink-0);
 	}
 
-	input::placeholder {
-		color: var(--ink-2);
-		opacity: 0.5;
-	}
+    input::placeholder {
+        color: var(--ink-2);
+        opacity: 0.5;
+    }
 
 	button {
 		display: inline-flex;
@@ -172,8 +172,8 @@
 		cursor: pointer;
 		transition: background 0.15s;
 		font-size: 0.85rem;
-		border-radius: 2px;
-		text-shadow: none;
+        border-radius: 2px;
+        text-shadow: none;
 	}
 
 	button:hover {
@@ -188,37 +188,21 @@
 		font-weight: 300;
 	}
 
-	kbd {
-		font-family: var(--font-mono);
-		color: var(--ink-1);
-		font-size: 0.8rem;
-	}
-
-	.sr-only {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		padding: 0;
-		margin: -1px;
-		overflow: hidden;
-		clip: rect(0, 0, 0, 0);
-		white-space: nowrap;
-		border-width: 0;
-	}
+    kbd {
+        font-family: var(--font-mono);
+        color: var(--ink-1);
+        font-size: 0.8rem;
+    }
 
 	@media (max-width: 640px) {
 		.query-input-row {
 			flex-direction: column;
-			align-items: stretch;
+            align-items: stretch;
 		}
 		button {
 			justify-content: center;
 		}
-		.hero-inner {
-			padding-bottom: 0;
-		}
-		.break {
-			display: none;
-		}
+        .hero-inner { padding-bottom: 0; }
+        .break { display: none; }
 	}
 </style>
