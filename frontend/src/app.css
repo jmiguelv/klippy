@@ -1,100 +1,151 @@
-@import "open-props/style";
-@import "open-props/buttons";
+@import 'open-props/style';
 
 /* ── Custom Tokens ─────────────────────────────────────── */
 :root {
-    --kings-red: #d6001c;
-    --kings-red-light: #f2e5e7;
-    --canvas: #faf9f7;
-    --surface: #ffffff;
-    --border: #e2ddd8;
-    --border-dark: #c8c2bb;
+	--kings-red: #d6001c;
+	--kings-red-hover: #b00018;
+	--kings-red-light: #f2e5e7;
+	--canvas: #faf9f7;
+	--surface: #ffffff;
+	--border: #e2ddd8;
+	--border-dark: #c8c2bb;
 
-    --ink-0: #1a1614;
-    --ink-1: #3d3733;
-    --ink-2: #7a7470;
+	--ink-0: #1a1614;
+	--ink-1: #3d3733;
+	--ink-2: #7a7470;
 
-    --teal: #1f7a6e;
-    --teal-light: #e0f0ee;
+	--teal: #1f7a6e;
+	--teal-light: #e0f0ee;
 
-    /* Typography */
-    --font-display: "Cormorant Garamond", Georgia, serif;
-    --font-sans: "IBM Plex Sans", system-ui, sans-serif;
-    --font-mono: "IBM Plex Mono", "Courier New", monospace;
+	--shadow-subtle: 0 4px 32px rgba(0, 0, 0, 0.03);
+
+	/* Typography */
+	--font-display: 'Cormorant Garamond', Georgia, serif;
+	--font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+	--font-mono: 'IBM Plex Mono', 'Courier New', monospace;
 }
 
 /* ── Base ───────────────────────────────────────── */
-*, *::before, *::after {
-    box-sizing: border-box;
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
 }
 
 html {
-    background-color: var(--canvas);
-    scroll-behavior: smooth;
+	background-color: var(--canvas);
+	scroll-behavior: smooth;
 }
 
 body {
-    font-family: var(--font-sans);
-    color: var(--ink-0);
-    background-color: var(--canvas);
-    min-height: 100svh;
-    display: flex;
-    flex-direction: column;
-    -webkit-font-smoothing: antialiased;
-    margin: 0;
+	font-family: var(--font-sans);
+	color: var(--ink-0);
+	background-color: var(--canvas);
+	min-height: 100svh;
+	display: flex;
+	flex-direction: column;
+	-webkit-font-smoothing: antialiased;
+	margin: 0;
 }
 
-h1, h2, h3, h4 {
-    font-family: var(--font-display);
-    line-height: var(--font-lineheight-1);
-    font-weight: var(--font-weight-6);
+h1,
+h2,
+h3,
+h4 {
+	font-family: var(--font-display);
+	line-height: 1.1;
+	font-weight: 500;
+	color: var(--ink-0);
 }
 
 a {
-    color: inherit;
-    text-decoration: none;
+	color: inherit;
+	text-decoration: none;
 }
 
 /* ── Layout Utilities ────────────────────────────── */
 .container {
-    max-width: 1040px;
-    margin-inline: auto;
-    padding-inline: var(--size-6);
+	max-width: 1040px;
+	margin-inline: auto;
+	padding-inline: var(--size-6);
 }
 
 .page-rule {
-    height: 3px;
-    background: var(--kings-red);
+	height: 3px;
+	background: var(--kings-red);
+}
+
+/* ── Shared Components ───────────────────────────── */
+.query-box {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-3);
+	padding: var(--size-6) var(--size-7);
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-top: 4px solid var(--kings-red);
+	box-shadow: var(--shadow-subtle);
+}
+
+.query-label {
+	font-family: var(--font-mono);
+	font-size: 0.65rem;
+	font-weight: 600;
+	letter-spacing: 0.15em;
+	text-transform: uppercase;
+	color: var(--kings-red);
+}
+
+.btn-primary {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-2);
+	background: var(--kings-red);
+	color: white;
+	border: none;
+	padding: var(--size-2) var(--size-4);
+	font-weight: 500;
+	cursor: pointer;
+	transition: background 0.15s;
+	font-size: 0.85rem;
+	border-radius: 4px;
+	text-shadow: none;
+}
+
+.btn-primary:hover {
+	background: var(--kings-red-hover);
 }
 
 /* ── Markdown Content Styling ─────────────────────── */
 .markdown-body {
-    line-height: 1.75;
+	line-height: 1.8;
+	font-weight: 300;
 }
 
-.markdown-body h1, .markdown-body h2 {
-    font-family: var(--font-sans);
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--kings-red);
-    margin: 1.8rem 0 0.8rem;
+.markdown-body h1,
+.markdown-body h2 {
+	font-family: var(--font-display);
+	font-size: 1.5rem;
+	font-weight: 600;
+	color: var(--kings-red);
+	margin: 2rem 0 1rem;
 }
 
 .markdown-body p {
-    margin-bottom: 1.4rem;
+	margin-bottom: 1.5rem;
 }
 
 .markdown-body ul {
-    padding-left: 1.8rem;
-    margin-bottom: 1.4rem;
+	padding-left: 2rem;
+	margin-bottom: 1.5rem;
 }
 
 .markdown-body li {
-    margin-bottom: 0.6rem;
+	margin-bottom: 0.75rem;
 }
 
 .markdown-body a {
-    color: var(--kings-red);
-    text-decoration: underline;
-    text-underline-offset: 3px;
+	color: var(--kings-red);
+	text-decoration: underline;
+	text-underline-offset: 3px;
 }
