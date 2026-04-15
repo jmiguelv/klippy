@@ -162,14 +162,14 @@ class KlippyEngine:
             )
             
         system_prompt = self._get_system_prompt()
-        template = system_prompt + "\n\nContext:\n{context_str}\n\nQuestion: {query_str}\n\nAnswer:"
         
-        # Explicitly build response synthesizer
-        response_synthesizer = get_response_synthesizer(
-            response_mode="simple_summarize",
-            llm=Settings.llm,
-            text_qa_template=PromptTemplate(template),
-            refine_template=PromptTemplate(template)
+        # Format the context prompt correctly for condense_plus_context
+        # This acts as the system prompt and is where context is injected
+        context_prompt = (
+            system_prompt + "\n\n"
+            "Here are the relevant documents for the context:\n"
+            "{context_str}\n"
+            "\nInstruction: Use the previous chat history, or the context above, to interact and help the user."
         )
 
         # Memory buffer
@@ -178,7 +178,7 @@ class KlippyEngine:
         return self._index.as_chat_engine(
             chat_mode="condense_plus_context",
             memory=memory,
-            response_synthesizer=response_synthesizer,
+            context_prompt=context_prompt,
             similarity_top_k=10,
             llm=Settings.llm
         )
