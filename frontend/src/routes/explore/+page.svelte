@@ -330,9 +330,12 @@
 								</header>
 
 								<div class="card-content markdown-body">
-									{@html marked.parse(msg.content)}
+									{#if msg.content}
+										{@html marked.parse(msg.content)}
+									{:else}
+										<p>No content available.</p>
+									{/if}
 								</div>
-
 								{#if msg.sources && msg.sources.length > 0}
 									<footer class="card-footer">
 										<button class="toggle-btn" onclick={() => toggleSources(i)}>
