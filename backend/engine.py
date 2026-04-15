@@ -14,7 +14,6 @@ from llama_index.core.memory import ChatMemoryBuffer
 from llama_index.core.ingestion import IngestionPipeline, IngestionCache
 from llama_index.storage.kvstore.redis import RedisKVStore as RedisCache
 from llama_index.vector_stores.qdrant import QdrantVectorStore
-from llama_index.llms.openai import OpenAI
 from llama_index.llms.openai_like import OpenAILike
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
@@ -163,15 +162,23 @@ class KlippyEngine:
             )
             
         system_prompt = self._get_system_prompt()
+        template = system_prompt + "\n\nContext:\n{context_str}\n\nQuestion: {query_str}\n\nAnswer:"
         
-        # Memory buffer for the conversation
+        # Explicitly build response synthesizer
+        response_synthesizer = get_response_synthesizer(
+            response_mode="simple_summarize",
+            llm=Settings.llm,
+            text_qa_template=PromptTemplate(template),
+            refine_template=PromptTemplate(template)
+        )
+
+        # Memory buffer
         memory = ChatMemoryBuffer.from_defaults(chat_history=chat_history or [], token_limit=3000)
 
-        # Use condense_plus_context for robust RAG chat
         return self._index.as_chat_engine(
             chat_mode="condense_plus_context",
             memory=memory,
-            system_prompt=system_prompt,
+            response_synthesizer=response_synthesizer,
             similarity_top_k=10,
             llm=Settings.llm
         )
@@ -190,7 +197,6 @@ class KlippyEngine:
         if response.metadata is None:
             response.metadata = {}
         response.metadata["total_time_ms"] = total_time_ms
-        # Return the updated history so the API can store it
-        response.metadata["chat_history"] = [m.dict() for m in engine.memory.get()]
+        response.metadata["chat_history"] = [m.dict() for m in engine.chat_history]
         
         return response

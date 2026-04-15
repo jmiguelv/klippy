@@ -79,8 +79,19 @@ def get_history_from_redis(session_id: str) -> list[ChatMessage]:
     if not history_json:
         return []
     
-    raw_history = json.loads(history_json)
-    return [ChatMessage(role=m["role"], content=m["content"]) for m in raw_history]
+    try:
+        raw_history = json.loads(history_json)
+        history = []
+        for m in raw_history:
+            # Handle different possible key names from LlamaIndex serialization
+            role = m.get("role") or m.get("MessageRole")
+            content = m.get("content") or m.get("text") or ""
+            if role:
+                history.append(ChatMessage(role=role, content=content))
+        return history
+    except Exception as e:
+        logger.error(f"Failed to parse chat history for {session_id}: {e}")
+        return []
 
 def save_history_to_redis(session_id: str, history: list[dict]):
     """Serializes and saves chat history to Redis."""
