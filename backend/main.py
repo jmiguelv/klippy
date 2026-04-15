@@ -35,6 +35,7 @@ class QueryResponse(BaseModel):
     sources: list[dict] = []
     total_time_ms: int = 0
     cached_at: str = None
+    context_length: int = 0
 
 class IngestRequest(BaseModel):
     limit: int = None
@@ -103,11 +104,14 @@ async def query_klippy(request: QueryRequest):
         updated_history = response_obj.metadata.get("chat_history", [])
         save_history_to_redis(session_id, updated_history)
         
-        # Extract sources using regex
+        # Extract sources and calculate context length
         import re
         sources = []
+        context_length = 0
         for node in response_obj.source_nodes:
             text = node.node.get_text()
+            context_length += len(text)
+            
             source_match = re.search(r'^source:\s*"?(.*?)"?\s*$', text, re.MULTILINE)
             url_match = re.search(r'^url:\s*"?(.*?)"?\s*$', text, re.MULTILINE)
             title_match = re.search(r'^#\s+(.+)$', text, re.MULTILINE)
@@ -128,7 +132,8 @@ async def query_klippy(request: QueryRequest):
             session_id=session_id,
             sources=sources,
             total_time_ms=response_obj.metadata.get("total_time_ms", 0),
-            cached_at=now
+            cached_at=now,
+            context_length=context_length
         )
     except Exception as e:
         logger.error(f"Error during chat turn: {e}")
@@ -144,6 +149,7 @@ async def process_feedback(request: FeedbackRequest):
 
 @app.post("/ingest")
 async def trigger_ingestion(request: IngestRequest, background_tasks: BackgroundTasks):
+    """Triggers a manual ingestion. Can optionally limit number of docs."""
     background_tasks.add_task(engine.ingest_data, limit=request.limit)
     return {"status": "Ingestion task started in background", "limit": request.limit}
 
