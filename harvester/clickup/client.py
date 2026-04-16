@@ -75,40 +75,35 @@ class ClickUpClient:
         return all_docs
 
     def get_pages(self, workspace_id: str, doc_id: str) -> list:
-        """Retrieves all pages in a document with a fallback for 500 errors."""
-        url = f"{self.base_url_v3}/workspaces/{workspace_id}/docs/{doc_id}/pages"
-        
-        # Primary attempt: recursive subpages (-1)
-        params = {"content_format": "text/md", "max_page_depth": -1}
-        try:
-            response = requests.get(url, headers=self.headers, params=params)
-            
-            # Fallback for 404 with d- prefix
-            if response.status_code == 404 and not doc_id.startswith("d-"):
-                alt_doc_id = f"d-{doc_id}"
-                url_alt = f"{self.base_url_v3}/workspaces/{workspace_id}/docs/{alt_doc_id}/pages"
-                response = requests.get(url_alt, headers=self.headers, params=params)
+        """Retrieves all pages in a document with fallback for IDs and errors."""
+        # Ensure we try both raw and d-prefixed IDs
+        possible_ids = [doc_id]
+        if not doc_id.startswith("d-"):
+            possible_ids.append(f"d-{doc_id}")
 
-            # Fallback for 500 error: try without max_page_depth (gets root pages only)
-            if response.status_code >= 500:
-                logger.debug(f"  500 Error for doc {doc_id} with depth -1. Retrying with depth 0...")
-                params_limited = {"content_format": "text/md"}
-                response = requests.get(url, headers=self.headers, params=params_limited)
+        for pid in possible_ids:
+            url = f"{self.base_url_v3}/workspaces/{workspace_id}/docs/{pid}/pages"
+            params = {"content_format": "text/md", "max_page_depth": -1}
+            try:
+                response = requests.get(url, headers=self.headers, params=params)
                 
-                # If it still fails, just return empty list and let orchestrator skip it
+                if response.status_code == 404:
+                    continue # Try next ID
+                    
                 if response.status_code >= 500:
-                    logger.warning(f"  Doc {doc_id} consistently returning 500. Skipping.")
-                    return []
+                    # Fallback to depth 0
+                    params_limited = {"content_format": "text/md"}
+                    response = requests.get(url, headers=self.headers, params=params_limited)
+                    if response.status_code >= 500:
+                        continue # Skip this ID
 
-            if response.status_code == 404:
-                return []
-                
-            response.raise_for_status()
-            return self._safe_get_list(response, "pages")
-            
-        except Exception as e:
-            logger.error(f"  Error fetching pages for doc {doc_id}: {e}")
-            return []
+                response.raise_for_status()
+                return self._safe_get_list(response, "pages")
+            except Exception:
+                continue
+
+        logger.warning(f"  Could not retrieve pages for doc {doc_id} after all retries.")
+        return []
 
     def get_spaces(self, team_id: str) -> list:
         """Lists all spaces in a team/workspace."""

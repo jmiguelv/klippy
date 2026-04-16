@@ -23,56 +23,53 @@ class Orchestrator:
             f.write(content)
 
     def run_clickup(self, workspace_id: str, ignore_spaces: list[str] = None, force: bool = False, docs_only: bool = False):
-        """Orchestrates ClickUp ingestion. Can skip tasks if docs_only is True."""
+        """Orchestrates ClickUp ingestion with deep document discovery."""
         logger.info(f"Starting ClickUp harvesting for workspace: {workspace_id} (force={force}, docs_only={docs_only})")
         
-        if not docs_only:
-            ignore_spaces = [s.strip().lower() for s in (ignore_spaces or [])]
+        # 1. Discover Containers (Spaces, Folders, Lists)
+        try:
+            spaces = self.clickup.get_spaces(workspace_id)
+        except Exception as e:
+            logger.error(f"Failed to list spaces: {e}")
+            return
+
+        all_lists = []
+        all_doc_containers = [("WORKSPACE", workspace_id)] # List of (type, id)
+        
+        ignore_spaces = [s.strip().lower() for s in (ignore_spaces or [])]
+        
+        for space in spaces:
+            if not isinstance(space, dict): continue
+            space_name = space.get("name", "Unknown")
+            if space_name.lower() in ignore_spaces:
+                continue
             
+            space_id = space["id"]
+            all_doc_containers.append(("SPACE", space_id))
+            
+            # Folderless lists
             try:
-                spaces = self.clickup.get_spaces(workspace_id)
-                logger.info(f"Discovered {len(spaces)} spaces.")
-            except Exception as e:
-                logger.error(f"Failed to list spaces: {e}")
-                return
+                folderless_lists = self.clickup.get_lists_in_space(space_id)
+                for l in folderless_lists:
+                    if isinstance(l, dict):
+                        all_lists.append((l["id"], l.get("name", "Untitled"), "None", space_name))
+            except Exception: pass
 
-            all_lists = [] # Store tuple of (list_id, list_name, folder_name, space_name)
-            for space in spaces:
-                if not isinstance(space, dict): continue
-                space_name = space.get("name", "Unknown")
-                if space_name.lower() in ignore_spaces:
-                    logger.info(f"Skipping ignored space: {space_name}")
-                    continue
-                
-                logger.info(f"Processing space: {space_name}")
-                space_id = space["id"]
-                
-                # Folderless lists
-                try:
-                    folderless_lists = self.clickup.get_lists_in_space(space_id)
-                    for l in folderless_lists:
+            # Folders
+            try:
+                folders = self.clickup.get_folders(space_id)
+                for folder in folders:
+                    if not isinstance(folder, dict): continue
+                    all_doc_containers.append(("FOLDER", folder["id"]))
+                    folder_lists = self.clickup.get_lists_in_folder(folder["id"])
+                    for l in folder_lists:
                         if isinstance(l, dict):
-                            all_lists.append((l["id"], l.get("name", "Untitled"), "None", space_name))
-                    if folderless_lists:
-                        logger.info(f"  Found {len(folderless_lists)} folderless lists.")
-                except Exception as e:
-                    logger.warning(f"  Failed to list folderless lists: {e}")
+                            all_lists.append((l["id"], l.get("name", "Untitled"), folder.get('name', 'Untitled'), space_name))
+            except Exception: pass
 
-                # Folders
-                try:
-                    folders = self.clickup.get_folders(space_id)
-                    for folder in folders:
-                        if not isinstance(folder, dict): continue
-                        logger.info(f"  Processing folder: {folder.get('name', 'Untitled')}")
-                        folder_lists = self.clickup.get_lists_in_folder(folder["id"])
-                        for l in folder_lists:
-                            if isinstance(l, dict):
-                                all_lists.append((l["id"], l.get("name", "Untitled"), folder.get('name', 'Untitled'), space_name))
-                except Exception as e:
-                    logger.warning(f"  Failed to list folders: {e}")
-
-            logger.info(f"Discovered a total of {len(all_lists)} lists. Fetching tasks...")
-            # 3. Process discovered Tasks
+        # 2. Process Tasks (if not docs_only)
+        if not docs_only:
+            logger.info(f"Discovered {len(all_lists)} lists. Fetching tasks...")
             current_sync_time_ms = str(int(datetime.now().timestamp() * 1000))
             task_count = 0
             for list_id, list_name, folder_name, space_name in all_lists:
@@ -84,46 +81,61 @@ class Orchestrator:
                             md = task_to_markdown(task, space_name=space_name, folder_name=folder_name, list_name=list_name)
                             self._save_markdown(f"clickup_task_{task['id']}.md", md)
                             task_count += 1
-
-                    # Save state for THIS list
                     self.state.set_last_sync(f"clickup_list_{list_id}", current_sync_time_ms)
                     self.state.save()
                 except Exception as e:
-                    logger.warning(f"Failed to fetch tasks for list {list_id}: {e}")
-            
-            logger.info(f"Successfully harvested {task_count} ClickUp tasks.")
+                    logger.warning(f"Failed tasks for {list_id}: {e}")
+            logger.info(f"Harvested {task_count} tasks.")
 
-        # 4. Process Docs & Pages (using Workspace ID)
-        logger.info("Fetching ClickUp Docs and Pages...")
+        # 3. Deep Document Discovery
+        logger.info("Starting deep document discovery...")
+        seen_doc_ids = set()
+        doc_count = 0
+        page_count = 0
+
+        # Try Workspace search first
         try:
-            docs = self.clickup.get_docs(workspace_id)
-            doc_count = 0
-            page_count = 0
-            if isinstance(docs, list):
-                for doc in docs:
-                    if not isinstance(doc, dict): continue
-                    doc_name = doc.get("name", "Untitled")
-                    doc_id = doc.get("id")
-                    if not doc_id: 
-                        logger.debug(f"  Skipping doc without ID: {doc_name}")
-                        continue
-                    
+            workspace_docs = self.clickup.get_docs(workspace_id)
+            for d in workspace_docs:
+                if d.get("id") and d["id"] not in seen_doc_ids:
+                    seen_doc_ids.add(d["id"])
                     try:
-                        pages = self.clickup.get_pages(workspace_id, doc_id)
+                        pages = self.clickup.get_pages(workspace_id, d["id"])
                         if pages:
                             doc_count += 1
-                            for page in pages:
-                                if not isinstance(page, dict): continue
-                                page_id = page.get("id")
-                                if not page_id: continue
-                                md = page_to_markdown(page, doc_name, workspace_id=workspace_id)
-                                self._save_markdown(f"clickup_page_{page_id}.md", md)
+                            for p in pages:
+                                md = page_to_markdown(p, d.get("name", "Untitled"), workspace_id=workspace_id)
+                                self._save_markdown(f"clickup_page_{p['id']}.md", md)
                                 page_count += 1
-                    except Exception as page_e:
-                        logger.warning(f"  Failed to fetch pages for doc {doc_name} ({doc_id}): {page_e}")
-            logger.info(f"Harvested {page_count} pages from {doc_count} docs.")
-        except Exception as e:
-            logger.error(f"Failed to fetch docs: {e}", exc_info=True)
+                    except Exception: pass
+        except Exception: pass
+
+        logger.info(f"Phase 1: Found {page_count} pages from workspace search.")
+
+        # Try space/folder containers (often finds docs not in global search)
+        # This is more exhaustive
+        for c_type, c_id in all_doc_containers:
+            if c_type == "WORKSPACE": continue
+            try:
+                # v3 Search by parent
+                url = f"https://api.clickup.com/api/v3/workspaces/{workspace_id}/docs"
+                params = {"parent_id": c_id, "parent_type": c_type, "limit": 100}
+                resp = requests.get(url, headers=self.clickup.headers, params=params)
+                if resp.status_code == 200:
+                    docs = resp.json().get("docs", [])
+                    for d in docs:
+                        if d.get("id") and d["id"] not in seen_doc_ids:
+                            seen_doc_ids.add(d["id"])
+                            pages = self.clickup.get_pages(workspace_id, d["id"])
+                            if pages:
+                                doc_count += 1
+                                for p in pages:
+                                    md = page_to_markdown(p, d.get("name", "Untitled"), workspace_id=workspace_id)
+                                    self._save_markdown(f"clickup_page_{p['id']}.md", md)
+                                    page_count += 1
+            except Exception: pass
+
+        logger.info(f"Final: Total {page_count} pages harvested from {doc_count} documents.")
 
     def run_github(self, org_names: list[str] = None, user_names: list[str] = None, force: bool = False):
         """Orchestrates GitHub ingestion with incremental sync."""
@@ -131,19 +143,13 @@ class Orchestrator:
         repos = []
         if org_names:
             for org in org_names:
-                logger.info(f"Discovering repos for organization: {org}")
                 repos.extend(self.github.list_org_repos(org))
         if user_names:
             for user in user_names:
-                logger.info(f"Discovering repos for user: {user}")
                 repos.extend(self.github.list_user_repos(user))
 
-        logger.info(f"Found {len(repos)} repositories. Starting content sync...")
         current_sync_time = datetime.now().isoformat()
-
         for repo in repos:
-            logger.info(f"Processing repository: {repo}")
-            # README full sync
             try:
                 readme_data = self.github.get_readme(repo)
                 if isinstance(readme_data, dict):
@@ -151,13 +157,9 @@ class Orchestrator:
                     md = readme_to_markdown(raw_content, repo, readme_data.get("html_url", ""))
                     safe_repo_name = repo.replace("/", "_")
                     self._save_markdown(f"github_readme_{safe_repo_name}.md", md)
-                    logger.info(f"  ✓ Harvested README")
-            except Exception:
-                logger.debug(f"  - No README found for {repo}")
+            except Exception: pass
 
-            # Commits Incremental
             last_sync = None if force else self.state.get_last_sync(f"github_repo_{repo}")
-            logger.info(f"  Fetching commits since {last_sync or 'the beginning'}...")
             try:
                 commits = self.github.get_commits(repo, since=last_sync)
                 if isinstance(commits, list):
@@ -166,12 +168,8 @@ class Orchestrator:
                             md = commit_to_markdown(commit, repo)
                             safe_repo_name = repo.replace("/", "_")
                             self._save_markdown(f"github_commit_{safe_repo_name}_{commit['sha']}.md", md)
-                    logger.info(f"  ✓ Harvested {len(commits)} commits")
-
-                    # Save state for THIS repo immediately
                     self.state.set_last_sync(f"github_repo_{repo}", current_sync_time)
                     self.state.save()
             except Exception as e:
-                logger.error(f"  Failed to fetch commits for {repo}: {e}")
-
+                logger.error(f"Failed commits for {repo}: {e}")
         logger.info("GitHub harvesting complete.")
