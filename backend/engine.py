@@ -122,10 +122,23 @@ class KlippyEngine:
             logger.info(f"Limiting ingestion to {limit} random documents out of {len(documents)}...")
             documents = random.sample(documents, limit)
 
+        import re
         for doc in documents:
             file_path = doc.metadata.get("file_path", "")
             if file_path:
                 doc.id_ = str(uuid.uuid5(uuid.NAMESPACE_URL, file_path))
+            
+            # Extract YAML fields from frontmatter
+            text = doc.get_text()
+            yaml_match = re.search(r'^---\s*\n(.*?)\n---\s*\n', text, re.DOTALL | re.MULTILINE)
+            if yaml_match:
+                yaml_content = yaml_match.group(1)
+                for line in yaml_content.split('\n'):
+                    if ':' in line:
+                        k, v = line.split(':', 1)
+                        k = k.strip()
+                        v = v.strip().strip('"').strip("'")
+                        doc.metadata[k] = v
 
         logger.info(f"Loaded {len(documents)} documents. Starting transformation pipeline...")
 
