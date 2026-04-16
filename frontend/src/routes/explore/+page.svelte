@@ -2,6 +2,21 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { marked } from 'marked';
+	import {
+		Plus,
+		MessageSquare,
+		Pencil,
+		Trash2,
+		ChevronLeft,
+		ChevronRight,
+		ChevronDown,
+		ThumbsUp,
+		ThumbsDown,
+		RotateCcw,
+		Search,
+		Code,
+		FileText
+	} from 'lucide-svelte';
 
 	// Types
 	interface Source {
@@ -266,18 +281,7 @@
 	<aside class="sidebar" class:closed={!isSidebarOpen}>
 		<header class="sidebar-header">
 			<button class="new-chat-btn" onclick={() => createNewChat()}>
-				<svg
-					width="16"
-					height="16"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"
-					></line></svg
-				>
+				<Plus size={16} />
 				<span>New Chat</span>
 			</button>
 		</header>
@@ -292,20 +296,13 @@
 					onclick={() => selectChat(s.id)}
 					onkeydown={(e) => e.key === 'Enter' && selectChat(s.id)}
 				>
-					<svg
-						class="session-icon"
-						width="14"
-						height="14"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg
-					>
+					<MessageSquare class="session-icon" size={14} />
 					<span class="session-title">{s.title}</span>
 					<div class="session-actions">
-						<button onclick={(e) => renameChat(s.id, e)} title="Rename">✏️</button>
-						<button onclick={(e) => deleteChat(s.id, e)} title="Delete">🗑️</button>
+						<button onclick={(e) => renameChat(s.id, e)} title="Rename"><Pencil size={12} /></button
+						>
+						<button onclick={(e) => deleteChat(s.id, e)} title="Delete"><Trash2 size={12} /></button
+						>
 					</div>
 				</div>
 			{/each}
@@ -318,7 +315,7 @@
 			onclick={() => (isSidebarOpen = !isSidebarOpen)}
 			title="Toggle Sidebar"
 		>
-			{isSidebarOpen ? '◀' : '▶'}
+			{#if isSidebarOpen}<ChevronLeft size={14} />{:else}<ChevronRight size={14} />{/if}
 		</button>
 
 		<section class="explore-page container">
@@ -342,22 +339,7 @@
 									onclick={() => deleteExchange(i)}
 									title="Delete question and answer"
 								>
-									<svg
-										width="13"
-										height="13"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-										stroke-linecap="round"
-										stroke-linejoin="round"
-									>
-										<polyline points="3 6 5 6 21 6"></polyline>
-										<path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
-										<path d="M10 11v6"></path>
-										<path d="M14 11v6"></path>
-										<path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
-									</svg>
+									<Trash2 size={13} />
 								</button>
 								<div class="user-bubble">
 									{msg.content}
@@ -384,38 +366,14 @@
 												onclick={() => sendFeedback(true, currentSessionId)}
 												title="Helpful"
 											>
-												<svg
-													width="14"
-													height="14"
-													viewBox="0 0 24 24"
-													fill="none"
-													stroke="currentColor"
-													stroke-width="2"
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													><path d="M7 10v12"></path><path
-														d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z"
-													></path></svg
-												>
+												<ThumbsUp size={14} />
 											</button>
 											<button
 												class="icon-btn"
 												onclick={() => sendFeedback(false, currentSessionId)}
 												title="Not helpful"
 											>
-												<svg
-													width="14"
-													height="14"
-													viewBox="0 0 24 24"
-													fill="none"
-													stroke="currentColor"
-													stroke-width="2"
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													><path d="M17 14V2"></path><path
-														d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22h0a3.13 3.13 0 0 1-3-3.88Z"
-													></path></svg
-												>
+												<ThumbsDown size={14} />
 											</button>
 											<div class="sep"></div>
 											<button
@@ -423,20 +381,7 @@
 												onclick={() => handleSend(chatHistory[i - 1]?.content, true)}
 												title="Refresh"
 											>
-												<svg
-													width="14"
-													height="14"
-													viewBox="0 0 24 24"
-													fill="none"
-													stroke="currentColor"
-													stroke-width="2"
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path
-														d="M21 3v5h-5"
-													></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"
-													></path><path d="M3 21v-5h5"></path></svg
-												>
+												<RotateCcw size={14} />
 											</button>
 										</div>
 										{#if msg.total_time_ms}
@@ -456,13 +401,20 @@
 									<footer class="card-footer">
 										<button class="toggle-btn" onclick={() => toggleSources(i)}>
 											<span class="toggle-label">Referenced Sources</span>
-											<span class="toggle-icon" class:rotated={expandedSources.has(i)}>▼</span>
+											<ChevronDown
+												size={14}
+												class={expandedSources.has(i) ? 'toggle-icon rotated' : 'toggle-icon'}
+											/>
 										</button>
 										{#if expandedSources.has(i)}
 											<div class="sources-grid">
 												{#each msg.sources as src}
 													<a href={src.url} target="_blank" rel="noopener" class="source-link">
-														<span>{src.source === 'github' ? '🐙' : '📎'}</span>
+														{#if src.source === 'github'}
+															<Code size={13} />
+														{:else}
+															<FileText size={13} />
+														{/if}
 														<span>{src.title.replace('.md', '')}</span>
 													</a>
 												{/each}
@@ -503,19 +455,7 @@
 							autocomplete="off"
 						/>
 						<button type="submit" class="btn-primary" disabled={isLoading}>
-							<svg
-								width="16"
-								height="16"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-							>
-								<circle cx="11" cy="11" r="8"></circle>
-								<line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-							</svg>
+							<Search size={16} />
 							<span>Send</span>
 						</button>
 					</div>
@@ -846,7 +786,6 @@
 	}
 	.toggle-icon {
 		transition: transform 0.2s;
-		font-size: 0.7rem;
 		color: var(--ink-2);
 	}
 	.rotated {
