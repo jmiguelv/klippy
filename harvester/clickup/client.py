@@ -36,39 +36,62 @@ class ClickUpClient:
         return self._safe_get_list(response, "tasks")
 
     def get_docs(self, workspace_id: str) -> list:
-        """Retrieves all documents in a workspace using v3 Search API with pagination."""
+        """Retrieves all documents in a workspace by searching across all parent types."""
         url = f"{self.base_url_v3}/workspaces/{workspace_id}/docs"
-        # We'll use the search-style retrieval
         all_docs = []
-        cursor = None
         
-        while True:
-            params = {"limit": 100}
-            if cursor:
-                params["cursor"] = cursor
+        # v3 Search requires parent_type. We iterate through all to be sure.
+        parent_types = ["WORKSPACE", "SPACE", "FOLDER", "LIST"]
+        
+        for p_type in parent_types:
+            logger.info(f"  Searching for docs with parent_type: {p_type}")
+            cursor = None
+            type_doc_count = 0
             
-            response = requests.get(url, headers=self.headers, params=params)
-            response.raise_for_status()
-            data = response.json()
+            while True:
+                params = {"limit": 100, "parent_type": p_type}
+                if cursor:
+                    params["cursor"] = cursor
+                
+                response = requests.get(url, headers=self.headers, params=params)
+                if response.status_code != 200:
+                    logger.debug(f"    No docs found or error for type {p_type}")
+                    break
+                    
+                data = response.json()
+                docs = data.get("docs", [])
+                
+                # Filter out duplicates if a doc appears in multiple searches
+                for doc in docs:
+                    if doc.get("id") not in [d.get("id") for d in all_docs]:
+                        all_docs.append(doc)
+                        type_doc_count += 1
+                
+                cursor = data.get("cursor")
+                if not cursor or not docs:
+                    break
             
-            docs = data.get("docs", [])
-            all_docs.extend(docs)
-            
-            cursor = data.get("cursor")
-            if not cursor or not docs:
-                break
+            if type_doc_count > 0:
+                logger.info(f"    Found {type_doc_count} docs.")
                 
         return all_docs
 
     def get_pages(self, workspace_id: str, doc_id: str) -> list:
-        """Retrieves all pages in a document using v3 API, requesting markdown format."""
-        # Note: doc_id might need adjustment if it doesn't match v3 expectations
+        """Retrieves all pages and subpages in a document using v3 API."""
         url = f"{self.base_url_v3}/workspaces/{workspace_id}/docs/{doc_id}/pages"
-        params = {"content_format": "text/md"}
+        # max_page_depth=-1 ensures we get nested subpages
+        params = {"content_format": "text/md", "max_page_depth": -1}
         response = requests.get(url, headers=self.headers, params=params)
         
+        # Fallback: some v3 IDs might need a prefix or behave differently
+        if response.status_code == 404 and not doc_id.startswith("d-"):
+            alt_doc_id = f"d-{doc_id}"
+            logger.debug(f"  Retrying with d- prefix for doc {doc_id} -> {alt_doc_id}")
+            url_alt = f"{self.base_url_v3}/workspaces/{workspace_id}/docs/{alt_doc_id}/pages"
+            response = requests.get(url_alt, headers=self.headers, params=params)
+
         if response.status_code == 404:
-            logger.warning(f"Pages not found (404) for doc {doc_id} in workspace {workspace_id}")
+            logger.warning(f"  Pages not found (404) for doc {doc_id} even after retry.")
             return []
             
         response.raise_for_status()
