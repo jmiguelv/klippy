@@ -102,12 +102,14 @@ class Orchestrator:
                     if not isinstance(doc, dict): continue
                     doc_name = doc.get("name", "Untitled")
                     doc_id = doc.get("id")
-                    if not doc_id: continue
+                    if not doc_id: 
+                        logger.debug(f"  Skipping doc without ID: {doc_name}")
+                        continue
                     
                     try:
                         pages = self.clickup.get_pages(workspace_id, doc_id)
-                        doc_count += 1
-                        if isinstance(pages, list):
+                        if pages:
+                            doc_count += 1
                             for page in pages:
                                 if not isinstance(page, dict): continue
                                 page_id = page.get("id")

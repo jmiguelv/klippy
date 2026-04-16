@@ -15,12 +15,16 @@ class ClickUpClient:
 
     def _safe_get_list(self, response, key: str) -> list:
         """Safely extracts a list from a response, handling both dict and list results."""
-        data = response.json()
-        if isinstance(data, list):
-            return data
-        if isinstance(data, dict):
-            return data.get(key, [])
-        return []
+        try:
+            data = response.json()
+            if isinstance(data, list):
+                return data
+            if isinstance(data, dict):
+                return data.get(key, [])
+            return []
+        except Exception as e:
+            logger.error(f"Failed to parse JSON response: {e}")
+            return []
 
     def get_tasks(self, list_id: str, updated_since: str = None) -> list:
         url = f"{self.base_url_v2}/list/{list_id}/task"
@@ -32,17 +36,41 @@ class ClickUpClient:
         return self._safe_get_list(response, "tasks")
 
     def get_docs(self, workspace_id: str) -> list:
-        """Retrieves all documents in a workspace using v3 API."""
+        """Retrieves all documents in a workspace using v3 Search API with pagination."""
         url = f"{self.base_url_v3}/workspaces/{workspace_id}/docs"
-        response = requests.get(url, headers=self.headers)
-        response.raise_for_status()
-        return self._safe_get_list(response, "docs")
+        # We'll use the search-style retrieval
+        all_docs = []
+        cursor = None
+        
+        while True:
+            params = {"limit": 100}
+            if cursor:
+                params["cursor"] = cursor
+            
+            response = requests.get(url, headers=self.headers, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            docs = data.get("docs", [])
+            all_docs.extend(docs)
+            
+            cursor = data.get("cursor")
+            if not cursor or not docs:
+                break
+                
+        return all_docs
 
     def get_pages(self, workspace_id: str, doc_id: str) -> list:
         """Retrieves all pages in a document using v3 API, requesting markdown format."""
+        # Note: doc_id might need adjustment if it doesn't match v3 expectations
         url = f"{self.base_url_v3}/workspaces/{workspace_id}/docs/{doc_id}/pages"
         params = {"content_format": "text/md"}
         response = requests.get(url, headers=self.headers, params=params)
+        
+        if response.status_code == 404:
+            logger.warning(f"Pages not found (404) for doc {doc_id} in workspace {workspace_id}")
+            return []
+            
         response.raise_for_status()
         return self._safe_get_list(response, "pages")
 
