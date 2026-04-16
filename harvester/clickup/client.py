@@ -91,9 +91,14 @@ class ClickUpClient:
 
             # Fallback for 500 error: try without max_page_depth (gets root pages only)
             if response.status_code >= 500:
-                logger.warning(f"  500 Error for doc {doc_id} with depth -1. Retrying with depth 0...")
+                logger.debug(f"  500 Error for doc {doc_id} with depth -1. Retrying with depth 0...")
                 params_limited = {"content_format": "text/md"}
                 response = requests.get(url, headers=self.headers, params=params_limited)
+                
+                # If it still fails, just return empty list and let orchestrator skip it
+                if response.status_code >= 500:
+                    logger.warning(f"  Doc {doc_id} consistently returning 500. Skipping.")
+                    return []
 
             if response.status_code == 404:
                 return []
