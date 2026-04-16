@@ -1,6 +1,13 @@
 <script lang="ts">
 	import '../app.css';
+	import { page } from '$app/state';
 	let { children } = $props();
+
+	let isExplore = $derived(page.url.pathname.startsWith('/explore'));
+
+	$effect(() => {
+		document.body.style.overflow = isExplore ? 'hidden' : '';
+	});
 </script>
 
 <svelte:head>
@@ -25,12 +32,14 @@
 
 {@render children()}
 
-<footer class="site-footer">
-	<div class="container footer-inner">
-		<span class="footer-brand">King's Digital Lab</span>
-		<span class="footer-stack">LlamaIndex · Qdrant · Redis · Arize Phoenix</span>
-	</div>
-</footer>
+{#if !isExplore}
+	<footer class="site-footer">
+		<div class="container footer-inner">
+			<span class="footer-brand">King's Digital Lab</span>
+			<span class="footer-stack">LlamaIndex · Qdrant · Redis · Arize Phoenix</span>
+		</div>
+	</footer>
+{/if}
 
 <style>
 	.main-nav {
