@@ -426,25 +426,25 @@
 						{/if}
 					</div>
 				{/each}
-
-				{#if isLoading}
-					<div class="loader">
-						<div class="loader-bar"></div>
-						<p>{loaderVerb}...</p>
-					</div>
-				{/if}
 			</div>
 		</section>
 
 		<section class="query-area">
 			<div class="container query-container">
+				{#if isLoading}
+					<p class="loader-verb">{loaderVerb}…</p>
+				{/if}
 				<form
 					class="query-box"
+					class:loading={isLoading}
 					onsubmit={(e) => {
 						e.preventDefault();
 						handleSend();
 					}}
 				>
+					{#if isLoading}
+						<div class="loading-rail" aria-hidden="true"></div>
+					{/if}
 					<p class="query-label">Ask Klippy</p>
 					<div class="query-input-row">
 						<input
@@ -838,17 +838,26 @@
 		color: var(--ink-0);
 	}
 
-	.loader {
-		margin-top: 3rem;
-		text-align: center;
-	}
-	.loader-bar {
-		height: 2px;
-		background: var(--border);
+	/* ── Loading state: animate the query box border-top ── */
+	.query-box {
 		position: relative;
-		overflow: hidden;
 	}
-	.loader-bar::after {
+
+	.query-box.loading {
+		border-top-color: var(--border-dark);
+	}
+
+	.loading-rail {
+		position: absolute;
+		top: -4px;
+		left: 0;
+		right: 0;
+		height: 4px;
+		overflow: hidden;
+		pointer-events: none;
+	}
+
+	.loading-rail::after {
 		content: '';
 		position: absolute;
 		top: 0;
@@ -856,22 +865,36 @@
 		width: 35%;
 		height: 100%;
 		background: var(--kings-red);
-		animation: scan 1.3s linear infinite;
+		animation: border-scan 1.3s linear infinite;
 	}
-	@keyframes scan {
-		0% {
+
+	@keyframes border-scan {
+		from {
 			left: -35%;
 		}
-		100% {
+		to {
 			left: 100%;
 		}
 	}
-	.loader p {
+
+	.loader-verb {
 		font-family: var(--font-mono);
-		font-size: 0.8rem;
-		margin-top: 1rem;
+		font-size: 0.75rem;
 		color: var(--ink-2);
-		letter-spacing: 0.05em;
+		letter-spacing: 0.08em;
+		text-align: right;
+		margin-bottom: var(--size-2);
+		animation: fade-cycle 2s ease-in-out infinite;
+	}
+
+	@keyframes fade-cycle {
+		0%,
+		100% {
+			opacity: 0.5;
+		}
+		50% {
+			opacity: 1;
+		}
 	}
 
 	.empty-state {
