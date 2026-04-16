@@ -4,12 +4,12 @@
 </script>
 
 <svelte:head>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-    <link
-        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap"
-        rel="stylesheet"
-    />
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+	<link
+		href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap"
+		rel="stylesheet"
+	/>
 </svelte:head>
 
 <div class="page-rule" aria-hidden="true"></div>
@@ -17,9 +17,9 @@
 <nav class="main-nav">
 	<div class="container nav-inner">
 		<a href="/" class="nav-wordmark">Klippy</a>
-        <div class="nav-links">
-            <a href="/explore/" class="nav-link">Explore</a>
-        </div>
+		<div class="nav-links">
+			<a href="/explore/" class="nav-link">Explore</a>
+		</div>
 	</div>
 </nav>
 
@@ -35,7 +35,7 @@
 <style>
 	.main-nav {
 		border-bottom: 1px solid var(--border);
-		background: var(--surface);
+		background: var(--canvas);
 		position: sticky;
 		top: 0;
 		z-index: 100;
@@ -56,26 +56,26 @@
 		letter-spacing: 0.02em;
 	}
 
-    .nav-links {
-        display: flex;
-        gap: var(--size-6);
-    }
+	.nav-links {
+		display: flex;
+		gap: var(--size-6);
+	}
 
-    .nav-link {
-        font-family: var(--font-sans);
-        font-size: 0.95rem;
-        font-weight: 500;
-        color: var(--ink-0);
-        transition: color 0.15s;
-        text-decoration: underline;
-        text-underline-offset: 4px;
-        text-decoration-color: transparent;
-    }
+	.nav-link {
+		font-family: var(--font-sans);
+		font-size: 0.95rem;
+		font-weight: 500;
+		color: var(--ink-0);
+		transition: color 0.15s;
+		text-decoration: underline;
+		text-underline-offset: 4px;
+		text-decoration-color: transparent;
+	}
 
-    .nav-link:hover {
-        color: var(--kings-red);
-        text-decoration-color: var(--kings-red);
-    }
+	.nav-link:hover {
+		color: var(--kings-red);
+		text-decoration-color: var(--kings-red);
+	}
 
 	.site-footer {
 		border-top: 1px solid var(--border);
@@ -95,7 +95,7 @@
 		font-size: 0.9rem;
 		color: var(--ink-2);
 		font-style: italic;
-        font-weight: 300;
+		font-weight: 300;
 	}
 
 	.footer-stack {
@@ -105,7 +105,7 @@
 		letter-spacing: 0.1em;
 		text-transform: uppercase;
 		font-weight: 300;
-        opacity: 0.6;
+		opacity: 0.6;
 	}
 
 	@media (max-width: 640px) {
