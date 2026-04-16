@@ -104,16 +104,19 @@ class Orchestrator:
                     doc_id = doc.get("id")
                     if not doc_id: continue
                     
-                    pages = self.clickup.get_pages(workspace_id, doc_id)
-                    doc_count += 1
-                    if isinstance(pages, list):
-                        for page in pages:
-                            if not isinstance(page, dict): continue
-                            page_id = page.get("id")
-                            if not page_id: continue
-                            md = page_to_markdown(page, doc_name, workspace_id=workspace_id)
-                            self._save_markdown(f"clickup_page_{page_id}.md", md)
-                            page_count += 1
+                    try:
+                        pages = self.clickup.get_pages(workspace_id, doc_id)
+                        doc_count += 1
+                        if isinstance(pages, list):
+                            for page in pages:
+                                if not isinstance(page, dict): continue
+                                page_id = page.get("id")
+                                if not page_id: continue
+                                md = page_to_markdown(page, doc_name, workspace_id=workspace_id)
+                                self._save_markdown(f"clickup_page_{page_id}.md", md)
+                                page_count += 1
+                    except Exception as page_e:
+                        logger.warning(f"  Failed to fetch pages for doc {doc_name} ({doc_id}): {page_e}")
             logger.info(f"Harvested {page_count} pages from {doc_count} docs.")
         except Exception as e:
             logger.error(f"Failed to fetch docs: {e}", exc_info=True)
