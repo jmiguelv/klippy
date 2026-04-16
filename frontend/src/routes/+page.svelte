@@ -115,14 +115,6 @@
 		max-width: 720px;
 	}
 
-	.query-input-row {
-		display: flex;
-		align-items: center;
-		gap: var(--size-4);
-		border-bottom: 1px solid var(--border-dark);
-		padding-bottom: var(--size-2);
-	}
-
 	input {
 		flex: 1;
 		border: none;
@@ -138,20 +130,6 @@
 	input::placeholder {
 		color: var(--ink-2);
 		opacity: 0.5;
-	}
-
-	.query-hint {
-		margin-top: var(--size-1);
-		font-size: 0.8rem;
-		color: var(--ink-2);
-		font-family: var(--font-sans);
-		font-weight: 300;
-	}
-
-	kbd {
-		font-family: var(--font-mono);
-		color: var(--ink-1);
-		font-size: 0.8rem;
 	}
 
 	@media (max-width: 640px) {

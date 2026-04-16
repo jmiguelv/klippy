@@ -456,30 +456,33 @@
 						handleSend();
 					}}
 				>
-					<label for="chat-input" class="sr-only">Message Klippy</label>
-					<input
-						id="chat-input"
-						type="text"
-						bind:value={query}
-						placeholder="Follow up or ask something new..."
-						autocomplete="off"
-					/>
-					<button type="submit" class="btn-primary" disabled={isLoading}>
-						<svg
-							width="16"
-							height="16"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<circle cx="11" cy="11" r="8"></circle>
-							<line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-						</svg>
-						<span>Send</span>
-					</button>
+					<p class="query-label">Ask Klippy</p>
+					<div class="query-input-row">
+						<input
+							id="chat-input"
+							type="text"
+							bind:value={query}
+							placeholder="Follow up or ask something new..."
+							autocomplete="off"
+						/>
+						<button type="submit" class="btn-primary" disabled={isLoading}>
+							<svg
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<circle cx="11" cy="11" r="8"></circle>
+								<line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+							</svg>
+							<span>Send</span>
+						</button>
+					</div>
+					<p class="query-hint">Press <kbd>↵ Enter</kbd> to send</p>
 				</form>
 			</div>
 		</section>
@@ -809,7 +812,9 @@
 		flex: 1;
 		border: none;
 		outline: none;
+		padding: var(--size-2) 0;
 		font-size: 1.1rem;
+		font-family: var(--font-sans);
 		font-weight: 300;
 		background: transparent;
 		color: var(--ink-0);
