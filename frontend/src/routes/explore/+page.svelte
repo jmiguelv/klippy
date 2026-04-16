@@ -52,6 +52,7 @@
 	let sessionId = $state('');
 	let expandedSources = $state<Set<number>>(new Set()); // Track expanded state for each message
 	let isSidebarOpen = $state(true);
+	let chatMainEl: HTMLElement;
 
 	const LOADER_VERBS = [
 		'Synthesising',
@@ -242,11 +243,12 @@
 				...sessions[sIdx].messages,
 				{ role: 'klippy', content: 'Error: Could not connect to the research engine.' }
 			];
+			saveSessions();
 		} finally {
 			clearInterval(interval);
 			isLoading = false;
 			setTimeout(
-				() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }),
+				() => chatMainEl?.scrollTo({ top: chatMainEl.scrollHeight, behavior: 'smooth' }),
 				100
 			);
 		}
@@ -309,7 +311,7 @@
 		</div>
 	</aside>
 
-	<main class="chat-main">
+	<main class="chat-main" bind:this={chatMainEl}>
 		<button
 			class="sidebar-toggle"
 			onclick={() => (isSidebarOpen = !isSidebarOpen)}
