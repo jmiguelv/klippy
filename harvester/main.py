@@ -36,6 +36,7 @@ def main():
     parser.add_argument("--github", action="store_true", help="Run GitHub harvester")
     parser.add_argument("--all", action="store_true", help="Run all harvesters")
     parser.add_argument("--force", action="store_true", help="Force full sync (ignore state)")
+    parser.add_argument("--docs-only", action="store_true", help="Only harvest ClickUp docs/pages (skips tasks/github)")
     args = parser.parse_args()
 
     # Configuration from .env
@@ -70,6 +71,22 @@ def main():
     )
 
     threads = []
+
+    # If docs-only is set, we bypass everything else and just run the doc part of ClickUp
+    if args.docs_only:
+        if clickup_client and clickup_workspace_id:
+            logger.info(f"Starting DOCS-ONLY harvesting (force={args.force})...")
+            orchestrator.run_clickup(
+                workspace_id=clickup_workspace_id, 
+                ignore_spaces=[], # Not needed for docs
+                force=args.force,
+                docs_only=True
+            )
+            logger.info("Docs-only harvesting complete.")
+            return
+        else:
+            logger.warning("ClickUp configuration missing for docs-only mode.")
+            return
 
     if args.all or args.clickup:
         if clickup_client and clickup_workspace_id:

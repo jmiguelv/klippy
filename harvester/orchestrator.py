@@ -22,74 +22,76 @@ class Orchestrator:
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(content)
 
-    def run_clickup(self, workspace_id: str, ignore_spaces: list[str] = None, force: bool = False):
-        """Orchestrates ClickUp ingestion by discovering all lists (excluding ignored spaces)."""
-        logger.info(f"Starting ClickUp harvesting for workspace: {workspace_id} (force={force})")
-        ignore_spaces = [s.strip().lower() for s in (ignore_spaces or [])]
+    def run_clickup(self, workspace_id: str, ignore_spaces: list[str] = None, force: bool = False, docs_only: bool = False):
+        """Orchestrates ClickUp ingestion. Can skip tasks if docs_only is True."""
+        logger.info(f"Starting ClickUp harvesting for workspace: {workspace_id} (force={force}, docs_only={docs_only})")
         
-        try:
-            spaces = self.clickup.get_spaces(workspace_id)
-            logger.info(f"Discovered {len(spaces)} spaces.")
-        except Exception as e:
-            logger.error(f"Failed to list spaces: {e}")
-            return
-
-        all_lists = [] # Store tuple of (list_id, list_name, folder_name, space_name)
-        for space in spaces:
-            if not isinstance(space, dict): continue
-            space_name = space.get("name", "Unknown")
-            if space_name.lower() in ignore_spaces:
-                logger.info(f"Skipping ignored space: {space_name}")
-                continue
+        if not docs_only:
+            ignore_spaces = [s.strip().lower() for s in (ignore_spaces or [])]
             
-            logger.info(f"Processing space: {space_name}")
-            space_id = space["id"]
-            
-            # Folderless lists
             try:
-                folderless_lists = self.clickup.get_lists_in_space(space_id)
-                for l in folderless_lists:
-                    if isinstance(l, dict):
-                        all_lists.append((l["id"], l.get("name", "Untitled"), "None", space_name))
-                if folderless_lists:
-                    logger.info(f"  Found {len(folderless_lists)} folderless lists.")
+                spaces = self.clickup.get_spaces(workspace_id)
+                logger.info(f"Discovered {len(spaces)} spaces.")
             except Exception as e:
-                logger.warning(f"  Failed to list folderless lists: {e}")
+                logger.error(f"Failed to list spaces: {e}")
+                return
 
-            # Folders
-            try:
-                folders = self.clickup.get_folders(space_id)
-                for folder in folders:
-                    if not isinstance(folder, dict): continue
-                    logger.info(f"  Processing folder: {folder.get('name', 'Untitled')}")
-                    folder_lists = self.clickup.get_lists_in_folder(folder["id"])
-                    for l in folder_lists:
+            all_lists = [] # Store tuple of (list_id, list_name, folder_name, space_name)
+            for space in spaces:
+                if not isinstance(space, dict): continue
+                space_name = space.get("name", "Unknown")
+                if space_name.lower() in ignore_spaces:
+                    logger.info(f"Skipping ignored space: {space_name}")
+                    continue
+                
+                logger.info(f"Processing space: {space_name}")
+                space_id = space["id"]
+                
+                # Folderless lists
+                try:
+                    folderless_lists = self.clickup.get_lists_in_space(space_id)
+                    for l in folderless_lists:
                         if isinstance(l, dict):
-                            all_lists.append((l["id"], l.get("name", "Untitled"), folder.get('name', 'Untitled'), space_name))
-            except Exception as e:
-                logger.warning(f"  Failed to list folders: {e}")
+                            all_lists.append((l["id"], l.get("name", "Untitled"), "None", space_name))
+                    if folderless_lists:
+                        logger.info(f"  Found {len(folderless_lists)} folderless lists.")
+                except Exception as e:
+                    logger.warning(f"  Failed to list folderless lists: {e}")
 
-        logger.info(f"Discovered a total of {len(all_lists)} lists. Fetching tasks...")
-        # 3. Process discovered Tasks
-        current_sync_time_ms = str(int(datetime.now().timestamp() * 1000))
-        task_count = 0
-        for list_id, list_name, folder_name, space_name in all_lists:
-            try:
-                last_sync = None if force else self.state.get_last_sync(f"clickup_list_{list_id}")
-                tasks = self.clickup.get_tasks(list_id, updated_since=last_sync)
-                for task in tasks:
-                    if isinstance(task, dict):
-                        md = task_to_markdown(task, space_name=space_name, folder_name=folder_name, list_name=list_name)
-                        self._save_markdown(f"clickup_task_{task['id']}.md", md)
-                        task_count += 1
+                # Folders
+                try:
+                    folders = self.clickup.get_folders(space_id)
+                    for folder in folders:
+                        if not isinstance(folder, dict): continue
+                        logger.info(f"  Processing folder: {folder.get('name', 'Untitled')}")
+                        folder_lists = self.clickup.get_lists_in_folder(folder["id"])
+                        for l in folder_lists:
+                            if isinstance(l, dict):
+                                all_lists.append((l["id"], l.get("name", "Untitled"), folder.get('name', 'Untitled'), space_name))
+                except Exception as e:
+                    logger.warning(f"  Failed to list folders: {e}")
 
-                # Save state for THIS list
-                self.state.set_last_sync(f"clickup_list_{list_id}", current_sync_time_ms)
-                self.state.save()
-            except Exception as e:
-                logger.warning(f"Failed to fetch tasks for list {list_id}: {e}")
-        
-        logger.info(f"Successfully harvested {task_count} ClickUp tasks.")
+            logger.info(f"Discovered a total of {len(all_lists)} lists. Fetching tasks...")
+            # 3. Process discovered Tasks
+            current_sync_time_ms = str(int(datetime.now().timestamp() * 1000))
+            task_count = 0
+            for list_id, list_name, folder_name, space_name in all_lists:
+                try:
+                    last_sync = None if force else self.state.get_last_sync(f"clickup_list_{list_id}")
+                    tasks = self.clickup.get_tasks(list_id, updated_since=last_sync)
+                    for task in tasks:
+                        if isinstance(task, dict):
+                            md = task_to_markdown(task, space_name=space_name, folder_name=folder_name, list_name=list_name)
+                            self._save_markdown(f"clickup_task_{task['id']}.md", md)
+                            task_count += 1
+
+                    # Save state for THIS list
+                    self.state.set_last_sync(f"clickup_list_{list_id}", current_sync_time_ms)
+                    self.state.save()
+                except Exception as e:
+                    logger.warning(f"Failed to fetch tasks for list {list_id}: {e}")
+            
+            logger.info(f"Successfully harvested {task_count} ClickUp tasks.")
 
         # 4. Process Docs & Pages (using Workspace ID)
         logger.info("Fetching ClickUp Docs and Pages...")
