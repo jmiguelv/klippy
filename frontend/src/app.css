@@ -147,10 +147,10 @@ kbd {
 .markdown-body h1,
 .markdown-body h2 {
 	font-family: var(--font-display);
-	font-size: 1.5rem;
+	font-size: 1.1rem;
 	font-weight: 600;
 	color: var(--kings-red);
-	margin: 2rem 0 1rem;
+	margin: 1.5rem 0 0.75rem;
 }
 
 .markdown-body p {

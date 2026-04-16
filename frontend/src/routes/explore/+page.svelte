@@ -637,7 +637,7 @@
 	}
 
 	.explore-page {
-		padding: var(--size-12) 0 var(--size-64);
+		padding: var(--size-12) 0 var(--size-32);
 		max-width: 900px;
 		margin-inline: auto;
 	}
@@ -645,7 +645,7 @@
 	.chat-history {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-12);
+		gap: var(--size-6);
 	}
 
 	.message {
@@ -656,13 +656,16 @@
 	.message--user {
 		align-items: flex-end;
 	}
+	.message--klippy {
+		align-items: flex-start;
+	}
 	.user-bubble {
 		background: var(--ink-1);
 		color: white;
 		padding: var(--size-4) var(--size-6);
 		border-radius: 16px 16px 2px 16px;
-		max-width: 80%;
-		font-size: 1.1rem;
+		max-width: 72%;
+		font-size: 1rem;
 		font-weight: 300;
 		box-shadow: var(--shadow-2);
 	}
@@ -672,6 +675,7 @@
 		border: 1px solid var(--border);
 		border-left: 4px solid var(--kings-red);
 		box-shadow: var(--shadow-subtle);
+		max-width: 90%;
 	}
 
 	.card-meta {
@@ -734,10 +738,10 @@
 	}
 
 	.card-content {
-		padding: var(--size-8) var(--size-6);
+		padding: var(--size-6);
 		font-family: var(--font-sans);
-		font-size: 1.25rem;
-		line-height: 1.8;
+		font-size: 0.95rem;
+		line-height: 1.7;
 	}
 
 	.card-footer {
@@ -803,8 +807,8 @@
 	.query-area {
 		position: sticky;
 		bottom: 0;
-		background: linear-gradient(transparent, var(--canvas) 40%);
-		padding: var(--size-12) var(--size-6) var(--size-10);
+		background: linear-gradient(transparent, var(--canvas) 30%);
+		padding: var(--size-6) var(--size-6) var(--size-6);
 		z-index: 100;
 	}
 
