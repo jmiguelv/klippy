@@ -86,20 +86,22 @@ class Orchestrator:
         
         logger.info(f"Successfully harvested {task_count} ClickUp tasks.")
 
-        # Docs & Pages
+        # 4. Process Docs & Pages (using Workspace ID)
         logger.info("Fetching ClickUp Docs and Pages...")
         try:
             docs = self.clickup.get_docs(workspace_id)
             doc_count = 0
             page_count = 0
-            for doc in docs:
-                doc_name = doc.get("name", "Untitled")
-                pages = self.clickup.get_pages(workspace_id, doc["id"])
-                doc_count += 1
-                for page in pages:
-                    md = page_to_markdown(page, doc_name, workspace_id=workspace_id)
-                    self._save_markdown(f"clickup_page_{page['id']}.md", md)
-                    page_count += 1
+            # Ensure docs is a list before iterating
+            if isinstance(docs, list):
+                for doc in docs:
+                    doc_name = doc.get("name", "Untitled")
+                    pages = self.clickup.get_pages(workspace_id, doc["id"])
+                    doc_count += 1
+                    for page in pages:
+                        md = page_to_markdown(page, doc_name, workspace_id=workspace_id)
+                        self._save_markdown(f"clickup_page_{page['id']}.md", md)
+                        page_count += 1
             logger.info(f"Harvested {page_count} pages from {doc_count} docs.")
         except Exception as e:
             logger.warning(f"Failed to fetch docs: {e}")
