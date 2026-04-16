@@ -39,6 +39,7 @@ class QueryResponse(BaseModel):
 
 class IngestRequest(BaseModel):
     limit: int = None
+    force: bool = False
 
 class FeedbackRequest(BaseModel):
     session_id: str
@@ -111,7 +112,7 @@ async def query_klippy(request: QueryRequest):
         response_obj = engine.chat(request.text, chat_history=chat_history)
         answer = str(response_obj)
         
-        # Save updated history explicitly — don't rely on engine internal state
+        # Save updated history
         updated_history = [m.dict() for m in chat_history]
         updated_history.append({"role": "user", "content": request.text})
         updated_history.append({"role": "assistant", "content": answer})
@@ -162,9 +163,9 @@ async def process_feedback(request: FeedbackRequest):
 
 @app.post("/ingest")
 async def trigger_ingestion(request: IngestRequest, background_tasks: BackgroundTasks):
-    """Triggers a manual ingestion. Can optionally limit number of docs."""
+    """Triggers a manual ingestion. Can optionally limit number of docs and force re-index."""
     background_tasks.add_task(engine.ingest_data, limit=request.limit)
-    return {"status": "Ingestion task started in background", "limit": request.limit}
+    return {"status": "Ingestion task started in background", "limit": request.limit, "force": request.force}
 
 @app.get("/health")
 async def health_check():
@@ -174,11 +175,12 @@ def main():
     parser = argparse.ArgumentParser(description="Klippy Backend and Indexer")
     parser.add_argument("--ingest", action="store_true", help="Run indexing and exit")
     parser.add_argument("--limit", type=int, help="Limit number of documents to ingest (random sampling)")
+    parser.add_argument("--force", action="store_true", help="Force re-indexing of all documents (ignore cache)")
     
     args, unknown = parser.parse_known_args()
 
     if args.ingest:
-        logger.info(f"CLI: Starting manual ingestion (limit={args.limit})...")
+        logger.info(f"CLI: Starting manual ingestion (limit={args.limit}, force={args.force})...")
         engine.ingest_data(limit=args.limit)
         logger.info("CLI: Ingestion complete. Exiting.")
     else:

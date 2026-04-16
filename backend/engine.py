@@ -10,6 +10,7 @@ from llama_index.core import (
     PromptTemplate,
     get_response_synthesizer,
 )
+from llama_index.core.memory import ChatMemoryBuffer
 from llama_index.core.ingestion import IngestionPipeline, IngestionCache
 from llama_index.storage.kvstore.redis import RedisKVStore as RedisCache
 from llama_index.vector_stores.qdrant import QdrantVectorStore
@@ -97,8 +98,8 @@ class KlippyEngine:
                 logger.error(f"Failed to read prompt file {self.prompt_file}: {e}")
         return DEFAULT_SYSTEM_PROMPT
 
-    def ingest_data(self, limit: int = None):
-        """Loads markdown files and indexes them using a cached pipeline."""
+    def ingest_data(self, limit: int = None, force: bool = False):
+        """Loads markdown files and indexes them. If limit is set, samples a random subset. If force is True, ignores cache."""
         if not os.path.exists(self.data_dir):
             logger.warning(f"Data directory {self.data_dir} does not exist.")
             return
@@ -117,6 +118,7 @@ class KlippyEngine:
             logger.info("No documents found for ingestion.")
             return
 
+        # Handle random sampling if limit is set
         if limit and limit < len(documents):
             import random
             logger.info(f"Limiting ingestion to {limit} random documents out of {len(documents)}...")
@@ -147,15 +149,17 @@ class KlippyEngine:
                 Settings.embed_model,
             ],
             vector_store=self.vector_store,
-            cache=self.ingest_cache,
+            cache=self.ingest_cache if not force else None,
         )
 
+        # Process in manual batches to avoid pickling errors and manage memory
         batch_size = 100
         for i in range(0, len(documents), batch_size):
             batch = documents[i:i + batch_size]
-            logger.info(f"Processing batch {i//batch_size + 1}/{(len(documents)-1)//batch_size + 1}...")
+            logger.info(f"Processing batch {i//batch_size + 1}/{(len(documents)-1)//batch_size + 1} ({len(batch)} docs)...")
             pipeline.run(documents=batch, show_progress=False)
         
+        # Create or update index from the vector store
         self._index = VectorStoreIndex.from_vector_store(
             vector_store=self.vector_store,
             storage_context=self.storage_context,
