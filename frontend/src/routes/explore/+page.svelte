@@ -322,6 +322,10 @@
 		</button>
 
 		<section class="explore-page container">
+			{#if currentSession}
+				<h2 class="chat-title">{currentSession.title}</h2>
+			{/if}
+
 			<div class="chat-history">
 				{#if !currentSessionId && sessions.length === 0}
 					<div class="empty-state">
@@ -436,7 +440,7 @@
 											</button>
 										</div>
 										{#if msg.total_time_ms}
-											<span class="timing">{msg.total_time_ms}ms</span>
+											<span class="timing">{msg.total_time_ms.toLocaleString()}ms</span>
 										{/if}
 									</div>
 								</header>
@@ -673,6 +677,16 @@
 		padding: var(--size-12) 0 var(--size-32);
 		max-width: 900px;
 		margin-inline: auto;
+	}
+
+	.chat-title {
+		font-family: var(--font-display);
+		font-size: 1.6rem;
+		font-weight: 500;
+		color: var(--ink-0);
+		margin-bottom: var(--size-8);
+		padding-bottom: var(--size-4);
+		border-bottom: 1px solid var(--border);
 	}
 
 	.chat-history {
