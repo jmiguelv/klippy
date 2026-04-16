@@ -40,7 +40,6 @@ class ClickUpClient:
         url = f"{self.base_url_v3}/workspaces/{workspace_id}/docs"
         all_docs = []
         
-        # v3 Search requires parent_type. We iterate through all to be sure.
         parent_types = ["WORKSPACE", "SPACE", "FOLDER", "LIST"]
         
         for p_type in parent_types:
@@ -61,7 +60,6 @@ class ClickUpClient:
                 data = response.json()
                 docs = data.get("docs", [])
                 
-                # Filter out duplicates if a doc appears in multiple searches
                 for doc in docs:
                     if doc.get("id") not in [d.get("id") for d in all_docs]:
                         all_docs.append(doc)
@@ -77,25 +75,35 @@ class ClickUpClient:
         return all_docs
 
     def get_pages(self, workspace_id: str, doc_id: str) -> list:
-        """Retrieves all pages and subpages in a document using v3 API."""
+        """Retrieves all pages in a document with a fallback for 500 errors."""
         url = f"{self.base_url_v3}/workspaces/{workspace_id}/docs/{doc_id}/pages"
-        # max_page_depth=-1 ensures we get nested subpages
-        params = {"content_format": "text/md", "max_page_depth": -1}
-        response = requests.get(url, headers=self.headers, params=params)
         
-        # Fallback: some v3 IDs might need a prefix or behave differently
-        if response.status_code == 404 and not doc_id.startswith("d-"):
-            alt_doc_id = f"d-{doc_id}"
-            logger.debug(f"  Retrying with d- prefix for doc {doc_id} -> {alt_doc_id}")
-            url_alt = f"{self.base_url_v3}/workspaces/{workspace_id}/docs/{alt_doc_id}/pages"
-            response = requests.get(url_alt, headers=self.headers, params=params)
-
-        if response.status_code == 404:
-            logger.warning(f"  Pages not found (404) for doc {doc_id} even after retry.")
-            return []
+        # Primary attempt: recursive subpages (-1)
+        params = {"content_format": "text/md", "max_page_depth": -1}
+        try:
+            response = requests.get(url, headers=self.headers, params=params)
             
-        response.raise_for_status()
-        return self._safe_get_list(response, "pages")
+            # Fallback for 404 with d- prefix
+            if response.status_code == 404 and not doc_id.startswith("d-"):
+                alt_doc_id = f"d-{doc_id}"
+                url_alt = f"{self.base_url_v3}/workspaces/{workspace_id}/docs/{alt_doc_id}/pages"
+                response = requests.get(url_alt, headers=self.headers, params=params)
+
+            # Fallback for 500 error: try without max_page_depth (gets root pages only)
+            if response.status_code >= 500:
+                logger.warning(f"  500 Error for doc {doc_id} with depth -1. Retrying with depth 0...")
+                params_limited = {"content_format": "text/md"}
+                response = requests.get(url, headers=self.headers, params=params_limited)
+
+            if response.status_code == 404:
+                return []
+                
+            response.raise_for_status()
+            return self._safe_get_list(response, "pages")
+            
+        except Exception as e:
+            logger.error(f"  Error fetching pages for doc {doc_id}: {e}")
+            return []
 
     def get_spaces(self, team_id: str) -> list:
         """Lists all spaces in a team/workspace."""
