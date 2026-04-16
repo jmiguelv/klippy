@@ -130,6 +130,15 @@
 		expandedSources = new Set();
 	}
 
+	function deleteExchange(i: number) {
+		const sIdx = sessions.findIndex((s) => s.id === currentSessionId);
+		if (sIdx === -1) return;
+		sessions[sIdx].messages = sessions[sIdx].messages.filter(
+			(_, idx) => idx !== i && idx !== i + 1
+		);
+		saveSessions();
+	}
+
 	function truncate(str: string, n: number) {
 		return str.length > n ? str.slice(0, n - 1) + '...' : str;
 	}
@@ -323,8 +332,32 @@
 				{#each chatHistory as msg, i}
 					<div class="message message--{msg.role}">
 						{#if msg.role === 'user'}
-							<div class="user-bubble">
-								{msg.content}
+							<div class="user-exchange">
+								<button
+									class="delete-exchange"
+									onclick={() => deleteExchange(i)}
+									title="Delete question and answer"
+								>
+									<svg
+										width="13"
+										height="13"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									>
+										<polyline points="3 6 5 6 21 6"></polyline>
+										<path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+										<path d="M10 11v6"></path>
+										<path d="M14 11v6"></path>
+										<path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+									</svg>
+								</button>
+								<div class="user-bubble">
+									{msg.content}
+								</div>
 							</div>
 						{:else}
 							<article class="klippy-card">
@@ -659,6 +692,34 @@
 	.message--klippy {
 		align-items: flex-start;
 	}
+	.user-exchange {
+		display: flex;
+		align-items: center;
+		gap: var(--size-2);
+		max-width: 80%;
+	}
+
+	.delete-exchange {
+		opacity: 0;
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: var(--size-1);
+		color: var(--ink-2);
+		transition:
+			opacity 0.15s,
+			color 0.15s;
+		flex-shrink: 0;
+	}
+
+	.user-exchange:hover .delete-exchange {
+		opacity: 1;
+	}
+
+	.delete-exchange:hover {
+		color: var(--kings-red);
+	}
+
 	.user-bubble {
 		background: var(--ink-1);
 		color: white;
