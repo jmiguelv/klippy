@@ -10,7 +10,6 @@ from llama_index.core import (
     PromptTemplate,
     get_response_synthesizer,
 )
-from llama_index.core.memory import ChatMemoryBuffer
 from llama_index.core.ingestion import IngestionPipeline, IngestionCache
 from llama_index.storage.kvstore.redis import RedisKVStore as RedisCache
 from llama_index.vector_stores.qdrant import QdrantVectorStore
@@ -172,12 +171,9 @@ class KlippyEngine:
             "\nInstruction: Use the previous chat history, or the context above, to interact and help the user."
         )
 
-        # Memory buffer
-        memory = ChatMemoryBuffer.from_defaults(chat_history=chat_history or [], token_limit=3000)
-
         return self._index.as_chat_engine(
             chat_mode="condense_plus_context",
-            memory=memory,
+            chat_history=chat_history or [],
             context_prompt=context_prompt,
             similarity_top_k=10,
             llm=Settings.llm

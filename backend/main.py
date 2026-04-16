@@ -111,8 +111,10 @@ async def query_klippy(request: QueryRequest):
         response_obj = engine.chat(request.text, chat_history=chat_history)
         answer = str(response_obj)
         
-        # Save updated history
-        updated_history = response_obj.metadata.get("chat_history", [])
+        # Save updated history explicitly — don't rely on engine internal state
+        updated_history = [m.dict() for m in chat_history]
+        updated_history.append({"role": "user", "content": request.text})
+        updated_history.append({"role": "assistant", "content": answer})
         save_history_to_redis(session_id, updated_history)
         
         # Extract sources and calculate context length
