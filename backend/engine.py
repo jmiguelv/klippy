@@ -109,6 +109,17 @@ class KlippyEngine:
             logger.warning(f"Data directory {self.data_dir} does not exist.")
             return
 
+        if force:
+            logger.info("Force re-index: deleting existing collection...")
+            self.client.delete_collection(self.collection_name)
+            self.vector_store = QdrantVectorStore(
+                client=self.client, collection_name=self.collection_name
+            )
+            self.storage_context = StorageContext.from_defaults(
+                vector_store=self.vector_store
+            )
+            self._index = None
+
         logger.info(f"Scanning directory {self.data_dir} for markdown files...")
 
         reader = SimpleDirectoryReader(
