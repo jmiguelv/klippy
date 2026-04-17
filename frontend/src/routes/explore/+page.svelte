@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
+	import { KNOWN_FIELDS } from '$lib/filters';
 	import { page } from '$app/state';
 	import { marked } from 'marked';
 	import {
@@ -209,18 +210,6 @@
 
 	// ── Autocomplete ────────────────────────────────────────────
 
-	async function fetchFields(): Promise<string[]> {
-		if (acCache['__fields__']) return acCache['__fields__'];
-		try {
-			const res = await fetch('http://localhost:8000/debug/fields');
-			const data = await res.json();
-			acCache['__fields__'] = data.fields ?? [];
-		} catch {
-			acCache['__fields__'] = ['type', 'source'];
-		}
-		return acCache['__fields__'];
-	}
-
 	async function fetchValues(field: string): Promise<string[]> {
 		if (acCache[field] !== undefined) return acCache[field];
 		try {
@@ -261,15 +250,8 @@
 			}
 		} else if (fieldMatch) {
 			const [, partial] = fieldMatch;
-			const showOptions = (all: string[]) => {
-				const options = all.filter((f) => f.toLowerCase().includes(partial.toLowerCase()));
-				ac = { visible: options.length > 0, mode: 'field', field: '', partial, options, activeIdx: 0 };
-			};
-			if (acCache['__fields__']) {
-				showOptions(acCache['__fields__']);
-			} else {
-				showOptions(await fetchFields());
-			}
+			const options = KNOWN_FIELDS.filter((f) => f.toLowerCase().includes(partial.toLowerCase()));
+			ac = { visible: options.length > 0, mode: 'field', field: '', partial, options, activeIdx: 0 };
 		} else {
 			ac = { ...ac, visible: false };
 		}
@@ -426,10 +408,7 @@
 			currentSessionId = sessions[0].id;
 			activeFilters = sessions[0].filters ?? {};
 		}
-		fetchFields();
-		fetchFields().then((fields) => {
-			fields.forEach((f) => fetchValues(f));
-		});
+		KNOWN_FIELDS.forEach((f) => fetchValues(f));
 	});
 </script>
 
