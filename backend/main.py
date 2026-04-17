@@ -186,6 +186,44 @@ async def trigger_ingestion(request: IngestRequest, background_tasks: Background
     }
 
 
+@app.get("/debug/fields")
+async def collection_fields():
+    """Returns metadata field names available across indexed nodes (sampled)."""
+    fields: set[str] = set()
+    result, _ = engine.client.scroll(
+        collection_name=engine.collection_name,
+        limit=200,
+        with_payload=True,
+        with_vectors=False,
+    )
+    internal = {
+        "_node_content",
+        "_node_type",
+        "doc_id",
+        "document_id",
+        "ref_doc_id",
+        "file_path",
+        "file_name",
+        "file_type",
+        "file_size",
+        "creation_date",
+        "last_modified_date",
+    }
+    for point in result:
+        payload = point.payload or {}
+        if "_node_content" in payload:
+            try:
+                content = json.loads(payload["_node_content"])
+                fields.update(
+                    k for k in content.get("metadata", {}) if k not in internal
+                )
+            except (json.JSONDecodeError, TypeError):
+                pass
+        else:
+            fields.update(k for k in payload if k not in internal)
+    return {"fields": sorted(fields)}
+
+
 @app.get("/debug/stats")
 async def collection_stats(field: str = "type"):
     """Returns value counts for a metadata field across all indexed nodes."""

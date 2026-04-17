@@ -40,10 +40,20 @@
 		id: string;
 		title: string;
 		messages: Message[];
+		filters: Record<string, string>;
 		updatedAt: number;
 	}
 
-	// State (Svelte 5 Runes)
+	interface AcState {
+		visible: boolean;
+		mode: 'field' | 'value';
+		field: string;
+		partial: string;
+		options: string[];
+		activeIdx: number;
+	}
+
+	// State
 	let sessions = $state<Session[]>([]);
 	let currentSessionId = $state('');
 	let query = $state('');
@@ -54,6 +64,17 @@
 	let isSidebarOpen = $state(true);
 	let activeFilters = $state<Record<string, string>>({});
 	let chatMainEl: HTMLElement;
+
+	// Autocomplete state
+	let ac = $state<AcState>({
+		visible: false,
+		mode: 'field',
+		field: '',
+		partial: '',
+		options: [],
+		activeIdx: 0
+	});
+	let acCache: Record<string, string[]> = {};
 
 	const LOADER_VERBS = [
 		'Synthesising',
@@ -84,7 +105,7 @@
 		} else {
 			expandedSources.add(index);
 		}
-		expandedSources = new Set(expandedSources); // Trigger update
+		expandedSources = new Set(expandedSources);
 	}
 
 	// Persistence
@@ -111,10 +132,12 @@
 			id: newId,
 			title: initialQuery ? truncate(initialQuery, 30) : 'New Chat',
 			messages: [],
+			filters: {},
 			updatedAt: Date.now()
 		};
 		sessions = [newSession, ...sessions];
 		currentSessionId = newId;
+		activeFilters = {};
 		expandedSources = new Set();
 		saveSessions();
 		return newId;
@@ -126,6 +149,7 @@
 		sessions = sessions.filter((s) => s.id !== id);
 		if (currentSessionId === id) {
 			currentSessionId = sessions[0]?.id || '';
+			activeFilters = sessions[0]?.filters ?? {};
 		}
 		saveSessions();
 	}
@@ -144,6 +168,7 @@
 
 	function selectChat(id: string) {
 		currentSessionId = id;
+		activeFilters = sessions.find((s) => s.id === id)?.filters ?? {};
 		expandedSources = new Set();
 	}
 
@@ -174,8 +199,90 @@
 	function removeFilter(key: string) {
 		const { [key]: _, ...rest } = activeFilters;
 		activeFilters = rest;
-		query = query.replace(new RegExp(`@${key}:\\S+\\s*`, 'g'), '').trim();
+		// Sync session
+		const sIdx = sessions.findIndex((s) => s.id === currentSessionId);
+		if (sIdx !== -1) {
+			sessions[sIdx].filters = activeFilters;
+			saveSessions();
+		}
 	}
+
+	// ── Autocomplete ────────────────────────────────────────────
+
+	async function fetchFields(): Promise<string[]> {
+		if (acCache['__fields__']) return acCache['__fields__'];
+		try {
+			const res = await fetch('http://localhost:8000/debug/fields');
+			const data = await res.json();
+			acCache['__fields__'] = data.fields ?? [];
+		} catch {
+			acCache['__fields__'] = ['type', 'source'];
+		}
+		return acCache['__fields__'];
+	}
+
+	async function fetchValues(field: string): Promise<string[]> {
+		if (acCache[field]) return acCache[field];
+		try {
+			const res = await fetch(`http://localhost:8000/debug/stats?field=${field}`);
+			const data = await res.json();
+			acCache[field] = Object.keys(data.counts ?? {});
+		} catch {
+			acCache[field] = [];
+		}
+		return acCache[field];
+	}
+
+	async function handleInput(e: Event) {
+		const input = e.target as HTMLInputElement;
+		const before = input.value.slice(0, input.selectionStart ?? input.value.length);
+
+		const valueMatch = before.match(/@(\w+):(\w*)$/);
+		const fieldMatch = !valueMatch && before.match(/@(\w*)$/);
+
+		if (valueMatch) {
+			const [, field, partial] = valueMatch;
+			const all = await fetchValues(field);
+			const options = all.filter((v) => v.toLowerCase().startsWith(partial.toLowerCase()));
+			ac = { visible: options.length > 0, mode: 'value', field, partial, options, activeIdx: 0 };
+		} else if (fieldMatch) {
+			const [, partial] = fieldMatch;
+			const all = await fetchFields();
+			const options = all.filter((f) => f.toLowerCase().startsWith(partial.toLowerCase()));
+			ac = { visible: options.length > 0, mode: 'field', field: '', partial, options, activeIdx: 0 };
+		} else {
+			ac = { ...ac, visible: false };
+		}
+	}
+
+	function handleKeydown(e: KeyboardEvent) {
+		if (!ac.visible) return;
+
+		if (e.key === 'ArrowDown') {
+			e.preventDefault();
+			ac = { ...ac, activeIdx: (ac.activeIdx + 1) % ac.options.length };
+		} else if (e.key === 'ArrowUp') {
+			e.preventDefault();
+			ac = { ...ac, activeIdx: (ac.activeIdx - 1 + ac.options.length) % ac.options.length };
+		} else if (e.key === 'Enter' && ac.visible) {
+			e.preventDefault();
+			selectOption(ac.options[ac.activeIdx]);
+		} else if (e.key === 'Escape') {
+			ac = { ...ac, visible: false };
+		}
+	}
+
+	function selectOption(opt: string) {
+		if (ac.mode === 'field') {
+			query = query.replace(/@\w*$/, `@${opt}:`);
+		} else {
+			query = query.replace(new RegExp(`@${ac.field}:\\w*$`), `@${ac.field}:${opt} `);
+		}
+		ac = { ...ac, visible: false };
+		document.getElementById('chat-input')?.focus();
+	}
+
+	// ── Send ────────────────────────────────────────────────────
 
 	async function sendFeedback(isPositive: boolean, sId: string) {
 		try {
@@ -200,18 +307,24 @@
 	async function handleSend(textOverride?: string, isRefresh = false) {
 		const raw = textOverride || query.trim();
 		if (!raw) return;
-		const { text, filters } = parseFilters(raw);
-		activeFilters = filters;
+
+		// Parse @field:value tokens and merge into active filters
+		const { text, filters: parsed } = parseFilters(raw);
+		activeFilters = { ...activeFilters, ...parsed };
+		ac = { ...ac, visible: false };
 
 		if (!currentSessionId) createNewChat(text);
-
 		if (!textOverride) query = '';
+
 		const sIdx = sessions.findIndex((s) => s.id === currentSessionId);
 		if (sIdx === -1) return;
 
 		if (sessions[sIdx].messages.length === 0) {
 			sessions[sIdx].title = truncate(text, 35);
 		}
+
+		// Persist current filters on the session
+		sessions[sIdx].filters = { ...activeFilters };
 
 		if (!isRefresh) {
 			sessions[sIdx].messages = [...sessions[sIdx].messages, { role: 'user', content: text }];
@@ -238,7 +351,7 @@
 			const response = await fetch('http://localhost:8000/query', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ text, session_id: currentSessionId, filters })
+				body: JSON.stringify({ text, session_id: currentSessionId, filters: activeFilters })
 			});
 			const data = await response.json();
 
@@ -277,8 +390,8 @@
 	// Derived
 	let currentSession = $derived(sessions.find((s) => s.id === currentSessionId));
 	let chatHistory = $derived(currentSession?.messages || []);
+	let hasFilters = $derived(Object.keys(activeFilters).length > 0);
 
-	// Svelte 5 Effect for URL parameters
 	$effect(() => {
 		const q = page.url.searchParams.get('q');
 		if (q && sessions.length === 0 && !isLoading) {
@@ -291,6 +404,7 @@
 		getSessionId();
 		if (sessions.length > 0 && !currentSessionId) {
 			currentSessionId = sessions[0].id;
+			activeFilters = sessions[0].filters ?? {};
 		}
 	});
 </script>
@@ -321,10 +435,8 @@
 					<MessageSquare class="session-icon" size={14} />
 					<span class="session-title">{s.title}</span>
 					<div class="session-actions">
-						<button onclick={(e) => renameChat(s.id, e)} title="Rename"><Pencil size={12} /></button
-						>
-						<button onclick={(e) => deleteChat(s.id, e)} title="Delete"><Trash2 size={12} /></button
-						>
+						<button onclick={(e) => renameChat(s.id, e)} title="Rename"><Pencil size={12} /></button>
+						<button onclick={(e) => deleteChat(s.id, e)} title="Delete"><Trash2 size={12} /></button>
 					</div>
 				</div>
 			{/each}
@@ -453,9 +565,49 @@
 
 		<section class="query-area">
 			<div class="container query-container">
+				<!-- Active filter chips — above the form, persist across turns -->
+				{#if hasFilters}
+					<div class="filter-chips">
+						{#each Object.entries(activeFilters) as [k, v]}
+							<span class="chip">
+								<span class="chip-key">{k}</span>
+								<span class="chip-sep">:</span>
+								<span class="chip-val">{v}</span>
+								<button type="button" class="chip-remove" onclick={() => removeFilter(k)}>×</button>
+							</span>
+						{/each}
+					</div>
+				{/if}
+
 				{#if isLoading}
 					<p class="loader-verb">{loaderVerb}…</p>
 				{/if}
+
+				<!-- Autocomplete dropdown — anchored above the form -->
+				{#if ac.visible}
+					<div class="ac-dropdown" role="listbox">
+						{#each ac.options as opt, i}
+							<button
+								type="button"
+								role="option"
+								aria-selected={i === ac.activeIdx}
+								class="ac-option"
+								class:ac-active={i === ac.activeIdx}
+								onmousedown={(e) => {
+									e.preventDefault();
+									selectOption(opt);
+								}}
+							>
+								{#if ac.mode === 'field'}
+									<span class="ac-prefix">@</span>{opt}<span class="ac-suffix">:</span>
+								{:else}
+									{opt}
+								{/if}
+							</button>
+						{/each}
+					</div>
+				{/if}
+
 				<form
 					class="query-box"
 					class:loading={isLoading}
@@ -468,32 +620,23 @@
 						<div class="loading-rail" aria-hidden="true"></div>
 					{/if}
 					<p class="query-label">Ask Klippy</p>
-					{#if Object.keys(activeFilters).length > 0}
-						<div class="filter-chips">
-							{#each Object.entries(activeFilters) as [k, v]}
-								<span class="chip">
-									<span class="chip-key">{k}</span>
-									<span class="chip-sep">:</span>
-									<span class="chip-val">{v}</span>
-									<button type="button" class="chip-remove" onclick={() => removeFilter(k)}>×</button>
-								</span>
-							{/each}
-						</div>
-					{/if}
 					<div class="query-input-row">
 						<input
 							id="chat-input"
 							type="text"
 							bind:value={query}
-							placeholder="Follow up or ask something new..."
+							placeholder="Follow up or ask something new… type @ to filter"
 							autocomplete="off"
+							oninput={handleInput}
+							onkeydown={handleKeydown}
+							onblur={() => setTimeout(() => (ac = { ...ac, visible: false }), 150)}
 						/>
 						<button type="submit" class="btn-primary" disabled={isLoading}>
 							<Search size={16} />
 							<span>Send</span>
 						</button>
 					</div>
-					<p class="query-hint">Press <kbd>↵ Enter</kbd> to send</p>
+					<p class="query-hint">Press <kbd>↵ Enter</kbd> to send · <kbd>@</kbd> to filter</p>
 				</form>
 			</div>
 		</section>
@@ -674,12 +817,15 @@
 		flex-direction: column;
 		width: 100%;
 	}
+
 	.message--user {
 		align-items: flex-end;
 	}
+
 	.message--klippy {
 		align-items: flex-start;
 	}
+
 	.user-exchange {
 		display: flex;
 		align-items: center;
@@ -750,11 +896,13 @@
 		border-radius: 2px;
 		text-transform: uppercase;
 	}
+
 	.badge--cached {
 		color: var(--teal);
 		border-color: var(--teal);
 		background: var(--teal-light);
 	}
+
 	.badge--context {
 		color: var(--ink-2);
 		border-color: var(--border-dark);
@@ -764,6 +912,7 @@
 		display: flex;
 		gap: var(--size-2);
 	}
+
 	.icon-btn {
 		background: none;
 		border: 1px solid var(--border);
@@ -778,6 +927,7 @@
 		transition: all 0.15s;
 		text-shadow: none;
 	}
+
 	.icon-btn:hover {
 		opacity: 1;
 		background: var(--kings-red-light);
@@ -796,6 +946,7 @@
 		border-top: 1px solid var(--border);
 		background: var(--canvas);
 	}
+
 	.toggle-btn {
 		width: 100%;
 		display: flex;
@@ -807,9 +958,11 @@
 		transition: background 0.1s;
 		text-shadow: none;
 	}
+
 	.toggle-btn:hover {
 		background: rgba(0, 0, 0, 0.02);
 	}
+
 	.toggle-label {
 		font-family: var(--font-mono);
 		font-size: 0.7rem;
@@ -817,10 +970,12 @@
 		color: var(--ink-2);
 		letter-spacing: 0.08em;
 	}
+
 	.toggle-icon {
 		transition: transform 0.2s;
 		color: var(--ink-2);
 	}
+
 	.rotated {
 		transform: rotate(180deg);
 	}
@@ -831,6 +986,7 @@
 		gap: var(--size-3);
 		padding: 0 var(--size-6) var(--size-6);
 	}
+
 	.source-link {
 		display: inline-flex;
 		align-items: center;
@@ -844,6 +1000,7 @@
 		transition: all 0.15s;
 		text-shadow: none;
 	}
+
 	.source-link:hover {
 		border-color: var(--kings-red);
 		color: var(--kings-red);
@@ -851,6 +1008,7 @@
 		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 	}
 
+	/* ── Query area ─────────────────────────────── */
 	.query-area {
 		position: sticky;
 		bottom: 0;
@@ -859,57 +1017,14 @@
 		z-index: 100;
 	}
 
-	#chat-input {
-		flex: 1;
-		border: none;
-		outline: none;
-		padding: var(--size-2) 0;
-		font-size: 1.1rem;
-		font-family: var(--font-sans);
-		font-weight: 300;
-		background: transparent;
-		color: var(--ink-0);
-	}
-
-	/* ── Loading state: animate the query box border-top ── */
-	.query-box {
+	.query-container {
 		position: relative;
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-2);
 	}
 
-	.query-box.loading {
-		border-top-color: var(--border-dark);
-	}
-
-	.loading-rail {
-		position: absolute;
-		top: -4px;
-		left: 0;
-		right: 0;
-		height: 4px;
-		overflow: hidden;
-		pointer-events: none;
-	}
-
-	.loading-rail::after {
-		content: '';
-		position: absolute;
-		top: 0;
-		left: -35%;
-		width: 35%;
-		height: 100%;
-		background: var(--kings-red);
-		animation: border-scan 1.3s linear infinite;
-	}
-
-	@keyframes border-scan {
-		from {
-			left: -35%;
-		}
-		to {
-			left: 100%;
-		}
-	}
-
+	/* ── Filter chips ───────────────────────────── */
 	.filter-chips {
 		display: flex;
 		flex-wrap: wrap;
@@ -952,14 +1067,93 @@
 		opacity: 1;
 	}
 
+	/* ── Autocomplete dropdown ──────────────────── */
+	.ac-dropdown {
+		position: absolute;
+		bottom: calc(100% + var(--size-2));
+		left: 0;
+		right: 0;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 4px;
+		box-shadow: var(--shadow-2);
+		overflow: hidden;
+		z-index: 200;
+	}
+
+	.ac-option {
+		display: block;
+		width: 100%;
+		text-align: left;
+		padding: var(--size-2) var(--size-4);
+		background: none;
+		border: none;
+		cursor: pointer;
+		font-family: var(--font-mono);
+		font-size: 0.8rem;
+		color: var(--ink-1);
+		transition: background 0.1s;
+		text-shadow: none;
+	}
+
+	.ac-option:hover,
+	.ac-active {
+		background: var(--kings-red-light);
+		color: var(--kings-red);
+	}
+
+	.ac-prefix,
+	.ac-suffix {
+		opacity: 0.5;
+	}
+
+	/* ── Loading ────────────────────────────────── */
 	.loader-verb {
 		font-family: var(--font-mono);
 		font-size: 0.75rem;
 		color: var(--ink-2);
 		letter-spacing: 0.08em;
 		text-align: left;
-		margin-bottom: var(--size-2);
+		margin: 0;
 		animation: fade-cycle 2s ease-in-out infinite;
+	}
+
+	.query-box {
+		position: relative;
+	}
+
+	.query-box.loading {
+		border-top-color: var(--border-dark);
+	}
+
+	.loading-rail {
+		position: absolute;
+		top: -4px;
+		left: 0;
+		right: 0;
+		height: 4px;
+		overflow: hidden;
+		pointer-events: none;
+	}
+
+	.loading-rail::after {
+		content: '';
+		position: absolute;
+		top: 0;
+		left: -35%;
+		width: 35%;
+		height: 100%;
+		background: var(--kings-red);
+		animation: border-scan 1.3s linear infinite;
+	}
+
+	@keyframes border-scan {
+		from {
+			left: -35%;
+		}
+		to {
+			left: 100%;
+		}
 	}
 
 	@keyframes fade-cycle {
@@ -970,6 +1164,18 @@
 		50% {
 			opacity: 1;
 		}
+	}
+
+	#chat-input {
+		flex: 1;
+		border: none;
+		outline: none;
+		padding: var(--size-2) 0;
+		font-size: 1.1rem;
+		font-family: var(--font-sans);
+		font-weight: 300;
+		background: transparent;
+		color: var(--ink-0);
 	}
 
 	.empty-state {
@@ -988,6 +1194,7 @@
 			height: 100%;
 			z-index: 200;
 		}
+
 		.sidebar.closed {
 			transform: translateX(-100%);
 		}
