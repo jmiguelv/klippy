@@ -617,8 +617,6 @@
 
 	.explore-page {
 		padding: var(--size-12) 0 var(--size-32);
-		max-width: 900px;
-		margin-inline: auto;
 	}
 
 	.chat-title {
