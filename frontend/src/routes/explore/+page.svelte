@@ -243,7 +243,7 @@
 		if (valueMatch) {
 			const [, field, partial] = valueMatch;
 			const showOptions = (all: string[], currentPartial: string) => {
-				const options = all.filter((v) => v.toLowerCase().startsWith(currentPartial.toLowerCase()));
+				const options = all.filter((v) => v.toLowerCase().includes(currentPartial.toLowerCase()));
 				ac = { visible: options.length > 0, mode: 'value', field, partial: currentPartial, options, activeIdx: 0 };
 			};
 			if (acCache[field] !== undefined) {
@@ -262,7 +262,7 @@
 		} else if (fieldMatch) {
 			const [, partial] = fieldMatch;
 			const showOptions = (all: string[]) => {
-				const options = all.filter((f) => f.toLowerCase().startsWith(partial.toLowerCase()));
+				const options = all.filter((f) => f.toLowerCase().includes(partial.toLowerCase()));
 				ac = { visible: options.length > 0, mode: 'field', field: '', partial, options, activeIdx: 0 };
 			};
 			if (acCache['__fields__']) {
