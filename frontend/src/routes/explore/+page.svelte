@@ -884,7 +884,7 @@
 		font-size: 0.75rem;
 		color: var(--ink-2);
 		letter-spacing: 0.08em;
-		text-align: right;
+		text-align: left;
 		margin-bottom: var(--size-2);
 		animation: fade-cycle 2s ease-in-out infinite;
 	}
