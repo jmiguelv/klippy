@@ -13,6 +13,7 @@ from llama_index.core import (
 )
 from llama_index.core.ingestion import IngestionPipeline, IngestionCache
 from llama_index.core.node_parser import MarkdownNodeParser
+from llama_index.core.vector_stores.types import MetadataFilter, MetadataFilters
 from llama_index.storage.kvstore.redis import RedisKVStore as RedisCache
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from llama_index.llms.openai_like import OpenAILike
@@ -189,7 +190,7 @@ class KlippyEngine:
 
         logger.info("Ingestion complete.")
 
-    def get_chat_engine(self, chat_history=None):
+    def get_chat_engine(self, chat_history=None, filters: dict[str, str] | None = None):
         """Returns a chat engine with conversational memory."""
         if self._index is None:
             self._index = VectorStoreIndex.from_vector_store(
@@ -209,19 +210,30 @@ class KlippyEngine:
             "\nInstruction: Use the previous chat history, or the context above, to interact and help the user."
         )
 
+        metadata_filters = (
+            MetadataFilters(
+                filters=[MetadataFilter(key=k, value=v) for k, v in filters.items()]
+            )
+            if filters
+            else None
+        )
+
         return self._index.as_chat_engine(
             chat_mode="condense_plus_context",
             chat_history=chat_history or [],
             context_prompt=context_prompt,
             similarity_top_k=10,
             llm=Settings.llm,
+            filters=metadata_filters,
         )
 
-    def chat(self, message: str, chat_history=None):
+    def chat(
+        self, message: str, chat_history=None, filters: dict[str, str] | None = None
+    ):
         """Executes a chat turn and returns the response object with timings."""
         import time
 
-        engine = self.get_chat_engine(chat_history=chat_history)
+        engine = self.get_chat_engine(chat_history=chat_history, filters=filters)
 
         start_time = time.time()
         response = engine.chat(message)

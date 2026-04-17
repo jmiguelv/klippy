@@ -50,8 +50,9 @@
 	let isLoading = $state(false);
 	let loaderVerb = $state('Synthesising');
 	let sessionId = $state('');
-	let expandedSources = $state<Set<number>>(new Set()); // Track expanded state for each message
+	let expandedSources = $state<Set<number>>(new Set());
 	let isSidebarOpen = $state(true);
+	let activeFilters = $state<Record<string, string>>({});
 	let chatMainEl: HTMLElement;
 
 	const LOADER_VERBS = [
@@ -159,6 +160,23 @@
 		return str.length > n ? str.slice(0, n - 1) + '...' : str;
 	}
 
+	function parseFilters(raw: string): { text: string; filters: Record<string, string> } {
+		const filters: Record<string, string> = {};
+		const text = raw
+			.replace(/@(\w+):(\S+)/g, (_, k, v) => {
+				filters[k] = v;
+				return '';
+			})
+			.trim();
+		return { text, filters };
+	}
+
+	function removeFilter(key: string) {
+		const { [key]: _, ...rest } = activeFilters;
+		activeFilters = rest;
+		query = query.replace(new RegExp(`@${key}:\\S+\\s*`, 'g'), '').trim();
+	}
+
 	async function sendFeedback(isPositive: boolean, sId: string) {
 		try {
 			await fetch('http://localhost:8000/feedback', {
@@ -180,8 +198,10 @@
 	}
 
 	async function handleSend(textOverride?: string, isRefresh = false) {
-		const text = textOverride || query.trim();
-		if (!text) return;
+		const raw = textOverride || query.trim();
+		if (!raw) return;
+		const { text, filters } = parseFilters(raw);
+		activeFilters = filters;
 
 		if (!currentSessionId) createNewChat(text);
 
@@ -218,7 +238,7 @@
 			const response = await fetch('http://localhost:8000/query', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ text, session_id: currentSessionId })
+				body: JSON.stringify({ text, session_id: currentSessionId, filters })
 			});
 			const data = await response.json();
 
@@ -448,6 +468,18 @@
 						<div class="loading-rail" aria-hidden="true"></div>
 					{/if}
 					<p class="query-label">Ask Klippy</p>
+					{#if Object.keys(activeFilters).length > 0}
+						<div class="filter-chips">
+							{#each Object.entries(activeFilters) as [k, v]}
+								<span class="chip">
+									<span class="chip-key">{k}</span>
+									<span class="chip-sep">:</span>
+									<span class="chip-val">{v}</span>
+									<button type="button" class="chip-remove" onclick={() => removeFilter(k)}>×</button>
+								</span>
+							{/each}
+						</div>
+					{/if}
 					<div class="query-input-row">
 						<input
 							id="chat-input"
@@ -876,6 +908,48 @@
 		to {
 			left: 100%;
 		}
+	}
+
+	.filter-chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--size-2);
+	}
+
+	.chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		font-family: var(--font-mono);
+		font-size: 0.65rem;
+		background: var(--kings-red-light);
+		color: var(--kings-red);
+		border: 1px solid var(--kings-red);
+		border-radius: 3px;
+		padding: 2px var(--size-2);
+	}
+
+	.chip-key {
+		font-weight: 600;
+	}
+
+	.chip-sep {
+		opacity: 0.5;
+	}
+
+	.chip-remove {
+		background: none;
+		border: none;
+		cursor: pointer;
+		color: inherit;
+		padding: 0 0 0 var(--size-1);
+		font-size: 0.8rem;
+		line-height: 1;
+		opacity: 0.6;
+	}
+
+	.chip-remove:hover {
+		opacity: 1;
 	}
 
 	.loader-verb {

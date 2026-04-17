@@ -33,6 +33,7 @@ set_global_handler("arize_phoenix", endpoint=phoenix_endpoint)
 class QueryRequest(BaseModel):
     text: str
     session_id: str = None
+    filters: dict[str, str] = {}
 
 
 class QueryResponse(BaseModel):
@@ -119,7 +120,9 @@ async def query_klippy(request: QueryRequest):
         now = datetime.now().isoformat()
 
         chat_history = get_history_from_redis(session_id)
-        response_obj = engine.chat(request.text, chat_history=chat_history)
+        response_obj = engine.chat(
+            request.text, chat_history=chat_history, filters=request.filters or None
+        )
         answer = str(response_obj)
 
         updated_history = [m.dict() for m in chat_history]
