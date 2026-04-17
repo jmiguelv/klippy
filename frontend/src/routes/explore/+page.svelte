@@ -242,14 +242,26 @@
 
 		if (valueMatch) {
 			const [, field, partial] = valueMatch;
-			const all = await fetchValues(field);
-			const options = all.filter((v) => v.toLowerCase().startsWith(partial.toLowerCase()));
-			ac = { visible: options.length > 0, mode: 'value', field, partial, options, activeIdx: 0 };
+			const showOptions = (all: string[]) => {
+				const options = all.filter((v) => v.toLowerCase().startsWith(partial.toLowerCase()));
+				ac = { visible: options.length > 0, mode: 'value', field, partial, options, activeIdx: 0 };
+			};
+			if (acCache[field]) {
+				showOptions(acCache[field]);
+			} else {
+				showOptions(await fetchValues(field));
+			}
 		} else if (fieldMatch) {
 			const [, partial] = fieldMatch;
-			const all = await fetchFields();
-			const options = all.filter((f) => f.toLowerCase().startsWith(partial.toLowerCase()));
-			ac = { visible: options.length > 0, mode: 'field', field: '', partial, options, activeIdx: 0 };
+			const showOptions = (all: string[]) => {
+				const options = all.filter((f) => f.toLowerCase().startsWith(partial.toLowerCase()));
+				ac = { visible: options.length > 0, mode: 'field', field: '', partial, options, activeIdx: 0 };
+			};
+			if (acCache['__fields__']) {
+				showOptions(acCache['__fields__']);
+			} else {
+				showOptions(await fetchFields());
+			}
 		} else {
 			ac = { ...ac, visible: false };
 		}
@@ -406,6 +418,7 @@
 			currentSessionId = sessions[0].id;
 			activeFilters = sessions[0].filters ?? {};
 		}
+		fetchFields();
 	});
 </script>
 
@@ -443,6 +456,7 @@
 		</div>
 	</aside>
 
+	<div class="chat-content">
 	<main class="chat-main" bind:this={chatMainEl}>
 		<button
 			class="sidebar-toggle"
@@ -562,9 +576,10 @@
 				{/each}
 			</div>
 		</section>
+	</main>
 
-		<section class="query-area">
-			<div class="container query-container">
+	<section class="query-area">
+		<div class="container query-container">
 				<!-- Active filter chips — above the form, persist across turns -->
 				{#if hasFilters}
 					<div class="filter-chips">
@@ -638,9 +653,9 @@
 					</div>
 					<p class="query-hint">Press <kbd>↵ Enter</kbd> to send · <kbd>@</kbd> to filter</p>
 				</form>
-			</div>
-		</section>
-	</main>
+		</div>
+	</section>
+	</div>
 </div>
 
 <style>
@@ -763,10 +778,15 @@
 	}
 
 	/* ── Main Chat Area ─────────────────────────── */
-	.chat-main {
+	.chat-content {
 		flex: 1;
 		display: flex;
 		flex-direction: column;
+		overflow: hidden;
+	}
+
+	.chat-main {
+		flex: 1;
 		position: relative;
 		overflow-y: auto;
 	}
@@ -1010,8 +1030,6 @@
 
 	/* ── Query area ─────────────────────────────── */
 	.query-area {
-		position: sticky;
-		bottom: 0;
 		background: linear-gradient(transparent, var(--canvas) 30%);
 		padding: var(--size-6) 0;
 		z-index: 100;
