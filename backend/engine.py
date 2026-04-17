@@ -1,17 +1,18 @@
 import os
+import re
 import logging
+import random
 import uuid
+import yaml
 import qdrant_client
 from llama_index.core import (
     VectorStoreIndex,
     StorageContext,
     SimpleDirectoryReader,
     Settings,
-    PromptTemplate,
-    get_response_synthesizer,
 )
-from llama_index.core.memory import ChatMemoryBuffer
 from llama_index.core.ingestion import IngestionPipeline, IngestionCache
+from llama_index.core.node_parser import MarkdownNodeParser
 from llama_index.storage.kvstore.redis import RedisKVStore as RedisCache
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from llama_index.llms.openai_like import OpenAILike
@@ -33,56 +34,60 @@ DEFAULT_SYSTEM_PROMPT = (
     "5. Be concise and professional."
 )
 
+
 class KlippyEngine:
-    def __init__(self, qdrant_host: str, data_dir: str, collection_name: str = "klippy_data"):
+    def __init__(
+        self, qdrant_host: str, data_dir: str, collection_name: str = "klippy_data"
+    ):
         self.qdrant_host = qdrant_host
         self.data_dir = data_dir
         self.collection_name = collection_name
         self.prompt_file = "/app/config/prompt.md"
-        
+
         # Configure LlamaIndex settings
         llm_api_key = os.getenv("LLM_API_KEY")
         llm_base_url = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
         llm_model = os.getenv("LLM_MODEL", "gpt-4-turbo-preview")
         embed_model = os.getenv("EMBED_MODEL", "text-embedding-3-small")
-        
+
         # Use OpenAILike for OpenAI-compatible endpoints
         Settings.llm = OpenAILike(
-            model=llm_model, 
+            model=llm_model,
             api_base=llm_base_url,
             api_key=llm_api_key,
             is_chat_model=True,
-            temperature=0.1
+            temperature=0.1,
         )
-        
+
         if embed_model.startswith("local:") or "/" in embed_model:
             model_name = embed_model.replace("local:", "")
             embed_device = os.getenv("EMBED_DEVICE", "cpu")
-            logger.info(f"Using local HuggingFace embedding model: {model_name} on device: {embed_device}")
+            logger.info(
+                f"Using local HuggingFace embedding model: {model_name} on device: {embed_device}"
+            )
             Settings.embed_model = HuggingFaceEmbedding(
-                model_name=model_name,
-                device=embed_device
+                model_name=model_name, device=embed_device
             )
         else:
             logger.info(f"Using OpenAI-compatible embedding model: {embed_model}")
             Settings.embed_model = OpenAIEmbedding(
-                model_name=embed_model, 
-                api_base=llm_base_url,
-                api_key=llm_api_key
+                model_name=embed_model, api_base=llm_base_url, api_key=llm_api_key
             )
-        
+
         # Initialize Qdrant Client
         self.client = qdrant_client.QdrantClient(host=self.qdrant_host, port=6333)
         self.vector_store = QdrantVectorStore(
             client=self.client, collection_name=self.collection_name
         )
-        self.storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
-        
+        self.storage_context = StorageContext.from_defaults(
+            vector_store=self.vector_store
+        )
+
         # Initialize Redis Cache for Ingestion
         self.redis_host = os.getenv("REDIS_HOST", "redis")
         self.ingest_cache = IngestionCache(
             cache=RedisCache.from_host_and_port(host=self.redis_host, port=6379),
-            collection=f"ingest_cache_{self.collection_name}"
+            collection=f"ingest_cache_{self.collection_name}",
         )
 
         # Internal state for the index
@@ -105,47 +110,50 @@ class KlippyEngine:
             return
 
         logger.info(f"Scanning directory {self.data_dir} for markdown files...")
-        
+
         reader = SimpleDirectoryReader(
-            input_dir=self.data_dir,
-            recursive=True,
-            required_exts=[".md"]
+            input_dir=self.data_dir, recursive=True, required_exts=[".md"]
         )
-        
+
         documents = reader.load_data(show_progress=True)
 
         if not documents:
             logger.info("No documents found for ingestion.")
             return
 
-        # Handle random sampling if limit is set
         if limit and limit < len(documents):
-            import random
-            logger.info(f"Limiting ingestion to {limit} random documents out of {len(documents)}...")
+            logger.info(
+                f"Limiting ingestion to {limit} random documents out of {len(documents)}..."
+            )
             documents = random.sample(documents, limit)
 
-        import re
         for doc in documents:
             file_path = doc.metadata.get("file_path", "")
             if file_path:
                 doc.id_ = str(uuid.uuid5(uuid.NAMESPACE_URL, file_path))
-            
-            # Extract YAML fields from frontmatter
-            text = doc.get_text()
-            yaml_match = re.search(r'^---\s*\n(.*?)\n---\s*\n', text, re.DOTALL | re.MULTILINE)
-            if yaml_match:
-                yaml_content = yaml_match.group(1)
-                for line in yaml_content.split('\n'):
-                    if ':' in line:
-                        k, v = line.split(':', 1)
-                        k = k.strip()
-                        v = v.strip().strip('"').strip("'")
-                        doc.metadata[k] = v
 
-        logger.info(f"Loaded {len(documents)} documents. Starting transformation pipeline...")
+            # Strip YAML frontmatter from content and extract fields as metadata
+            text = doc.text or ""
+            fm_match = re.match(r"^---\s*\n(.*?)\n---\s*\n", text, re.DOTALL)
+            if fm_match:
+                try:
+                    fm_data = yaml.safe_load(fm_match.group(1))
+                    if isinstance(fm_data, dict):
+                        for k, v in fm_data.items():
+                            if v is not None:
+                                doc.metadata[k] = str(v)
+                except yaml.YAMLError as e:
+                    logger.warning(f"YAML parse error in {file_path}: {e}")
+                # Remove frontmatter from the text so it isn't indexed as content
+                doc.set_content(text[fm_match.end() :])
+
+        logger.info(
+            f"Loaded {len(documents)} documents. Starting transformation pipeline..."
+        )
 
         pipeline = IngestionPipeline(
             transformations=[
+                MarkdownNodeParser(include_metadata=True),
                 Settings.embed_model,
             ],
             vector_store=self.vector_store,
@@ -155,17 +163,19 @@ class KlippyEngine:
         # Process in manual batches to avoid pickling errors and manage memory
         batch_size = 100
         for i in range(0, len(documents), batch_size):
-            batch = documents[i:i + batch_size]
-            logger.info(f"Processing batch {i//batch_size + 1}/{(len(documents)-1)//batch_size + 1} ({len(batch)} docs)...")
+            batch = documents[i : i + batch_size]
+            logger.info(
+                f"Processing batch {i // batch_size + 1}/{(len(documents) - 1) // batch_size + 1} ({len(batch)} docs)..."
+            )
             pipeline.run(documents=batch, show_progress=False)
-        
+
         # Create or update index from the vector store
         self._index = VectorStoreIndex.from_vector_store(
             vector_store=self.vector_store,
             storage_context=self.storage_context,
-            embed_model=Settings.embed_model
+            embed_model=Settings.embed_model,
         )
-        
+
         logger.info("Ingestion complete.")
 
     def get_chat_engine(self, chat_history=None):
@@ -174,11 +184,11 @@ class KlippyEngine:
             self._index = VectorStoreIndex.from_vector_store(
                 vector_store=self.vector_store,
                 storage_context=self.storage_context,
-                embed_model=Settings.embed_model
+                embed_model=Settings.embed_model,
             )
-            
+
         system_prompt = self._get_system_prompt()
-        
+
         # Format the context prompt correctly for condense_plus_context
         # This acts as the system prompt and is where context is injected
         context_prompt = (
@@ -193,23 +203,23 @@ class KlippyEngine:
             chat_history=chat_history or [],
             context_prompt=context_prompt,
             similarity_top_k=10,
-            llm=Settings.llm
+            llm=Settings.llm,
         )
 
     def chat(self, message: str, chat_history=None):
         """Executes a chat turn and returns the response object with timings."""
         import time
-        
+
         engine = self.get_chat_engine(chat_history=chat_history)
-        
+
         start_time = time.time()
         response = engine.chat(message)
         total_time_ms = int((time.time() - start_time) * 1000)
-        
+
         # Add timings and history to metadata
         if response.metadata is None:
             response.metadata = {}
         response.metadata["total_time_ms"] = total_time_ms
         response.metadata["chat_history"] = [m.dict() for m in engine.chat_history]
-        
+
         return response
