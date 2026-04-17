@@ -222,7 +222,7 @@
 	}
 
 	async function fetchValues(field: string): Promise<string[]> {
-		if (acCache[field]) return acCache[field];
+		if (acCache[field] !== undefined) return acCache[field];
 		try {
 			const res = await fetch(`http://localhost:8000/debug/stats?field=${field}`);
 			const data = await res.json();
@@ -242,14 +242,22 @@
 
 		if (valueMatch) {
 			const [, field, partial] = valueMatch;
-			const showOptions = (all: string[]) => {
-				const options = all.filter((v) => v.toLowerCase().startsWith(partial.toLowerCase()));
-				ac = { visible: options.length > 0, mode: 'value', field, partial, options, activeIdx: 0 };
+			const showOptions = (all: string[], currentPartial: string) => {
+				const options = all.filter((v) => v.toLowerCase().startsWith(currentPartial.toLowerCase()));
+				ac = { visible: options.length > 0, mode: 'value', field, partial: currentPartial, options, activeIdx: 0 };
 			};
-			if (acCache[field]) {
-				showOptions(acCache[field]);
+			if (acCache[field] !== undefined) {
+				showOptions(acCache[field], partial);
 			} else {
-				showOptions(await fetchValues(field));
+				const all = await fetchValues(field);
+				// Re-read input state after async gap to avoid stale partial
+				const inputEl = e.target as HTMLInputElement;
+				const nowBefore = inputEl.value.slice(0, inputEl.selectionStart ?? inputEl.value.length);
+				const nowMatch = nowBefore.match(/@(\w+):(\w*)$/);
+				if (nowMatch && nowMatch[1] === field) {
+					showOptions(all, nowMatch[2]);
+				}
+				// If field changed or no match, discard — next oninput will handle
 			}
 		} else if (fieldMatch) {
 			const [, partial] = fieldMatch;
@@ -419,6 +427,9 @@
 			activeFilters = sessions[0].filters ?? {};
 		}
 		fetchFields();
+		fetchFields().then((fields) => {
+			fields.forEach((f) => fetchValues(f));
+		});
 	});
 </script>
 
