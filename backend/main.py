@@ -173,12 +173,25 @@ async def process_feedback(request: FeedbackRequest):
     return {"status": "Feedback received"}
 
 
+STATS_CACHE_TTL = 3600  # 1 hour
+
+
+def invalidate_stats_cache():
+    """Removes all cached debug/stats entries after ingestion."""
+    for key in redis_client.scan_iter("debug_stats:*"):
+        redis_client.delete(key)
+    logger.info("Invalidated debug stats cache.")
+
+
+def _run_ingestion(limit, force):
+    engine.ingest_data(limit=limit, force=force)
+    invalidate_stats_cache()
+
+
 @app.post("/ingest")
 async def trigger_ingestion(request: IngestRequest, background_tasks: BackgroundTasks):
     """Triggers a manual ingestion. Can optionally limit number of docs and force re-index."""
-    background_tasks.add_task(
-        engine.ingest_data, limit=request.limit, force=request.force
-    )
+    background_tasks.add_task(_run_ingestion, limit=request.limit, force=request.force)
     return {
         "status": "Ingestion task started in background",
         "limit": request.limit,
@@ -227,6 +240,11 @@ async def collection_fields():
 @app.get("/debug/stats")
 async def collection_stats(field: str = "type"):
     """Returns value counts for a metadata field across all indexed nodes."""
+    cache_key = f"debug_stats:{field}"
+    cached = redis_client.get(cache_key)
+    if cached:
+        return json.loads(cached)
+
     counts: Counter = Counter()
     offset = None
 
@@ -255,7 +273,13 @@ async def collection_stats(field: str = "type"):
             break
 
     total = sum(counts.values())
-    return {"field": field, "total_nodes": total, "counts": dict(counts.most_common())}
+    payload = {
+        "field": field,
+        "total_nodes": total,
+        "counts": dict(counts.most_common()),
+    }
+    redis_client.setex(cache_key, STATS_CACHE_TTL, json.dumps(payload))
+    return payload
 
 
 @app.get("/health")
