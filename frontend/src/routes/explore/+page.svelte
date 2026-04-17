@@ -188,9 +188,10 @@
 
 	function parseFilters(raw: string): { text: string; filters: Record<string, string> } {
 		const filters: Record<string, string> = {};
+		// Matches @field:"quoted value" or @field:unquoted
 		const text = raw
-			.replace(/@(\w+):(\S+)/g, (_, k, v) => {
-				filters[k] = v;
+			.replace(/@(\w+):(?:"([^"]+)"|(\S+))/g, (_, k, quoted, unquoted) => {
+				filters[k] = quoted ?? unquoted;
 				return '';
 			})
 			.trim();
@@ -253,6 +254,12 @@
 		return acCache[field];
 	}
 
+	async function showValueOptions(field: string, partial: string): Promise<void> {
+		const values = acCache[field] !== undefined ? acCache[field] : await fetchValues(field);
+		const options = values.filter((v) => v.toLowerCase().includes(partial.toLowerCase()));
+		ac = { visible: options.length > 0, mode: 'value', field, partial, options, activeIdx: 0 };
+	}
+
 	async function handleInput(e: Event) {
 		const input = e.target as HTMLInputElement;
 		const before = input.value.slice(0, input.selectionStart ?? input.value.length);
@@ -262,22 +269,17 @@
 
 		if (valueMatch) {
 			const [, field, partial] = valueMatch;
-			const showOptions = (all: string[], currentPartial: string) => {
-				const options = all.filter((v) => v.toLowerCase().includes(currentPartial.toLowerCase()));
-				ac = { visible: options.length > 0, mode: 'value', field, partial: currentPartial, options, activeIdx: 0 };
-			};
 			if (acCache[field] !== undefined) {
-				showOptions(acCache[field], partial);
+				await showValueOptions(field, partial);
 			} else {
-				const all = await fetchValues(field);
-				// Re-read input state after async gap to avoid stale partial
+				await fetchValues(field);
+				// Re-read cursor state after async gap
 				const inputEl = e.target as HTMLInputElement;
 				const nowBefore = inputEl.value.slice(0, inputEl.selectionStart ?? inputEl.value.length);
 				const nowMatch = nowBefore.match(/@(\w+):(\w*)$/);
 				if (nowMatch && nowMatch[1] === field) {
-					showOptions(all, nowMatch[2]);
+					await showValueOptions(field, nowMatch[2]);
 				}
-				// If field changed or no match, discard — next oninput will handle
 			}
 		} else if (fieldMatch) {
 			const [, partial] = fieldMatch;
@@ -305,14 +307,19 @@
 		}
 	}
 
-	function selectOption(opt: string) {
+	async function selectOption(opt: string) {
 		if (ac.mode === 'field') {
 			query = query.replace(/@\w*$/, `@${opt}:`);
+			ac = { ...ac, visible: false };
+			document.getElementById('chat-input')?.focus();
+			await showValueOptions(opt, '');
 		} else {
-			query = query.replace(new RegExp(`@${ac.field}:\\w*$`), `@${ac.field}:${opt} `);
+			// Auto-quote values that contain spaces
+			const quotedOpt = opt.includes(' ') ? `"${opt}"` : opt;
+			query = query.replace(new RegExp(`@${ac.field}:(?:"[^"]*"|\\S*)$`), `@${ac.field}:${quotedOpt} `);
+			ac = { ...ac, visible: false };
+			document.getElementById('chat-input')?.focus();
 		}
-		ac = { ...ac, visible: false };
-		document.getElementById('chat-input')?.focus();
 	}
 
 	// ── Send ────────────────────────────────────────────────────
