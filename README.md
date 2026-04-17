@@ -28,7 +28,7 @@ graph LR
     end
 
     subgraph Frontend
-        AST[Astro UI]
+        SVT[SvelteKit UI]
     end
 
     CU --> CU_C
@@ -38,17 +38,15 @@ graph LR
     ORCH --> DATA_RAW
     DATA_RAW --> LI
     LI --> QD
-    AST --> FAST
+    SVT --> FAST
     FAST --> RD
     FAST --> LI
 ```
 
 ### Data Pipeline
 
-1.  **Harvesting**: The Harvester runs parallel threads to discover and fetch data.
-    - **ClickUp**: Discovers all spaces (filtering ignored ones), folders, and lists. Incremental sync for tasks and full sync for docs/pages.
-    - **GitHub**: Discovers all repositories for specified orgs/users. Incremental sync for commits and full sync for READMEs.
-2.  **Normalization**: Data is converted to Markdown with YAML frontmatter containing metadata (IDs, URLs, authors, timestamps).
+1.  **Harvesting**: The Harvester runs parallel threads to discover and fetch data from ClickUp and GitHub.
+2.  **Normalization**: Data is converted to Markdown with YAML frontmatter containing metadata.
 3.  **Storage**: Files are saved to `data/raw/`. Sync state is tracked in `data/state.json`.
 4.  **Indexing**: The Backend uses an `IngestionPipeline` with Redis caching. It only re-processes files if their content hash has changed.
 5.  **Retrieval**: Performs hybrid search (semantic + metadata) across Qdrant.
@@ -59,48 +57,32 @@ graph LR
 | Service       | Technology           | Description                                        |
 | :------------ | :------------------- | :------------------------------------------------- |
 | **backend**   | FastAPI / LlamaIndex | RAG Orchestration and Query API                    |
-| **harvester** | Python / uv          | Data ingestion worker (runs on-demand or via cron) |
+| **harvester** | Python / uv          | Data ingestion worker (runs on-demand via Docker)  |
 | **qdrant**    | Qdrant               | Vector database for embeddings and metadata        |
 | **redis**     | Redis                | Caching for LLM responses and ingestion pipeline   |
 | **redis-insight** | Redis Insight    | Web interface for browsing Redis data              |
 | **phoenix**   | Arize Phoenix        | Observability and RAG tracing                      |
-| **frontend**  | Astro                | Web-based search interface                         |
-
-## Configuration
-
-Environment variables are managed in the `.env` file.
-
-### LLM Settings
-
-- `LLM_API_KEY`: API key for your LLM provider.
-- `LLM_BASE_URL`: Base URL for OpenAI-compatible endpoints (e.g., vLLM, Ollama).
-- `LLM_MODEL`: The specific LLM model name (e.g., `gpt-4`).
-- `EMBED_MODEL`: The specific embedding model name (e.g., `text-embedding-3-small`).
-
-### ClickUp Settings
-
-- `CLICKUP_API_KEY`: Personal API Key.
-- `CLICKUP_WORKSPACE_ID`: Team/Workspace ID to harvest.
-- `CLICKUP_IGNORE_SPACES`: Comma-separated list of space names to skip.
-
-### GitHub Settings
-
-- `GITHUB_TOKEN`: Fine-grained PAT with `metadata:read` and `contents:read` permissions.
-- `GITHUB_ORGS`: Comma-separated list of organizations to harvest.
-- `GITHUB_USERS`: Comma-separated list of users to harvest.
 
 ## Operational Guide
 
-Both harvesting and indexing are manual processes. They do not run automatically on startup to allow for better control over resource usage.
-
 ### 1. Launching the Infrastructure
-Start the database and API services:
+Start the core services using Docker:
 
 ```bash
 docker compose up -d
 ```
 
-### 2. Harvesting Data
+### 2. Running the Frontend
+The SvelteKit frontend is decoupled from Docker for faster development. Run it natively:
+
+```bash
+cd frontend
+pnpm install
+pnpm dev
+```
+Access the interface at [http://localhost:5173](http://localhost:5173).
+
+### 3. Harvesting Data
 To trigger a manual incremental sync:
 
 ```bash
@@ -113,10 +95,9 @@ To force a full re-harvest (ignoring saved state):
 docker compose --profile manual run --rm harvester uv run python main.py --all --force
 ```
 
-### 3. Updating the Index
-The backend provides two ways to index the harvested data.
+### 4. Updating the Index
+Trigger a re-index after a harvest:
 
-**Via CLI (Recommended for testing with limits):**
 ```bash
 # Ingest all documents
 docker compose run --rm backend uv run python main.py --ingest
@@ -125,18 +106,9 @@ docker compose run --rm backend uv run python main.py --ingest
 docker compose run --rm backend uv run python main.py --ingest --limit 100
 ```
 
-**Via API:**
-```bash
-# Ingest all
-curl -X POST http://localhost:8000/ingest -H "Content-Type: application/json" -d '{"limit": null}'
+### 5. Observability and Monitoring
 
-# Ingest a random sample
-curl -X POST http://localhost:8000/ingest -H "Content-Type: application/json" -d '{"limit": 50}'
-```
-
-### 4. Observability and Monitoring
-
-- **Search Interface:** http://localhost:4321
+- **Search Interface:** http://localhost:5173
 - **API Documentation:** http://localhost:8000/docs
 - **Arize Phoenix (RAG Traces):** http://localhost:6006
 - **Redis Insight (Cache Browser):** http://localhost:5540
@@ -144,14 +116,12 @@ curl -X POST http://localhost:8000/ingest -H "Content-Type: application/json" -d
 ## Development
 
 ### Harvester
-
 ```bash
 cd harvester
 uv run pytest
 ```
 
 ### Backend
-
 ```bash
 cd backend
 uv run pytest
