@@ -210,8 +210,39 @@
 
 	// ── Autocomplete ────────────────────────────────────────────
 
+	const AC_CACHE_TTL_MS = 3_600_000; // 1 hour
+	const AC_CACHE_LS_KEY = 'klippy_ac_cache';
+
+	async function fetchAllStats(): Promise<void> {
+		try {
+			const stored = localStorage.getItem(AC_CACHE_LS_KEY);
+			if (stored) {
+				const { timestamp, stats } = JSON.parse(stored) as {
+					timestamp: number;
+					stats: Record<string, string[]>;
+				};
+				if (Date.now() - timestamp < AC_CACHE_TTL_MS) {
+					Object.assign(acCache, stats);
+					return;
+				}
+			}
+		} catch { /* ignore parse errors */ }
+
+		try {
+			const res = await fetch('http://localhost:8000/debug/stats/all');
+			const data = await res.json() as Record<string, Record<string, number>>;
+			const stats: Record<string, string[]> = {};
+			for (const [field, valueCounts] of Object.entries(data)) {
+				stats[field] = Object.keys(valueCounts);
+			}
+			Object.assign(acCache, stats);
+			localStorage.setItem(AC_CACHE_LS_KEY, JSON.stringify({ timestamp: Date.now(), stats }));
+		} catch { /* fail silently — autocomplete degrades gracefully */ }
+	}
+
 	async function fetchValues(field: string): Promise<string[]> {
 		if (acCache[field] !== undefined) return acCache[field];
+		// Fallback: fetch individual field stats if bulk cache missed this field
 		try {
 			const res = await fetch(`http://localhost:8000/debug/stats?field=${field}`);
 			const data = await res.json();
@@ -408,7 +439,7 @@
 			currentSessionId = sessions[0].id;
 			activeFilters = sessions[0].filters ?? {};
 		}
-		KNOWN_FIELDS.forEach((f) => fetchValues(f));
+		fetchAllStats();
 	});
 </script>
 

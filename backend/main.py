@@ -4,7 +4,7 @@ import json
 import logging
 import argparse
 import uuid
-from collections import Counter
+from collections import Counter, defaultdict
 from contextlib import asynccontextmanager
 from datetime import datetime
 
@@ -175,6 +175,20 @@ async def process_feedback(request: FeedbackRequest):
 
 STATS_CACHE_TTL = 3600  # 1 hour
 
+_INTERNAL_FIELDS = {
+    "_node_content",
+    "_node_type",
+    "doc_id",
+    "document_id",
+    "ref_doc_id",
+    "file_path",
+    "file_name",
+    "file_type",
+    "file_size",
+    "creation_date",
+    "last_modified_date",
+}
+
 
 def invalidate_stats_cache():
     """Removes all cached debug/stats entries after ingestion."""
@@ -209,31 +223,18 @@ async def collection_fields():
         with_payload=True,
         with_vectors=False,
     )
-    internal = {
-        "_node_content",
-        "_node_type",
-        "doc_id",
-        "document_id",
-        "ref_doc_id",
-        "file_path",
-        "file_name",
-        "file_type",
-        "file_size",
-        "creation_date",
-        "last_modified_date",
-    }
     for point in result:
         payload = point.payload or {}
         if "_node_content" in payload:
             try:
                 content = json.loads(payload["_node_content"])
                 fields.update(
-                    k for k in content.get("metadata", {}) if k not in internal
+                    k for k in content.get("metadata", {}) if k not in _INTERNAL_FIELDS
                 )
             except (json.JSONDecodeError, TypeError):
                 pass
         else:
-            fields.update(k for k in payload if k not in internal)
+            fields.update(k for k in payload if k not in _INTERNAL_FIELDS)
     return {"fields": sorted(fields)}
 
 
@@ -280,6 +281,47 @@ async def collection_stats(field: str = "type"):
     }
     redis_client.setex(cache_key, STATS_CACHE_TTL, json.dumps(payload))
     return payload
+
+
+@app.get("/debug/stats/all")
+async def collection_stats_all():
+    """Returns value counts for every metadata field in a single Qdrant scan."""
+    cache_key = "debug_stats:__all__"
+    cached = redis_client.get(cache_key)
+    if cached:
+        return json.loads(cached)
+
+    counts: dict[str, Counter] = defaultdict(Counter)
+    offset = None
+
+    while True:
+        result, offset = engine.client.scroll(
+            collection_name=engine.collection_name,
+            limit=1000,
+            offset=offset,
+            with_payload=True,
+            with_vectors=False,
+        )
+        for point in result:
+            payload = point.payload or {}
+            if "_node_content" in payload:
+                try:
+                    metadata = json.loads(payload["_node_content"]).get("metadata", {})
+                    for k, v in metadata.items():
+                        if k not in _INTERNAL_FIELDS and v is not None:
+                            counts[k][str(v)] += 1
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            else:
+                for k, v in payload.items():
+                    if k not in _INTERNAL_FIELDS and v is not None:
+                        counts[k][str(v)] += 1
+        if offset is None:
+            break
+
+    result_payload = {f: dict(c.most_common()) for f, c in counts.items()}
+    redis_client.setex(cache_key, STATS_CACHE_TTL, json.dumps(result_payload))
+    return result_payload
 
 
 @app.get("/health")
