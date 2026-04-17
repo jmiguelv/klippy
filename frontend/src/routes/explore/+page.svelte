@@ -76,6 +76,7 @@
 		activeIdx: 0
 	});
 	let acCache: Record<string, string[]> = {};
+	let allStatsReady: Promise<void> | null = null;
 
 	const LOADER_VERBS = [
 		'Synthesising',
@@ -255,6 +256,9 @@
 	}
 
 	async function showValueOptions(field: string, partial: string): Promise<void> {
+		// If the bulk fetch is still in flight, wait for it before falling back to
+		// individual per-field requests (which would each hit Qdrant on a cold cache).
+		if (acCache[field] === undefined && allStatsReady) await allStatsReady;
 		const values = acCache[field] !== undefined ? acCache[field] : await fetchValues(field);
 		const options = values.filter((v) => v.toLowerCase().includes(partial.toLowerCase()));
 		ac = { visible: options.length > 0, mode: 'value', field, partial, options, activeIdx: 0 };
@@ -446,7 +450,7 @@
 			currentSessionId = sessions[0].id;
 			activeFilters = sessions[0].filters ?? {};
 		}
-		fetchAllStats();
+		allStatsReady = fetchAllStats();
 	});
 </script>
 
