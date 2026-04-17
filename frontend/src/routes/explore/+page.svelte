@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { page } from '$app/state';
 	import { marked } from 'marked';
 	import {
@@ -195,6 +195,8 @@
 
 		if (!isRefresh) {
 			sessions[sIdx].messages = [...sessions[sIdx].messages, { role: 'user', content: text }];
+			await tick();
+			chatMainEl?.scrollTo({ top: chatMainEl.scrollHeight, behavior: 'smooth' });
 		}
 		sessions[sIdx].updatedAt = Date.now();
 
@@ -247,10 +249,8 @@
 		} finally {
 			clearInterval(interval);
 			isLoading = false;
-			setTimeout(
-				() => chatMainEl?.scrollTo({ top: chatMainEl.scrollHeight, behavior: 'smooth' }),
-				100
-			);
+			await tick();
+			chatMainEl?.scrollTo({ top: chatMainEl.scrollHeight, behavior: 'smooth' });
 		}
 	}
 
@@ -616,7 +616,7 @@
 	}
 
 	.explore-page {
-		padding: var(--size-12) 0 var(--size-32);
+		padding: var(--size-12) var(--size-6) var(--size-32);
 	}
 
 	.chat-title {
@@ -633,6 +633,8 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--size-6);
+		max-width: 1040px;
+		padding-inline: var(--size-6);
 	}
 
 	.message {
@@ -679,7 +681,6 @@
 		color: white;
 		padding: var(--size-4) var(--size-6);
 		border-radius: 16px 16px 2px 16px;
-		max-width: 72%;
 		font-size: 1rem;
 		font-weight: 300;
 		box-shadow: var(--shadow-2);
@@ -822,7 +823,7 @@
 		position: sticky;
 		bottom: 0;
 		background: linear-gradient(transparent, var(--canvas) 30%);
-		padding: var(--size-6) var(--size-6) var(--size-6);
+		padding: var(--size-6) 0;
 		z-index: 100;
 	}
 
