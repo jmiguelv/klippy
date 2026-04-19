@@ -1,9 +1,9 @@
 import os
-import requests
+import json
 import logging
 from datetime import datetime
 from clickup.parser import task_to_markdown, page_to_markdown
-from github.parser import commit_to_markdown, readme_to_markdown
+from github.parser import readme_to_markdown
 
 logger = logging.getLogger("harvester.orchestrator")
 
@@ -89,57 +89,63 @@ class Orchestrator:
 
         # 3. Deep Document Discovery
         logger.info("Starting deep document discovery...")
-        seen_doc_ids = set()
+        seen_doc_ids: set[str] = set()
         doc_count = 0
         page_count = 0
 
-        # Try Workspace search first
         try:
-            workspace_docs = self.clickup.get_docs(workspace_id)
-            for d in workspace_docs:
-                if d.get("id") and d["id"] not in seen_doc_ids:
-                    seen_doc_ids.add(d["id"])
-                    try:
-                        pages = self.clickup.get_pages(workspace_id, d["id"])
-                        if pages:
-                            doc_count += 1
-                            for p in pages:
-                                md = page_to_markdown(p, d.get("name", "Untitled"), workspace_id=workspace_id)
-                                self._save_markdown(f"clickup_page_{p['id']}.md", md)
-                                page_count += 1
-                    except Exception: pass
-        except Exception: pass
+            initial_docs = self.clickup.get_docs(workspace_id)
+        except Exception as e:
+            logger.error(f"get_docs failed: {e}")
+            initial_docs = []
 
-        logger.info(f"Phase 1: Found {page_count} pages from workspace search.")
+        logger.info(f"get_docs returned {len(initial_docs)} docs: {[d.get('id') for d in initial_docs]}")
+        queue = [d for d in initial_docs if d.get("id") and not seen_doc_ids.add(d["id"])]
 
-        # Try space/folder containers (often finds docs not in global search)
-        # This is more exhaustive
-        for c_type, c_id in all_doc_containers:
-            if c_type == "WORKSPACE": continue
+        _listing_logged = False
+
+        def _walk_listing(nodes, doc_id):
+            """Walk page listing tree; enqueue any sub-docs (items with a different doc_id)."""
+            for node in (nodes or []):
+                node_doc_id = node.get("doc_id")
+                if node_doc_id and node_doc_id != doc_id and node_doc_id not in seen_doc_ids:
+                    logger.info(f"  Found sub-doc {node_doc_id} ('{node.get('name')}') in listing of {doc_id}")
+                    seen_doc_ids.add(node_doc_id)
+                    queue.append({"id": node_doc_id, "name": node.get("name", "Untitled")})
+                # Nested pages are under the "pages" key
+                _walk_listing(node.get("pages", []), doc_id)
+
+        # BFS: harvest pages and discover sub-docs via page listing
+        while queue:
+            d = queue.pop(0)
+            doc_id = d["id"]
+
             try:
-                # v3 Search by parent
-                url = f"https://api.clickup.com/api/v3/workspaces/{workspace_id}/docs"
-                params = {"parent_id": c_id, "parent_type": c_type, "limit": 100}
-                resp = requests.get(url, headers=self.clickup.headers, params=params)
-                if resp.status_code == 200:
-                    docs = resp.json().get("docs", [])
-                    for d in docs:
-                        if d.get("id") and d["id"] not in seen_doc_ids:
-                            seen_doc_ids.add(d["id"])
-                            pages = self.clickup.get_pages(workspace_id, d["id"])
-                            if pages:
-                                doc_count += 1
-                                for p in pages:
-                                    md = page_to_markdown(p, d.get("name", "Untitled"), workspace_id=workspace_id)
-                                    self._save_markdown(f"clickup_page_{p['id']}.md", md)
-                                    page_count += 1
-            except Exception: pass
+                pages = self.clickup.get_pages(workspace_id, doc_id)
+                if pages:
+                    doc_count += 1
+                    for p in pages:
+                        md = page_to_markdown(p, d.get("name", "Untitled"), workspace_id=workspace_id)
+                        self._save_markdown(f"clickup_page_{p['id']}.md", md)
+                        page_count += 1
+            except Exception as e:
+                logger.warning(f"Could not harvest pages for doc {doc_id}: {e}")
 
-        logger.info(f"Final: Total {page_count} pages harvested from {doc_count} documents.")
+            # Use page listing to discover sub-docs
+            listing = self.clickup.get_page_listing(workspace_id, doc_id)
+            if not _listing_logged and listing:
+                logger.info(f"Page listing sample (doc {doc_id}): {json.dumps(listing)[:800]}")
+                _listing_logged = True
+            pages_root = listing if isinstance(listing, list) else listing.get("pages", [])
+            _walk_listing(pages_root, doc_id)
 
-    def run_github(self, org_names: list[str] = None, user_names: list[str] = None, force: bool = False):
-        """Orchestrates GitHub ingestion with incremental sync."""
+        logger.info(f"Final: {page_count} pages from {doc_count} docs ({len(seen_doc_ids)} total discovered).")
+
+    def run_github(self, org_names: list[str] = None, user_names: list[str] = None,
+                   force: bool = False, ignore_repos: list[str] = None):
+        """Orchestrates GitHub ingestion by harvesting all markdown files from each repo."""
         logger.info(f"Starting GitHub harvesting (force={force})...")
+        ignore_repos = {r.strip().lower() for r in (ignore_repos or [])}
         repos = []
         if org_names:
             for org in org_names:
@@ -148,28 +154,25 @@ class Orchestrator:
             for user in user_names:
                 repos.extend(self.github.list_user_repos(user))
 
-        current_sync_time = datetime.now().isoformat()
+        file_count = 0
         for repo in repos:
-            try:
-                readme_data = self.github.get_readme(repo)
-                if isinstance(readme_data, dict):
-                    raw_content = self.github.decode_content(readme_data["content"])
-                    md = readme_to_markdown(raw_content, repo, readme_data.get("html_url", ""))
-                    safe_repo_name = repo.replace("/", "_")
-                    self._save_markdown(f"github_readme_{safe_repo_name}.md", md)
-            except Exception: pass
+            if repo.lower() in ignore_repos:
+                logger.info(f"Skipping ignored repo: {repo}")
+                continue
+            md_files = self.github.get_markdown_files(repo)
+            logger.info(f"{repo}: {len(md_files)} markdown files found")
+            for item in md_files:
+                path = item["path"]
+                try:
+                    content = self.github.get_file_content(repo, path)
+                    if not content:
+                        continue
+                    html_url = f"https://github.com/{repo}/blob/HEAD/{path}"
+                    md = readme_to_markdown(content, repo, html_url)
+                    safe_name = repo.replace("/", "_") + "_" + path.replace("/", "_")
+                    self._save_markdown(f"github_md_{safe_name}", md)
+                    file_count += 1
+                except Exception as e:
+                    logger.warning(f"Failed to fetch {repo}/{path}: {e}")
 
-            last_sync = None if force else self.state.get_last_sync(f"github_repo_{repo}")
-            try:
-                commits = self.github.get_commits(repo, since=last_sync)
-                if isinstance(commits, list):
-                    for commit in commits:
-                        if isinstance(commit, dict):
-                            md = commit_to_markdown(commit, repo)
-                            safe_repo_name = repo.replace("/", "_")
-                            self._save_markdown(f"github_commit_{safe_repo_name}_{commit['sha']}.md", md)
-                    self.state.set_last_sync(f"github_repo_{repo}", current_sync_time)
-                    self.state.save()
-            except Exception as e:
-                logger.error(f"Failed commits for {repo}: {e}")
-        logger.info("GitHub harvesting complete.")
+        logger.info(f"GitHub harvesting complete. {file_count} markdown files harvested.")

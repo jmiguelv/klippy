@@ -69,6 +69,7 @@ services:
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_ORGS=${GITHUB_ORGS}
       - GITHUB_USERS=${GITHUB_USERS}
+      - GITHUB_IGNORE_REPOS=${GITHUB_IGNORE_REPOS}
       - DATA_DIR=/app/data/raw
       - STATE_FILE=/app/data/state.json
       - LOG_LEVEL=${LOG_LEVEL:-INFO}

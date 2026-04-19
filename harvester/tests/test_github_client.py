@@ -14,39 +14,33 @@ class MockResponse:
             import requests
             raise requests.exceptions.HTTPError("Error")
 
-def test_get_readme(mocker):
-    # Setup
-    mock_response = MockResponse({
-        "content": "IyBSRUFETUU=", # base64 for "# README"
-        "encoding": "base64",
-        "download_url": "https://raw.githubusercontent.com/owner/repo/main/README.md"
-    })
-    mocker.patch("requests.get", return_value=mock_response)
+def test_get_markdown_files_returns_md_paths(mocker):
+    tree = {
+        "tree": [
+            {"type": "blob", "path": "README.md"},
+            {"type": "blob", "path": "docs/guide.md"},
+            {"type": "blob", "path": "src/main.py"},
+            {"type": "tree", "path": "docs"},
+        ]
+    }
+    mocker.patch("requests.get", return_value=MockResponse(tree))
 
     client = GitHubClient(token="fake_token")
-    
-    # Execute
-    readme = client.get_readme(repo="owner/repo")
-    
-    # Assert
-    assert readme["content"] == "IyBSRUFETUU="
-    assert readme["encoding"] == "base64"
+    files = client.get_markdown_files("owner/repo")
 
-def test_get_commits_returns_list_of_commits(mocker):
-    mock_response = MockResponse([
-        {
-            "sha": "sha123",
-            "commit": {"author": {"name": "a1", "date": "2021-06-01T20:00:00Z"}, "message": "m1"},
-            "html_url": "url1"
-        }
-    ])
-    mocker.patch("requests.get", return_value=mock_response)
+    assert len(files) == 2
+    assert all(f["path"].endswith(".md") for f in files)
+
+
+def test_get_file_content_decodes_base64(mocker):
+    import base64
+    encoded = base64.b64encode(b"# Hello").decode()
+    mocker.patch("requests.get", return_value=MockResponse({"encoding": "base64", "content": encoded + "\n"}))
 
     client = GitHubClient(token="fake_token")
-    commits = client.get_commits(repo="owner/repo")
-    
-    assert len(commits) == 1
-    assert commits[0]["sha"] == "sha123"
+    content = client.get_file_content("owner/repo", "README.md")
+
+    assert content == "# Hello"
 
 def test_list_org_repos(mocker):
     mock_response = MockResponse([{"full_name": "org/repo1"}])

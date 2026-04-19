@@ -24,12 +24,29 @@ class GitHubClient:
                 url = None
         return results
 
-    def get_commits(self, repo: str, since: str = None) -> list:
-        url = f"{self.base_url}/repos/{repo}/commits"
-        params = {}
-        if since:
-            params["since"] = since
-        return self._get_paginated(url, params)
+    def get_markdown_files(self, repo: str) -> list[dict]:
+        """Returns all .md files in a repo using the Git Trees API (recursive)."""
+        url = f"{self.base_url}/repos/{repo}/git/trees/HEAD"
+        response = requests.get(url, headers=self.headers, params={"recursive": "1"})
+        if response.status_code != 200:
+            import logging
+            logging.getLogger("harvester.github.client").warning(
+                f"get_markdown_files({repo}): status {response.status_code}"
+            )
+            return []
+        tree = response.json().get("tree", [])
+        return [item for item in tree if item.get("type") == "blob" and item.get("path", "").endswith(".md")]
+
+    def get_file_content(self, repo: str, path: str) -> str | None:
+        """Returns decoded content of a file, or None on failure."""
+        url = f"{self.base_url}/repos/{repo}/contents/{path}"
+        response = requests.get(url, headers=self.headers)
+        if response.status_code != 200:
+            return None
+        data = response.json()
+        if isinstance(data, dict) and data.get("encoding") == "base64":
+            return self.decode_content(data["content"])
+        return None
 
     def list_org_repos(self, org: str) -> list[str]:
         """Lists all repositories for an organization."""
@@ -42,13 +59,6 @@ class GitHubClient:
         url = f"{self.base_url}/users/{user}/repos"
         repos = self._get_paginated(url, {"per_page": 100})
         return [repo["full_name"] for repo in repos]
-
-    def get_readme(self, repo: str) -> dict:
-        """Retrieves the README file for a repository."""
-        url = f"{self.base_url}/repos/{repo}/readme"
-        response = requests.get(url, headers=self.headers)
-        response.raise_for_status()
-        return response.json()
 
     def decode_content(self, content: str) -> str:
         """Decodes base64 content."""

@@ -55,6 +55,7 @@ def main():
     github_token = os.getenv("GITHUB_TOKEN")
     github_orgs = os.getenv("GITHUB_ORGS", "").split(",")
     github_users = os.getenv("GITHUB_USERS", "").split(",")
+    github_ignore_repos = os.getenv("GITHUB_IGNORE_REPOS", "").split(",")
     
     state_file = os.getenv("STATE_FILE", "./data/state.json")
 
@@ -112,9 +113,10 @@ def main():
             def run_gh():
                 logger.info(f"Thread: Starting GitHub harvesting (force={args.force})...")
                 orchestrator.run_github(
-                    org_names=orgs, 
+                    org_names=orgs,
                     user_names=users,
-                    force=args.force
+                    force=args.force,
+                    ignore_repos=[r for r in github_ignore_repos if r],
                 )
             
             t = threading.Thread(target=run_gh, name="GitHubThread")

@@ -36,43 +36,50 @@ class ClickUpClient:
         return self._safe_get_list(response, "tasks")
 
     def get_docs(self, workspace_id: str) -> list:
-        """Retrieves all documents in a workspace by searching across all parent types."""
+        """Returns all top-level docs in the workspace by sweeping each parent type with cursor pagination."""
         url = f"{self.base_url_v3}/workspaces/{workspace_id}/docs"
+        seen_ids: set[str] = set()
         all_docs = []
-        
-        parent_types = ["WORKSPACE", "SPACE", "FOLDER", "LIST"]
-        
-        for p_type in parent_types:
-            logger.info(f"  Searching for docs with parent_type: {p_type}")
+
+        for parent_type in ("WORKSPACE", "SPACE", "FOLDER", "LIST", "EVERYTHING"):
             cursor = None
-            type_doc_count = 0
-            
+            type_count = 0
             while True:
-                params = {"limit": 100, "parent_type": p_type}
+                params = {"limit": 100, "parent_type": parent_type}
                 if cursor:
                     params["cursor"] = cursor
-                
                 response = requests.get(url, headers=self.headers, params=params)
                 if response.status_code != 200:
-                    logger.debug(f"    No docs found or error for type {p_type}")
+                    logger.debug(f"get_docs({parent_type}): status {response.status_code}")
                     break
-                    
                 data = response.json()
                 docs = data.get("docs", [])
-                
                 for doc in docs:
-                    if doc.get("id") not in [d.get("id") for d in all_docs]:
+                    if doc.get("id") and doc["id"] not in seen_ids:
+                        seen_ids.add(doc["id"])
                         all_docs.append(doc)
-                        type_doc_count += 1
-                
+                        type_count += 1
                 cursor = data.get("cursor")
+                logger.debug(f"get_docs({parent_type}): got {len(docs)} docs, cursor={cursor!r}")
                 if not cursor or not docs:
                     break
-            
-            if type_doc_count > 0:
-                logger.info(f"    Found {type_doc_count} docs.")
-                
+            logger.info(f"get_docs({parent_type}): {type_count} new docs ({len(all_docs)} total)")
+
+        logger.info(f"get_docs: {len(all_docs)} unique docs found across all parent types")
         return all_docs
+
+    def get_page_listing(self, workspace_id: str, doc_id: str) -> dict:
+        """Returns the raw page listing tree for a doc (all depths)."""
+        possible_ids = [doc_id]
+        if not doc_id.startswith("d-"):
+            possible_ids.append(f"d-{doc_id}")
+        for pid in possible_ids:
+            url = f"{self.base_url_v3}/workspaces/{workspace_id}/docs/{pid}/page_listing"
+            response = requests.get(url, headers=self.headers, params={"max_page_depth": -1})
+            if response.status_code == 200:
+                return response.json()
+            logger.debug(f"get_page_listing({pid}): {response.status_code}")
+        return {}
 
     def get_pages(self, workspace_id: str, doc_id: str) -> list:
         """Retrieves all pages in a document with fallback for IDs and errors."""
@@ -86,20 +93,26 @@ class ClickUpClient:
             params = {"content_format": "text/md", "max_page_depth": -1}
             try:
                 response = requests.get(url, headers=self.headers, params=params)
-                
+
                 if response.status_code == 404:
-                    continue # Try next ID
-                    
+                    logger.warning(f"  get_pages({pid}): 404 — trying next ID variant")
+                    continue
+
                 if response.status_code >= 500:
-                    # Fallback to depth 0
+                    logger.warning(f"  get_pages({pid}): {response.status_code} — {response.text[:200]}, retrying without depth")
                     params_limited = {"content_format": "text/md"}
                     response = requests.get(url, headers=self.headers, params=params_limited)
                     if response.status_code >= 500:
-                        continue # Skip this ID
+                        logger.warning(f"  get_pages({pid}) fallback: {response.status_code} — {response.text[:200]}")
+                        continue
 
-                response.raise_for_status()
+                if not response.ok:
+                    logger.warning(f"  get_pages({pid}): {response.status_code} — {response.text[:200]}")
+                    response.raise_for_status()
+
                 return self._safe_get_list(response, "pages")
-            except Exception:
+            except Exception as e:
+                logger.warning(f"  get_pages({pid}): exception {type(e).__name__}: {e}")
                 continue
 
         logger.warning(f"  Could not retrieve pages for doc {doc_id} after all retries.")
