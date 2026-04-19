@@ -45,84 +45,137 @@ graph LR
 
 ### Data Pipeline
 
-1.  **Harvesting**: The Harvester runs parallel threads to discover and fetch data from ClickUp and GitHub.
-2.  **Normalization**: Data is converted to Markdown with YAML frontmatter containing metadata.
-3.  **Storage**: Files are saved to `data/raw/`. Sync state is tracked in `data/state.json`.
-4.  **Indexing**: The Backend uses an `IngestionPipeline` with Redis caching. It only re-processes files if their content hash has changed.
-5.  **Retrieval**: Performs hybrid search (semantic + metadata) across Qdrant.
-6.  **Synthesis**: Synthesizes answers using the selected LLM, providing citations to original sources.
+1. **Harvesting**: The Harvester fetches data from ClickUp and GitHub and writes Markdown files to `data/raw/`.
+2. **Normalisation**: Each item is converted to Markdown with YAML frontmatter containing metadata (source, type, URL, author, etc.).
+3. **Indexing**: The Backend uses an `IngestionPipeline` with Redis caching. It only re-processes files whose content hash has changed.
+4. **Retrieval**: Performs semantic + metadata filtered search across Qdrant.
+5. **Synthesis**: Synthesises answers using the configured LLM with citations to original sources.
+
+### What gets harvested
+
+**ClickUp**
+- Tasks (incremental — only fetches updates since last sync, tracked in `data/state.json`)
+- Docs and pages — full workspace sweep across all parent types (WORKSPACE, SPACE, FOLDER, LIST), with recursive discovery of nested sub-docs via page listing
+
+**GitHub**
+- All Markdown files (`.md`) from every configured repository, fetched recursively via the Git Trees API
 
 ## Services
 
-| Service       | Technology           | Description                                        |
-| :------------ | :------------------- | :------------------------------------------------- |
-| **backend**   | FastAPI / LlamaIndex | RAG Orchestration and Query API                    |
-| **harvester** | Python / uv          | Data ingestion worker (runs on-demand via Docker)  |
-| **qdrant**    | Qdrant               | Vector database for embeddings and metadata        |
-| **redis**     | Redis                | Caching for LLM responses and ingestion pipeline   |
-| **redis-insight** | Redis Insight    | Web interface for browsing Redis data              |
-| **phoenix**   | Arize Phoenix        | Observability and RAG tracing                      |
+| Service           | Technology           | Description                                       |
+| :---------------- | :------------------- | :------------------------------------------------ |
+| **backend**       | FastAPI / LlamaIndex | RAG orchestration and query API                   |
+| **harvester**     | Python / uv          | Data ingestion worker (runs on-demand via Docker) |
+| **qdrant**        | Qdrant               | Vector database for embeddings and metadata       |
+| **redis**         | Redis                | Caching for ingestion pipeline and API responses  |
+| **redis-insight** | Redis Insight        | Web interface for browsing Redis data             |
+| **phoenix**       | Arize Phoenix        | Observability and RAG tracing                     |
 
 ## Operational Guide
 
 ### 1. Launching the Infrastructure
-Start the core services using Docker:
 
 ```bash
 docker compose up -d
 ```
 
 ### 2. Running the Frontend
-The SvelteKit frontend is decoupled from Docker for faster development. Run it natively:
+
+The SvelteKit frontend is decoupled from Docker for faster development:
 
 ```bash
 cd frontend
 pnpm install
 pnpm dev
 ```
+
 Access the interface at [http://localhost:5173](http://localhost:5173).
 
 ### 3. Harvesting Data
-To trigger a manual incremental sync:
+
+Run both ClickUp and GitHub harvesters:
 
 ```bash
-docker compose --profile manual run --rm harvester uv run python main.py --all
+docker compose run --rm harvester uv run python main.py --all
 ```
 
-To force a full re-harvest (ignoring saved state):
+Run only one source:
 
 ```bash
-docker compose --profile manual run --rm harvester uv run python main.py --all --force
+docker compose run --rm harvester uv run python main.py --clickup
+docker compose run --rm harvester uv run python main.py --github
+```
+
+Harvest ClickUp docs and pages only (skips tasks and GitHub):
+
+```bash
+docker compose run --rm harvester uv run python main.py --docs-only
+```
+
+Force a full re-harvest (ignores saved task sync state):
+
+```bash
+docker compose run --rm harvester uv run python main.py --all --force
 ```
 
 ### 4. Updating the Index
-Trigger a re-index after a harvest:
+
+Trigger re-indexing after a harvest:
 
 ```bash
 # Ingest all documents
-docker compose run --rm backend uv run python main.py --ingest
+curl -X POST http://localhost:8000/ingest
 
-# Ingest a random sample of 100 documents for testing
-docker compose run --rm backend uv run python main.py --ingest --limit 100
+# Force re-index (clears and rebuilds the Qdrant collection)
+curl -X POST http://localhost:8000/ingest -d '{"force": true}'
+
+# Ingest a random sample for testing
+curl -X POST http://localhost:8000/ingest -d '{"limit": 100}'
 ```
 
 ### 5. Observability and Monitoring
 
-- **Search Interface:** http://localhost:5173
-- **API Documentation:** http://localhost:8000/docs
-- **Arize Phoenix (RAG Traces):** http://localhost:6006
-- **Redis Insight (Cache Browser):** http://localhost:5540
+| Interface | URL |
+| :--- | :--- |
+| Search UI | http://localhost:5173 |
+| API docs | http://localhost:8000/docs |
+| Arize Phoenix (RAG traces) | http://localhost:6006 |
+| Redis Insight | http://localhost:5540 |
+
+## Configuration
+
+All configuration is via environment variables in a `.env` file at the project root.
+
+### Backend
+
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `LLM_API_KEY` | API key for the LLM provider | — |
+| `LLM_BASE_URL` | OpenAI-compatible API base URL | `https://api.openai.com/v1` |
+| `LLM_MODEL` | Model name | `gpt-4-turbo-preview` |
+| `EMBED_MODEL` | Embedding model name or `local:<hf-model-id>` | `text-embedding-3-small` |
+| `EMBED_DEVICE` | Device for local embedding models | `cpu` |
+
+### Harvester
+
+| Variable | Description | Example |
+| :--- | :--- | :--- |
+| `CLICKUP_API_KEY` | ClickUp personal API token | — |
+| `CLICKUP_WORKSPACE_ID` | Workspace (team) ID | `12345678` |
+| `CLICKUP_IGNORE_SPACES` | Comma-separated space names to skip | `Archive,Sandbox` |
+| `GITHUB_TOKEN` | GitHub personal access token | — |
+| `GITHUB_ORGS` | Comma-separated GitHub org names to harvest | `my-org` |
+| `GITHUB_USERS` | Comma-separated GitHub usernames to harvest | `my-user` |
+| `GITHUB_IGNORE_REPOS` | Comma-separated repos to skip (full name) | `org/repo1,org/repo2` |
 
 ## Development
 
-### Harvester
-```bash
-cd harvester
-uv run pytest
-```
+### Tests
 
-### Backend
 ```bash
-cd backend
-uv run pytest
+# Harvester
+cd harvester && uv run pytest
+
+# Backend
+cd backend && uv run pytest
 ```
