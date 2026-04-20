@@ -78,6 +78,7 @@
 	});
 	let acCache: Record<string, string[]> = {};
 	let allStatsReady: Promise<void> | null = null;
+	let statsOffline = $state(false);
 
 	const LOADER_VERBS = [
 		'Synthesising',
@@ -240,7 +241,9 @@
 			}
 			Object.assign(acCache, stats);
 			localStorage.setItem(AC_CACHE_LS_KEY, JSON.stringify({ timestamp: Date.now(), stats }));
-		} catch { /* fail silently — autocomplete degrades gracefully */ }
+		} catch {
+			statsOffline = true;
+		}
 	}
 
 	async function fetchValues(field: string): Promise<string[]> {
@@ -684,7 +687,10 @@
 							<span>Send</span>
 						</button>
 					</div>
-					<p class="query-hint">Press <kbd>↵ Enter</kbd> to send · <kbd>@</kbd> to filter</p>
+					<p class="query-hint">
+						Press <kbd>↵ Enter</kbd> to send · <kbd>@</kbd> to filter
+						{#if statsOffline}<span class="stats-offline"> · filters unavailable</span>{/if}
+					</p>
 				</form>
 		</div>
 	</section>
@@ -1227,6 +1233,11 @@
 		font-weight: 300;
 		background: transparent;
 		color: var(--ink-0);
+	}
+
+	.stats-offline {
+		color: var(--ink-2);
+		opacity: 0.6;
 	}
 
 	.empty-state {
