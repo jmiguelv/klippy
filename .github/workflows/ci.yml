@@ -48,3 +48,5 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:unit --run
       - run: pnpm check
+        env:
+          PUBLIC_API_URL: http://localhost:8000
