@@ -53,6 +53,7 @@ class Orchestrator:
                 for l in folderless_lists:
                     if isinstance(l, dict):
                         all_lists.append((l["id"], l.get("name", "Untitled"), "None", space_name))
+                        all_doc_containers.append(("LIST", l["id"]))
             except Exception: pass
 
             # Folders
@@ -65,6 +66,7 @@ class Orchestrator:
                     for l in folder_lists:
                         if isinstance(l, dict):
                             all_lists.append((l["id"], l.get("name", "Untitled"), folder.get('name', 'Untitled'), space_name))
+                            all_doc_containers.append(("LIST", l["id"]))
             except Exception: pass
 
         # 2. Process Tasks (if not docs_only)
@@ -93,14 +95,19 @@ class Orchestrator:
         doc_count = 0
         page_count = 0
 
-        try:
-            initial_docs = self.clickup.get_docs(workspace_id)
-        except Exception as e:
-            logger.error(f"get_docs failed: {e}")
-            initial_docs = []
+        initial_docs = []
+        for ctype, cid in all_doc_containers:
+            try:
+                if ctype == "WORKSPACE":
+                    container_docs = self.clickup.get_docs(workspace_id)
+                else:
+                    container_docs = self.clickup.get_docs(workspace_id, parent_id=cid, parent_type=ctype)
+                initial_docs.extend(container_docs)
+            except Exception as e:
+                logger.error(f"get_docs failed for {ctype} {cid}: {e}")
 
-        logger.info(f"get_docs returned {len(initial_docs)} docs: {[d.get('id') for d in initial_docs]}")
-        queue = [d for d in initial_docs if d.get("id") and not seen_doc_ids.add(d["id"])]
+        logger.info(f"Initial discovery returned {len(initial_docs)} docs (pre-dedup)")
+        queue = [d for d in initial_docs if d.get("id") and d["id"] not in seen_doc_ids and not seen_doc_ids.add(d["id"])]
 
         _listing_logged = False
 

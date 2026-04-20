@@ -40,11 +40,12 @@ class ClickUpClient:
         response.raise_for_status()
         return self._safe_get_list(response, "tasks")
 
-    def get_docs(self, workspace_id: str) -> list:
+    def get_docs(self, workspace_id: str, parent_id: str = None, parent_type: str = None) -> list:
         """Returns all docs in the workspace using a single unfiltered sweep with cursor pagination.
 
         The parent_type filter causes ClickUp's API to cycle infinitely for FOLDER/LIST types
-        and misses docs that are only visible without a filter, so we sweep without any filter.
+        and misses docs that are only visible without a filter, so we sweep without any filter
+        unless specifically requested by orchestrator.
         """
         url = f"{self.base_url_v3}/workspaces/{workspace_id}/docs"
         seen_ids: set[str] = set()
@@ -56,6 +57,11 @@ class ClickUpClient:
             params = {"limit": 100}
             if cursor:
                 params["cursor"] = cursor
+            if parent_id:
+                params["parent_id"] = parent_id
+            if parent_type:
+                params["parent_type"] = parent_type
+
             response = requests.get(url, headers=self.headers, params=params, timeout=30)
             if response.status_code != 200:
                 logger.debug(f"get_docs page {page}: status {response.status_code}")
@@ -100,14 +106,32 @@ class ClickUpClient:
             possible_ids.append(f"d-{doc_id}")
         for pid in possible_ids:
             url = f"{self.base_url_v3}/workspaces/{workspace_id}/docs/{pid}/page_listing"
+            all_pages = []
+            cursor = None
             try:
-                response = requests.get(url, headers=self.headers, params={"max_page_depth": -1}, timeout=30)
+                while True:
+                    params = {"max_page_depth": -1}
+                    if cursor:
+                        params["cursor"] = cursor
+                    response = requests.get(url, headers=self.headers, params=params, timeout=30)
+                    if response.status_code != 200:
+                        logger.debug(f"get_page_listing({pid}): {response.status_code}")
+                        if all_pages:
+                            return {"pages": all_pages}
+                        break
+                    
+                    data = response.json()
+                    pages = data.get("pages", [])
+                    all_pages.extend(pages)
+                    
+                    cursor = data.get("next_cursor")
+                    if not cursor or not pages:
+                        return {"pages": all_pages}
             except Exception as e:
                 logger.warning(f"get_page_listing({pid}): {type(e).__name__}: {e}")
+                if all_pages:
+                    return {"pages": all_pages}
                 continue
-            if response.status_code == 200:
-                return response.json()
-            logger.debug(f"get_page_listing({pid}): {response.status_code}")
         return {}
 
     def get_pages(self, workspace_id: str, doc_id: str) -> list:
@@ -119,29 +143,47 @@ class ClickUpClient:
 
         for pid in possible_ids:
             url = f"{self.base_url_v3}/workspaces/{workspace_id}/docs/{pid}/pages"
-            params = {"content_format": "text/md", "max_page_depth": -1}
+            all_pages = []
+            cursor = None
             try:
-                response = requests.get(url, headers=self.headers, params=params, timeout=30)
+                while True:
+                    params = {"content_format": "text/md", "max_page_depth": -1}
+                    if cursor:
+                        params["cursor"] = cursor
+                    response = requests.get(url, headers=self.headers, params=params, timeout=30)
 
-                if response.status_code == 404:
-                    logger.warning(f"  get_pages({pid}): 404 — trying next ID variant")
-                    continue
+                    if response.status_code == 404:
+                        if all_pages: return all_pages
+                        logger.warning(f"  get_pages({pid}): 404 — trying next ID variant")
+                        break
 
-                if response.status_code >= 500:
-                    logger.warning(f"  get_pages({pid}): {response.status_code} — {response.text[:200]}, retrying without depth")
-                    params_limited = {"content_format": "text/md"}
-                    response = requests.get(url, headers=self.headers, params=params_limited, timeout=30)
                     if response.status_code >= 500:
-                        logger.warning(f"  get_pages({pid}) fallback: {response.status_code} — {response.text[:200]}")
-                        continue
+                        logger.warning(f"  get_pages({pid}): {response.status_code} — {response.text[:200]}, retrying without depth")
+                        params_limited = {"content_format": "text/md"}
+                        if cursor:
+                            params_limited["cursor"] = cursor
+                        response = requests.get(url, headers=self.headers, params=params_limited, timeout=30)
+                        if response.status_code >= 500:
+                            logger.warning(f"  get_pages({pid}) fallback: {response.status_code} — {response.text[:200]}")
+                            if all_pages: return all_pages
+                            break
 
-                if not response.ok:
-                    logger.warning(f"  get_pages({pid}): {response.status_code} — {response.text[:200]}")
-                    response.raise_for_status()
+                    if not response.ok:
+                        logger.warning(f"  get_pages({pid}): {response.status_code} — {response.text[:200]}")
+                        if all_pages: return all_pages
+                        response.raise_for_status()
 
-                return self._safe_get_list(response, "pages")
+                    data = response.json()
+                    root = data if isinstance(data, list) else data.get("pages", []) if isinstance(data, dict) else []
+                    pages = self._flatten(root)
+                    all_pages.extend(pages)
+
+                    cursor = data.get("next_cursor")
+                    if not cursor or not pages:
+                        return all_pages
             except Exception as e:
                 logger.warning(f"  get_pages({pid}): exception {type(e).__name__}: {e}")
+                if all_pages: return all_pages
                 continue
 
         logger.warning(f"  Could not retrieve pages for doc {doc_id} after all retries.")
