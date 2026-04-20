@@ -78,6 +78,19 @@ def test_get_docs_stops_on_cycle(mocker):
     assert mock_get.call_count == 2  # first call + one cycle-detected call, then stops
 
 
+def test_get_page_by_id_returns_page(mocker):
+    mock_response = {"id": "p99", "name": "Deep page", "content": "hello"}
+    mock_get = mocker.patch("requests.get")
+    mock_get.return_value.status_code = 200
+    mock_get.return_value.json.return_value = mock_response
+
+    client = ClickUpClient(api_key="fake_key")
+    page = client.get_page_by_id(workspace_id="ws1", doc_id="doc1", page_id="p99")
+
+    assert page["id"] == "p99"
+    assert "pages/p99" in mock_get.call_args[0][0]
+
+
 def test_get_page_listing_returns_raw_data(mocker):
     mock_response = {"pages": [{"id": "p1", "doc_id": "d1", "children": []}]}
     mock_get = mocker.patch("requests.get")

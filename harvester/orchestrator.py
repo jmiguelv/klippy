@@ -115,6 +115,15 @@ class Orchestrator:
                 # Nested pages are under the "pages" key
                 _walk_listing(node.get("pages", []), doc_id)
 
+        def _all_listing_ids(nodes):
+            """Collect every page ID in the listing tree at all depths."""
+            ids = set()
+            for node in (nodes or []):
+                if node.get("id"):
+                    ids.add(node["id"])
+                ids |= _all_listing_ids(node.get("pages", []))
+            return ids
+
         # BFS: harvest pages and discover sub-docs via page listing
         while queue:
             d = queue.pop(0)
@@ -122,22 +131,31 @@ class Orchestrator:
 
             try:
                 pages = self.clickup.get_pages(workspace_id, doc_id)
-                if pages:
-                    doc_count += 1
-                    for p in pages:
-                        md = page_to_markdown(p, d.get("name", "Untitled"), workspace_id=workspace_id)
-                        self._save_markdown(f"clickup_page_{p['id']}.md", md)
-                        page_count += 1
             except Exception as e:
                 logger.warning(f"Could not harvest pages for doc {doc_id}: {e}")
+                pages = []
 
-            # Use page listing to discover sub-docs
+            # Use page listing to discover sub-docs and fill depth gaps in get_pages
             listing = self.clickup.get_page_listing(workspace_id, doc_id)
             if not _listing_logged and listing:
                 logger.info(f"Page listing sample (doc {doc_id}): {json.dumps(listing)[:800]}")
                 _listing_logged = True
             pages_root = listing if isinstance(listing, list) else listing.get("pages", [])
             _walk_listing(pages_root, doc_id)
+
+            # Fetch any pages in the listing not returned by get_pages (API depth limit)
+            fetched_ids = {p["id"] for p in pages if p.get("id")}
+            for pid in _all_listing_ids(pages_root) - fetched_ids:
+                page = self.clickup.get_page_by_id(workspace_id, doc_id, pid)
+                if page:
+                    pages.append(page)
+
+            if pages:
+                doc_count += 1
+                for p in pages:
+                    md = page_to_markdown(p, d.get("name", "Untitled"), workspace_id=workspace_id)
+                    self._save_markdown(f"clickup_page_{p['id']}.md", md)
+                    page_count += 1
 
         logger.info(f"Final: {page_count} pages from {doc_count} docs ({len(seen_doc_ids)} total discovered).")
 

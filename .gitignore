@@ -1,8 +1,23 @@
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
-.env
 .pytest_cache/
 .ruff_cache/
 .venv/
+
+# Node / frontend
+node_modules/
+.svelte-kit/
+build/
+dist/
+.env.local
+
+# Environment / secrets
+.env
+
+# Data (harvested content — not committed)
 data/
+
+# Experimental / abandoned frontends
+frontend-astro/

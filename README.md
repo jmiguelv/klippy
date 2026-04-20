@@ -55,7 +55,7 @@ graph LR
 
 **ClickUp**
 - Tasks (incremental — only fetches updates since last sync, tracked in `data/state.json`)
-- Docs and pages — full workspace sweep across all parent types (WORKSPACE, SPACE, FOLDER, LIST), with recursive discovery of nested sub-docs via page listing
+- Docs and pages — unfiltered workspace sweep with BFS discovery of all nested sub-docs and deep pages via the page listing API
 
 **GitHub**
 - All Markdown files (`.md`) from every configured repository, fetched recursively via the Git Trees API

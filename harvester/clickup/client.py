@@ -79,6 +79,20 @@ class ClickUpClient:
         logger.info(f"get_docs: {len(all_docs)} unique docs found")
         return all_docs
 
+    def get_page_by_id(self, workspace_id: str, doc_id: str, page_id: str) -> dict | None:
+        """Fetch a single page by ID (used to fill gaps when get_pages truncates depth)."""
+        possible_ids = [doc_id] if doc_id.startswith("d-") else [doc_id, f"d-{doc_id}"]
+        for did in possible_ids:
+            url = f"{self.base_url_v3}/workspaces/{workspace_id}/docs/{did}/pages/{page_id}"
+            try:
+                response = requests.get(url, headers=self.headers,
+                                        params={"content_format": "text/md"}, timeout=30)
+                if response.status_code == 200:
+                    return response.json()
+            except Exception as e:
+                logger.warning(f"get_page_by_id({page_id}): {type(e).__name__}: {e}")
+        return None
+
     def get_page_listing(self, workspace_id: str, doc_id: str) -> dict:
         """Returns the raw page listing tree for a doc (all depths)."""
         possible_ids = [doc_id]
