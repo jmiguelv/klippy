@@ -1,42 +1,38 @@
-# sv
+# Klippy Frontend
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+SvelteKit (Svelte 5) search and chat interface for Klippy.
 
-## Creating a project
-
-If you're seeing this, you've probably already done this step. Congrats!
+## Development
 
 ```sh
-# create a new project
-npx sv create my-app
+pnpm install
+pnpm dev
 ```
 
-To recreate this project with the same configuration:
+Open [http://localhost:5173](http://localhost:5173).
+
+## Environment
+
+Create a `.env.local` file (or copy from the root `.env.example`):
 
 ```sh
-# recreate this project
-npx sv@0.15.1 create --template minimal --types ts --add sveltekit-adapter="adapter:static" prettier eslint --no-install frontend
+PUBLIC_API_URL=http://localhost:8000
 ```
 
-## Developing
+## Commands
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+| Command | Description |
+| :--- | :--- |
+| `pnpm dev` | Start dev server |
+| `pnpm build` | Production build |
+| `pnpm preview` | Preview production build |
+| `pnpm check` | Svelte type-check |
+| `pnpm test:unit` | Run unit tests (Vitest) |
+| `pnpm test:e2e` | Run E2E tests (Playwright) |
 
-```sh
-npm run dev
+## Stack
 
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+- [SvelteKit](https://kit.svelte.dev/) with static adapter
+- [Svelte 5](https://svelte.dev/)
+- [Vitest](https://vitest.dev/) for unit tests
+- [Playwright](https://playwright.dev/) for E2E tests
