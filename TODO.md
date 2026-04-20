@@ -12,6 +12,3 @@ Items identified from code review (2026-04-20).
 - [x] **`refactor/engine-history`** — use history returned by `engine.chat` instead of manually reconstructing it in `backend/main.py`
 - [ ] **`feat/autocomplete-offline-indicator`** — show a subtle indicator in the frontend when the metadata/stats cache fails to populate (backend unreachable)
 
-## Low priority
-
-- [ ] **`refactor/root-route`** — consider making `/explore` the root route instead of redirecting from `/`
