@@ -43,27 +43,39 @@ def test_get_docs_returns_list_of_docs(mocker):
     assert len(docs) == 1
     assert docs[0]["id"] == "doc123"
     assert docs[0]["name"] == "Project Plan"
-    # Must sweep all five parent types
-    used_types = {call[1]["params"]["parent_type"] for call in mock_get.call_args_list}
-    assert used_types == {"WORKSPACE", "SPACE", "FOLDER", "LIST", "EVERYTHING"}
+    # No parent_type filter — single unfiltered sweep
+    assert "parent_type" not in mock_get.call_args[1]["params"]
 
 
-def test_get_docs_paginates_with_cursor(mocker):
-    # First parent_type returns two pages; remaining three return empty
-    first_page = {"docs": [{"id": "doc1"}], "cursor": "tok"}
+def test_get_docs_paginates_with_next_cursor(mocker):
+    # ClickUp v3 API uses "next_cursor" for pagination tokens
+    first_page = {"docs": [{"id": "doc1"}], "next_cursor": "tok"}
     second_page = {"docs": [{"id": "doc2"}]}
-    empty = {"docs": []}
 
     mock_get = mocker.patch("requests.get")
     mock_get.return_value.status_code = 200
-    mock_get.return_value.json.side_effect = [first_page, second_page, empty, empty, empty, empty]
+    mock_get.return_value.json.side_effect = [first_page, second_page]
 
     client = ClickUpClient(api_key="fake_key")
     docs = client.get_docs(workspace_id="ws1")
 
     assert len(docs) == 2
-    # Second call must carry the cursor
     assert mock_get.call_args_list[1][1]["params"]["cursor"] == "tok"
+
+
+def test_get_docs_stops_on_cycle(mocker):
+    # If the API returns only already-seen IDs, pagination must stop
+    page = {"docs": [{"id": "doc1"}], "next_cursor": "tok"}
+
+    mock_get = mocker.patch("requests.get")
+    mock_get.return_value.status_code = 200
+    mock_get.return_value.json.side_effect = [page, page, page]  # same doc repeating
+
+    client = ClickUpClient(api_key="fake_key")
+    docs = client.get_docs(workspace_id="ws1")
+
+    assert len(docs) == 1  # deduplicated, stops after cycle detected
+    assert mock_get.call_count == 2  # first call + one cycle-detected call, then stops
 
 
 def test_get_page_listing_returns_raw_data(mocker):
@@ -79,7 +91,6 @@ def test_get_page_listing_returns_raw_data(mocker):
     assert "page_listing" in mock_get.call_args[0][0]
 
 def test_get_pages_returns_list_of_pages(mocker):
-    # Setup
     mock_response = {
         "pages": [
             {"id": "page456", "name": "Overview", "content": "Welcome", "markdown": "Welcome md"}
@@ -90,11 +101,35 @@ def test_get_pages_returns_list_of_pages(mocker):
     mock_get.return_value.json.return_value = mock_response
 
     client = ClickUpClient(api_key="fake_key")
-    
-    # Execute
     pages = client.get_pages(workspace_id="team123", doc_id="doc123")
-    
-    # Assert
+
     assert len(pages) == 1
     assert pages[0]["id"] == "page456"
     assert pages[0]["markdown"] == "Welcome md"
+
+
+def test_get_pages_flattens_nested_pages(mocker):
+    # ClickUp returns a tree; all descendants must be included in the flat result
+    mock_response = {
+        "pages": [
+            {
+                "id": "p1", "name": "Top",
+                "pages": [
+                    {
+                        "id": "p1a", "name": "Child",
+                        "pages": [
+                            {"id": "p1a1", "name": "Grandchild"}
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+    mock_get = mocker.patch("requests.get")
+    mock_get.return_value.status_code = 200
+    mock_get.return_value.json.return_value = mock_response
+
+    client = ClickUpClient(api_key="fake_key")
+    pages = client.get_pages(workspace_id="team123", doc_id="doc123")
+
+    assert {p["id"] for p in pages} == {"p1", "p1a", "p1a1"}
