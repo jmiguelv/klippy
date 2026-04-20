@@ -2,6 +2,14 @@
 
 Enterprise Search Aggregator and RAG system for ClickUp and GitHub.
 
+## Capabilities
+
+- Natural language search across ClickUp tasks and GitHub documentation
+- Incremental sync — only fetches data created or modified since the last run
+- Hybrid retrieval — semantic similarity combined with metadata filtering (source, date, type)
+- Synthesised answers with clickable citations back to the original ClickUp task or GitHub file
+- Configurable LLM and embedding model (OpenAI-compatible APIs or local HuggingFace models)
+
 ## Architecture and Workflow
 
 Klippy operates as a data pipeline that transforms siloed company knowledge into a searchable semantic index.
