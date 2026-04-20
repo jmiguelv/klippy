@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
+	import { PUBLIC_API_URL } from '$env/static/public';
 	import { KNOWN_FIELDS } from '$lib/filters';
 	import { page } from '$app/state';
 	import { marked } from 'marked';
@@ -231,7 +232,7 @@
 		} catch { /* ignore parse errors */ }
 
 		try {
-			const res = await fetch('http://localhost:8000/debug/stats/all');
+			const res = await fetch(`${PUBLIC_API_URL}/debug/stats/all`);
 			const data = await res.json() as Record<string, Record<string, number>>;
 			const stats: Record<string, string[]> = {};
 			for (const [field, valueCounts] of Object.entries(data)) {
@@ -246,7 +247,7 @@
 		if (acCache[field] !== undefined) return acCache[field];
 		// Fallback: fetch individual field stats if bulk cache missed this field
 		try {
-			const res = await fetch(`http://localhost:8000/debug/stats?field=${field}`);
+			const res = await fetch(`${PUBLIC_API_URL}/debug/stats?field=${field}`);
 			const data = await res.json();
 			acCache[field] = Object.keys(data.counts ?? {});
 		} catch {
@@ -330,7 +331,7 @@
 
 	async function sendFeedback(isPositive: boolean, sId: string) {
 		try {
-			await fetch('http://localhost:8000/feedback', {
+			await fetch(`${PUBLIC_API_URL}/feedback`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ session_id: sId, is_positive: isPositive })
@@ -384,7 +385,7 @@
 		}, 2000);
 
 		if (isRefresh) {
-			await fetch('http://localhost:8000/feedback', {
+			await fetch(`${PUBLIC_API_URL}/feedback`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ session_id: currentSessionId, is_positive: false })
@@ -392,7 +393,7 @@
 		}
 
 		try {
-			const response = await fetch('http://localhost:8000/query', {
+			const response = await fetch(`${PUBLIC_API_URL}/query`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ text, session_id: currentSessionId, filters: activeFilters })
