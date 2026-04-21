@@ -39,6 +39,10 @@ def main():
     parser.add_argument("--docs-only", action="store_true", help="Only harvest ClickUp docs/pages (skips tasks/github)")
     args = parser.parse_args()
 
+    # Default to --all when no source flag is given
+    if not any([args.all, args.clickup, args.github, args.docs_only]):
+        args.all = True
+
     # Configuration from .env
     log_level_str = os.getenv("LOG_LEVEL", "INFO").upper()
     log_level = getattr(logging, log_level_str, logging.INFO)
