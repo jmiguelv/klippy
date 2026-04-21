@@ -67,7 +67,10 @@ class KlippyEngine:
                 f"Using local HuggingFace embedding model: {model_name} on device: {embed_device}"
             )
             Settings.embed_model = HuggingFaceEmbedding(
-                model_name=model_name, device=embed_device, trust_remote_code=True
+                model_name=model_name,
+                device=embed_device,
+                trust_remote_code=True,
+                model_kwargs={"default_task": "retrieval"},
             )
         else:
             logger.info(f"Using OpenAI-compatible embedding model: {embed_model}")
