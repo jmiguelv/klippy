@@ -63,11 +63,16 @@ class KlippyEngine:
 
         if embed_model.startswith("local:") or "/" in embed_model:
             model_name = embed_model.replace("local:", "")
-            embed_device = os.getenv("EMBED_DEVICE") or (
-                torch.accelerator.current_accelerator().type
-                if torch.accelerator.is_available()
-                else "cpu"
-            )
+            env_device = os.getenv("EMBED_DEVICE")
+            if env_device:
+                embed_device = env_device
+                logger.info(f"Embed device set via EMBED_DEVICE env var: {embed_device}")
+            elif torch.accelerator.is_available():
+                embed_device = torch.accelerator.current_accelerator().type
+                logger.info(f"Embed device autodetected: {embed_device}")
+            else:
+                embed_device = "cpu"
+                logger.info("No accelerator available, embed device defaulting to: cpu")
             if embed_device == "mps":
                 torch.set_default_dtype(torch.float32)
             logger.info(
