@@ -1,6 +1,6 @@
 [project]
 name = "harvester"
-version = "0.2.0"
+version = "0.2.1"
 description = "Data harvester for ClickUp and GitHub"
 dependencies = [
     "requests",

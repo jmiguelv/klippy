@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/jmiguelv/klippy/compare/harvester-v0.2.0...harvester-v0.2.1) (2026-04-21)
+
+
+### Bug Fixes
+
+* **harvester:** improve ClickUp doc discovery and page pagination ([6dc4ff3](https://github.com/jmiguelv/klippy/commit/6dc4ff34e70a9a2121db8e7f952d903e136ff4e4))
+* **harvester:** improve ClickUp doc discovery and page pagination ([52c7584](https://github.com/jmiguelv/klippy/commit/52c7584e47b47472e523bc25f9d49bd041979983))
+
 ## [0.2.0](https://github.com/jmiguelv/klippy/compare/harvester-v0.1.0...harvester-v0.2.0) (2026-04-20)
 
 
