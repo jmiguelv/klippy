@@ -4,6 +4,7 @@ import logging
 import random
 import uuid
 import yaml
+import torch
 import qdrant_client
 from llama_index.core import (
     VectorStoreIndex,
@@ -62,7 +63,13 @@ class KlippyEngine:
 
         if embed_model.startswith("local:") or "/" in embed_model:
             model_name = embed_model.replace("local:", "")
-            embed_device = os.getenv("EMBED_DEVICE", "cpu")
+            embed_device = os.getenv("EMBED_DEVICE") or (
+                torch.accelerator.current_accelerator().type
+                if torch.accelerator.is_available()
+                else "cpu"
+            )
+            if embed_device == "mps":
+                torch.set_default_dtype(torch.float32)
             logger.info(
                 f"Using local HuggingFace embedding model: {model_name} on device: {embed_device}"
             )
