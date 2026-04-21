@@ -162,7 +162,7 @@ All configuration is via environment variables in a `.env` file at the project r
 | `LLM_BASE_URL` | OpenAI-compatible API base URL | `https://api.openai.com/v1` |
 | `LLM_MODEL` | Model name | `gpt-4-turbo-preview` |
 | `EMBED_MODEL` | Embedding model name or `local:<hf-model-id>` | `jinaai/jina-embeddings-v5-text-small` |
-| `EMBED_DEVICE` | Device for local embedding models | `cpu` |
+| `EMBED_DEVICE` | Device for local embeddings (`cpu`, `mps`, `cuda`). Auto-detected if unset. | auto |
 
 ### Harvester
 
