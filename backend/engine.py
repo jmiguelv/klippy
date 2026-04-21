@@ -93,7 +93,7 @@ class KlippyEngine:
         # Initialize Qdrant Client
         self.client = qdrant_client.QdrantClient(host=self.qdrant_host, port=6333)
         self.vector_store = QdrantVectorStore(
-            client=self.client, collection_name=self.collection_name
+            client=self.client, collection_name=self.collection_name, dense_vector_name="text-dense"
         )
         self.storage_context = StorageContext.from_defaults(
             vector_store=self.vector_store
