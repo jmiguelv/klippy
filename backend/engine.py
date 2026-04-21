@@ -50,7 +50,7 @@ class KlippyEngine:
         llm_api_key = os.getenv("LLM_API_KEY")
         llm_base_url = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
         llm_model = os.getenv("LLM_MODEL", "gpt-4-turbo-preview")
-        embed_model = os.getenv("EMBED_MODEL", "text-embedding-3-small")
+        embed_model = os.getenv("EMBED_MODEL") or "text-embedding-3-small"
 
         # Use OpenAILike for OpenAI-compatible endpoints
         Settings.llm = OpenAILike(
