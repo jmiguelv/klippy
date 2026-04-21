@@ -20,6 +20,7 @@ dependencies = [
     "nltk",
     "python-dotenv",
     "pydantic",
+    "peft>=0.19.1",
 ]
 
 [dependency-groups]
