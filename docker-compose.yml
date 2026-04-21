@@ -6,7 +6,7 @@ services:
       - "6333:6333"
       - "6334:6334"
     volumes:
-      - qdrant_storage:/qdrant/storage
+      - ./data/qdrant:/qdrant/storage
 
   redis:
     image: redis:alpine
@@ -76,6 +76,3 @@ services:
     volumes:
       - ./data:/app/data
     restart: "no"
-
-volumes:
-  qdrant_storage:
