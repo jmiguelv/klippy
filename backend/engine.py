@@ -4,6 +4,7 @@ import logging
 import random
 import uuid
 import yaml
+import torch
 import qdrant_client
 from llama_index.core import (
     VectorStoreIndex,
@@ -49,7 +50,7 @@ class KlippyEngine:
         llm_api_key = os.getenv("LLM_API_KEY")
         llm_base_url = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
         llm_model = os.getenv("LLM_MODEL", "gpt-4-turbo-preview")
-        embed_model = os.getenv("EMBED_MODEL", "text-embedding-3-small")
+        embed_model = os.getenv("EMBED_MODEL") or "text-embedding-3-small"
 
         # Use OpenAILike for OpenAI-compatible endpoints
         Settings.llm = OpenAILike(
@@ -62,12 +63,26 @@ class KlippyEngine:
 
         if embed_model.startswith("local:") or "/" in embed_model:
             model_name = embed_model.replace("local:", "")
-            embed_device = os.getenv("EMBED_DEVICE", "cpu")
+            env_device = os.getenv("EMBED_DEVICE")
+            if env_device:
+                embed_device = env_device
+                logger.info(f"Embed device set via EMBED_DEVICE env var: {embed_device}")
+            elif torch.accelerator.is_available():
+                embed_device = torch.accelerator.current_accelerator().type
+                logger.info(f"Embed device autodetected: {embed_device}")
+            else:
+                embed_device = "cpu"
+                logger.info("No accelerator available, embed device defaulting to: cpu")
+            if embed_device == "mps":
+                torch.set_default_dtype(torch.float32)
             logger.info(
                 f"Using local HuggingFace embedding model: {model_name} on device: {embed_device}"
             )
             Settings.embed_model = HuggingFaceEmbedding(
-                model_name=model_name, device=embed_device
+                model_name=model_name,
+                device=embed_device,
+                trust_remote_code=True,
+                model_kwargs={"default_task": "retrieval"},
             )
         else:
             logger.info(f"Using OpenAI-compatible embedding model: {embed_model}")
@@ -78,7 +93,7 @@ class KlippyEngine:
         # Initialize Qdrant Client
         self.client = qdrant_client.QdrantClient(host=self.qdrant_host, port=6333)
         self.vector_store = QdrantVectorStore(
-            client=self.client, collection_name=self.collection_name
+            client=self.client, collection_name=self.collection_name, dense_vector_name="text-dense"
         )
         self.storage_context = StorageContext.from_defaults(
             vector_store=self.vector_store

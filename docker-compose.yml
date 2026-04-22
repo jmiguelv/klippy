@@ -44,13 +44,20 @@ services:
       - LLM_API_KEY=${LLM_API_KEY}
       - LLM_BASE_URL=${LLM_BASE_URL}
       - LLM_MODEL=${LLM_MODEL}
-      - EMBED_MODEL=${EMBED_MODEL}
-      - EMBED_DEVICE=${EMBED_DEVICE:-cpu}
+      - EMBED_MODEL=${EMBED_MODEL:-jinaai/jina-embeddings-v5-text-small}
+      - EMBED_DEVICE=${EMBED_DEVICE:-}
       - PHOENIX_COLLECTOR_ENDPOINT=http://phoenix:6006
     volumes:
       # Backend reads from processed/ (or raw/ if we point it there)
       - ./data:/app/data
       - ./config:/app/config
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     depends_on:
       - qdrant
       - redis
