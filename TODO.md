@@ -9,6 +9,6 @@ Items identified from code review (2026-04-20).
 
 ## Medium priority
 
-- [x] **`refactor/engine-history`** — use history returned by `engine.chat` instead of manually reconstructing it in `backend/main.py`
-- [ ] **`feat/autocomplete-offline-indicator`** — show a subtle indicator in the frontend when the metadata/stats cache fails to populate (backend unreachable)
+- [x] **`refactor/engine-history`** — reverted in `fix/chat-history-continuity`; explicit construction is correct
+- [x] **`feat/autocomplete-offline-indicator`** — show a subtle indicator in the frontend when the metadata/stats cache fails to populate (backend unreachable)
 
