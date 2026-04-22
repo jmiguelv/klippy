@@ -254,8 +254,14 @@ class KlippyEngine:
         response = engine.chat(message)
         total_time_ms = int((time.time() - start_time) * 1000)
 
-        # Add timings and history to metadata
         if response.metadata is None:
             response.metadata = {}
         response.metadata["total_time_ms"] = total_time_ms
         return response
+
+    def stream_chat(
+        self, message: str, chat_history=None, filters: dict[str, str] | None = None
+    ):
+        """Returns a streaming chat response for use with SSE endpoints."""
+        engine = self.get_chat_engine(chat_history=chat_history, filters=filters)
+        return engine.stream_chat(message)

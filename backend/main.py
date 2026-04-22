@@ -3,6 +3,7 @@ import re
 import json
 import logging
 import argparse
+import time
 import uuid
 from collections import Counter, defaultdict
 from contextlib import asynccontextmanager
@@ -12,6 +13,7 @@ import uvicorn
 import redis
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from engine import KlippyEngine
@@ -161,6 +163,59 @@ async def query_klippy(request: QueryRequest):
     except Exception as e:
         logger.error(f"Error during chat turn: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/query-stream")
+async def query_klippy_stream(request: QueryRequest):
+    session_id = request.session_id or str(uuid.uuid4())
+
+    async def event_stream():
+        yield f"data: {json.dumps({'type': 'meta', 'session_id': session_id})}\n\n"
+        try:
+            now = datetime.now().isoformat()
+            chat_history = get_history_from_redis(session_id)
+            start = time.time()
+
+            streaming_response = engine.stream_chat(
+                message=request.text,
+                chat_history=chat_history,
+                filters=request.filters or None,
+            )
+
+            answer_parts = []
+            for token in streaming_response.response_gen:
+                answer_parts.append(token)
+                yield f"data: {json.dumps({'type': 'chunk', 'text': token})}\n\n"
+
+            answer = "".join(answer_parts)
+            total_time_ms = int((time.time() - start) * 1000)
+
+            updated_history = [{"role": str(m.role), "content": m.content or ""} for m in chat_history]
+            updated_history.append({"role": "user", "content": request.text})
+            updated_history.append({"role": "assistant", "content": answer})
+            save_history_to_redis(session_id, updated_history)
+
+            sources = []
+            context_length = 0
+            for node in streaming_response.source_nodes:
+                text = node.node.get_text()
+                context_length += len(text)
+                metadata = node.node.metadata
+                title_match = re.search(r"^#\s+(.+)$", text, re.MULTILINE)
+                sources.append({
+                    "source": metadata.get("source", "unknown"),
+                    "url": metadata.get("url"),
+                    "title": title_match.group(1) if title_match else metadata.get("file_name", "Untitled"),
+                    "score": float(node.score) if node.score is not None else 0.0,
+                })
+
+            yield f"data: {json.dumps({'type': 'done', 'sources': sources, 'total_time_ms': total_time_ms, 'context_length': context_length, 'cached_at': now})}\n\n"
+
+        except Exception as e:
+            logger.error(f"Streaming error: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'detail': str(e)})}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 @app.post("/feedback")

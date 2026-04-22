@@ -395,37 +395,74 @@
 			});
 		}
 
+		// Add a placeholder message immediately so streaming renders in place
+		const streamingMessage: Message = { role: 'klippy', content: '' };
+		if (isRefresh) {
+			sessions[sIdx].messages[sessions[sIdx].messages.length - 1] = streamingMessage;
+		} else {
+			sessions[sIdx].messages = [...sessions[sIdx].messages, streamingMessage];
+		}
+		const msgIdx = sessions[sIdx].messages.length - 1;
+
 		try {
-			const response = await fetch(`${PUBLIC_API_URL}/query`, {
+			const response = await fetch(`${PUBLIC_API_URL}/query-stream`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ text, session_id: currentSessionId, filters: activeFilters })
 			});
-			const data = await response.json();
 
-			const newMessage: Message = {
-				role: 'klippy',
-				content: data.answer,
-				sources: data.sources,
-				total_time_ms: data.total_time_ms,
-				cached_at: data.cached_at,
-				is_cached: data.cached,
-				context_length: data.context_length
-			};
+			if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
 
-			if (isRefresh) {
-				sessions[sIdx].messages[sessions[sIdx].messages.length - 1] = newMessage;
-			} else {
-				sessions[sIdx].messages = [...sessions[sIdx].messages, newMessage];
+			const reader = response.body.getReader();
+			const decoder = new TextDecoder();
+			let buffer = '';
+
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+				buffer += decoder.decode(value, { stream: true });
+
+				const parts = buffer.split('\n\n');
+				buffer = parts.pop() ?? '';
+
+				for (const part of parts) {
+					if (!part.startsWith('data: ')) continue;
+					const evt = JSON.parse(part.slice(6));
+
+					if (evt.type === 'meta') {
+						// session_id already known; nothing to do
+					} else if (evt.type === 'chunk') {
+						sessions[sIdx].messages[msgIdx] = {
+							...sessions[sIdx].messages[msgIdx],
+							content: sessions[sIdx].messages[msgIdx].content + evt.text
+						};
+						await tick();
+						chatMainEl?.scrollTo({ top: chatMainEl.scrollHeight, behavior: 'smooth' });
+					} else if (evt.type === 'done') {
+						sessions[sIdx].messages[msgIdx] = {
+							...sessions[sIdx].messages[msgIdx],
+							sources: evt.sources,
+							total_time_ms: evt.total_time_ms,
+							cached_at: evt.cached_at,
+							context_length: evt.context_length
+						};
+					} else if (evt.type === 'error') {
+						sessions[sIdx].messages[msgIdx] = {
+							...sessions[sIdx].messages[msgIdx],
+							content: `Error: ${evt.detail}`
+						};
+					}
+				}
 			}
+
 			sessions[sIdx].updatedAt = Date.now();
 			saveSessions();
 		} catch (e) {
 			console.error(e);
-			sessions[sIdx].messages = [
-				...sessions[sIdx].messages,
-				{ role: 'klippy', content: 'Error: Could not connect to the research engine.' }
-			];
+			sessions[sIdx].messages[msgIdx] = {
+				...sessions[sIdx].messages[msgIdx],
+				content: 'Error: Could not connect to the research engine.'
+			};
 			saveSessions();
 		} finally {
 			clearInterval(interval);
