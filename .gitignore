@@ -21,3 +21,6 @@ data/
 
 # Experimental / abandoned frontends
 frontend-astro/
+
+# Local Docker Compose overrides (machine-specific, not committed)
+docker-compose.override.yml

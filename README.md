@@ -87,6 +87,14 @@ graph LR
 docker compose up -d
 ```
 
+On Linux with an NVIDIA GPU, include the GPU override to enable CUDA acceleration for embeddings:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+```
+
+> Requires [`nvidia-container-toolkit`](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) on the host.
+
 ### 2. Running the Frontend
 
 The SvelteKit frontend is decoupled from Docker for faster development:
