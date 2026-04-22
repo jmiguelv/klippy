@@ -92,8 +92,9 @@ class KlippyEngine:
 
         # Initialize Qdrant Client
         self.client = qdrant_client.QdrantClient(host=self.qdrant_host, port=6333)
+        self.aclient = qdrant_client.AsyncQdrantClient(host=self.qdrant_host, port=6333)
         self.vector_store = QdrantVectorStore(
-            client=self.client, collection_name=self.collection_name, dense_vector_name="text-dense"
+            client=self.client, aclient=self.aclient, collection_name=self.collection_name, dense_vector_name="text-dense"
         )
         self.storage_context = StorageContext.from_defaults(
             vector_store=self.vector_store
@@ -129,7 +130,7 @@ class KlippyEngine:
             logger.info("Force re-index: deleting existing collection...")
             self.client.delete_collection(self.collection_name)
             self.vector_store = QdrantVectorStore(
-                client=self.client, collection_name=self.collection_name
+                client=self.client, aclient=self.aclient, collection_name=self.collection_name
             )
             self.storage_context = StorageContext.from_defaults(
                 vector_store=self.vector_store
@@ -265,3 +266,10 @@ class KlippyEngine:
         """Returns a streaming chat response for use with SSE endpoints."""
         engine = self.get_chat_engine(chat_history=chat_history, filters=filters)
         return engine.stream_chat(message)
+
+    async def astream_chat(
+        self, message: str, chat_history=None, filters: dict[str, str] | None = None
+    ):
+        """Returns an asynchronous streaming chat response."""
+        engine = self.get_chat_engine(chat_history=chat_history, filters=filters)
+        return await engine.astream_chat(message)

@@ -176,14 +176,14 @@ async def query_klippy_stream(request: QueryRequest):
             chat_history = get_history_from_redis(session_id)
             start = time.time()
 
-            streaming_response = engine.stream_chat(
+            streaming_response = await engine.astream_chat(
                 message=request.text,
                 chat_history=chat_history,
                 filters=request.filters or None,
             )
 
             answer_parts = []
-            for token in streaming_response.response_gen:
+            async for token in streaming_response.async_response_gen():
                 answer_parts.append(token)
                 yield f"data: {json.dumps({'type': 'chunk', 'text': token})}\n\n"
 

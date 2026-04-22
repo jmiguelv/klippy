@@ -2,13 +2,20 @@ import pytest
 from engine import KlippyEngine
 from llama_index.core.vector_stores.types import MetadataFilters
 from llama_index.core.base.llms.types import ChatMessage, MessageRole
+from llama_index.core.base.embeddings.base import BaseEmbedding
 
 
 @pytest.fixture
 def engine(mocker):
     mocker.patch("qdrant_client.QdrantClient")
+    mocker.patch("qdrant_client.AsyncQdrantClient")
     mocker.patch("engine.IngestionCache")
     mocker.patch("engine.RedisCache")
+    
+    # Mock HuggingFaceEmbedding so it passes isinstance(..., BaseEmbedding)
+    mock_embed = mocker.Mock(spec=BaseEmbedding)
+    mocker.patch("engine.HuggingFaceEmbedding", return_value=mock_embed)
+    
     return KlippyEngine(qdrant_host="localhost", data_dir="/tmp/data", collection_name="test_collection")
 
 
@@ -94,3 +101,29 @@ def test_chat_no_filters_or_history(engine_with_index, mocker):
     _, kwargs = mock_index.as_chat_engine.call_args
     assert kwargs["filters"] is None
     assert kwargs["chat_history"] == []
+
+
+@pytest.mark.asyncio
+async def test_astream_chat(engine_with_index, mocker):
+    engine, mock_index = engine_with_index
+    mock_chat_engine = mock_index.as_chat_engine.return_value
+    
+    # Ensure astream_chat is an AsyncMock
+    mock_chat_engine.astream_chat = mocker.AsyncMock()
+
+    # Mock the async streaming response object
+    mock_streaming_response = mocker.MagicMock()
+
+    async def mock_async_gen():
+        yield "Hello"
+        yield " world"
+
+    mock_streaming_response.async_response_gen = mock_async_gen
+    mock_chat_engine.astream_chat.return_value = mock_streaming_response
+
+    response = await engine.astream_chat("Hi")
+
+    assert response == mock_streaming_response
+    tokens = [t async for t in response.async_response_gen()]
+    assert tokens == ["Hello", " world"]
+    mock_chat_engine.astream_chat.assert_called_once_with("Hi")

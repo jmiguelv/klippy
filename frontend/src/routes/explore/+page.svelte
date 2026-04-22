@@ -614,6 +614,8 @@
 								<div class="card-content markdown-body">
 									{#if msg.content}
 										{@html marked.parse(msg.content)}
+									{:else if isLoading && i === chatHistory.length - 1}
+										<p class="loader-verb">{loaderVerb}…</p>
 									{:else}
 										<p>No content available.</p>
 									{/if}
@@ -665,10 +667,6 @@
 							</span>
 						{/each}
 					</div>
-				{/if}
-
-				{#if isLoading}
-					<p class="loader-verb">{loaderVerb}…</p>
 				{/if}
 
 				<!-- Autocomplete dropdown — anchored above the form -->
