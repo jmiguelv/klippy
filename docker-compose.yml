@@ -51,13 +51,6 @@ services:
       # Backend reads from processed/ (or raw/ if we point it there)
       - ./data:/app/data
       - ./config:/app/config
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     depends_on:
       - qdrant
       - redis
