@@ -258,9 +258,4 @@ class KlippyEngine:
         if response.metadata is None:
             response.metadata = {}
         response.metadata["total_time_ms"] = total_time_ms
-        response.metadata["chat_history"] = [
-            {"role": str(m.role), "content": m.content or ""}
-            for m in engine.chat_history
-        ]
-
         return response

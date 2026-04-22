@@ -125,7 +125,10 @@ async def query_klippy(request: QueryRequest):
         )
         answer = str(response_obj)
 
-        save_history_to_redis(session_id, response_obj.metadata.get("chat_history", []))
+        updated_history = [{"role": str(m.role), "content": m.content or ""} for m in chat_history]
+        updated_history.append({"role": "user", "content": request.text})
+        updated_history.append({"role": "assistant", "content": answer})
+        save_history_to_redis(session_id, updated_history)
 
         # Extract sources from node metadata (frontmatter fields are indexed there, not in text)
         sources = []

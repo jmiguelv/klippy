@@ -60,19 +60,14 @@ def test_chat_passes_history_to_engine(engine_with_index, mocker):
     mock_response = mocker.MagicMock()
     mock_response.metadata = {}
     mock_chat_engine.chat.return_value = mock_response
-    mock_chat_engine.chat_history = [
-        ChatMessage(role=MessageRole.USER, content="hello"),
-        ChatMessage(role=MessageRole.ASSISTANT, content="hi"),
-    ]
+    mock_chat_engine.chat_history = []
 
     history = [ChatMessage(role=MessageRole.USER, content="hello")]
     response = engine.chat("how are you?", chat_history=history)
 
     _, kwargs = mock_index.as_chat_engine.call_args
     assert kwargs["chat_history"] == history
-    assert "chat_history" in response.metadata
-    assert response.metadata["chat_history"][0]["role"] == "user"
-    assert response.metadata["chat_history"][1]["role"] == "assistant"
+    assert "chat_history" not in response.metadata
 
 
 def test_chat_with_filters(engine_with_index, mocker):
