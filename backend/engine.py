@@ -237,7 +237,7 @@ class KlippyEngine:
             chat_mode="condense_plus_context",
             chat_history=chat_history or [],
             context_prompt=context_prompt,
-            similarity_top_k=10,
+            similarity_top_k=20,
             llm=Settings.llm,
             filters=metadata_filters,
         )
@@ -258,6 +258,4 @@ class KlippyEngine:
         if response.metadata is None:
             response.metadata = {}
         response.metadata["total_time_ms"] = total_time_ms
-        response.metadata["chat_history"] = [m.dict() for m in engine.chat_history]
-
         return response
