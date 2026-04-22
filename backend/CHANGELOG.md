@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.0](https://github.com/jmiguelv/klippy/compare/backend-v0.2.0...backend-v0.3.0) (2026-04-22)
+
+
+### Features
+
+* **backend:** switch to jinaai/jina-embeddings-v5-text-small ([cb47653](https://github.com/jmiguelv/klippy/commit/cb47653bdb333b78bb13c3acbeb1995b9facdb07))
+* **backend:** switch to jinaai/jina-embeddings-v5-text-small ([e927177](https://github.com/jmiguelv/klippy/commit/e92717763c71b4187671290d259ba66c4efe18fa))
+
+
+### Bug Fixes
+
+* **backend:** add peft dependency required by jina-embeddings-v5 ([4aa20e1](https://github.com/jmiguelv/klippy/commit/4aa20e14a4d3dc46cd22537ff1cd31c3a488077d))
+* **backend:** autodetect torch device when EMBED_DEVICE not set ([54d9b74](https://github.com/jmiguelv/klippy/commit/54d9b749fa5a3cd9bb971b29e8dcb3b328ea13c6))
+* **backend:** improve embed device logging to show source of selection ([b83e45c](https://github.com/jmiguelv/klippy/commit/b83e45cc94f56a267c0d8f35cc7d814cc2ab86c4))
+* **backend:** pass default_task=retrieval to jina-embeddings-v5 ([f71cd7a](https://github.com/jmiguelv/klippy/commit/f71cd7a73a556100113c01932b06fada93282fbd))
+* **backend:** pin dense_vector_name to text-dense in QdrantVectorStore ([ba9f088](https://github.com/jmiguelv/klippy/commit/ba9f08832c75457ebb09bd7a3fac9783bbe3a7a1))
+* **backend:** prevent empty EMBED_MODEL/EMBED_DEVICE from compose overriding defaults ([deca64c](https://github.com/jmiguelv/klippy/commit/deca64cbc01a01b0adaed6d15c775718096d93f0))
+
 ## [0.2.0](https://github.com/jmiguelv/klippy/compare/backend-v0.1.0...backend-v0.2.0) (2026-04-20)
 
 
