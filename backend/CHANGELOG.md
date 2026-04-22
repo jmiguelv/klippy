@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.1](https://github.com/jmiguelv/klippy/compare/backend-v0.3.0...backend-v0.3.1) (2026-04-22)
+
+
+### Bug Fixes
+
+* **backend:** restore conversation continuity broken by engine-history refactor ([82d44e7](https://github.com/jmiguelv/klippy/commit/82d44e790877a7511cdb77677a3d18b450a0a4ca))
+* **backend:** restore explicit chat history construction to fix conversation continuity ([9730fd0](https://github.com/jmiguelv/klippy/commit/9730fd033449b25629c7339f4c8c2ace0e5980ef))
+* **backend:** serialize chat history via m.content instead of m.dict() ([dfce804](https://github.com/jmiguelv/klippy/commit/dfce8045c670553b829fb20b15d723407a8313a7))
+
+
+### Performance Improvements
+
+* **backend:** increase similarity_top_k from 10 to 20 for larger context window ([7c4b85f](https://github.com/jmiguelv/klippy/commit/7c4b85fac2f8e992ed705aa210bd713227360cd2))
+
 ## [0.3.0](https://github.com/jmiguelv/klippy/compare/backend-v0.2.0...backend-v0.3.0) (2026-04-22)
 
 
