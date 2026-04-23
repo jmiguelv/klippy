@@ -19,8 +19,6 @@
 		Search,
 		Code,
 		FileText,
-		Sun,
-		Moon,
 		SlidersHorizontal
 	} from 'lucide-svelte';
 
@@ -78,16 +76,9 @@
 	let activeFilters = $state<Record<string, string>>({});
 	let topK = $state(10);
 	let similarityCutoff = $state(0.5);
-	let theme = $state<'light' | 'dark'>('light');
 	let modelName = $state('...');
 	let showSettings = $state(false);
 	let chatMainEl: HTMLElement;
-
-	function toggleTheme() {
-		theme = theme === 'light' ? 'dark' : 'light';
-		document.documentElement.dataset.theme = theme;
-		localStorage.setItem('klippy_theme', theme);
-	}
 
 	// Autocomplete state
 	let ac = $state<AcState>({
@@ -573,13 +564,6 @@
 		}
 		allStatsReady = fetchAllStats();
 
-		// Load theme
-		const savedTheme = localStorage.getItem('klippy_theme') as 'light' | 'dark' | null;
-		if (savedTheme) {
-			theme = savedTheme;
-			document.documentElement.dataset.theme = theme;
-		}
-
 		// Load model name
 		const savedModel = localStorage.getItem('klippy_model_name');
 		if (savedModel) {
@@ -596,7 +580,7 @@
 	<aside class="sidebar" class:closed={!isSidebarOpen}>
 		<header class="sidebar-header">
 			<div class="wordmark-wrap">
-				<a href="/" class="sidebar-wordmark">Klippy</a>
+				<span class="sidebar-wordmark">Chats</span>
 			</div>
 			<button class="new-chat-btn" onclick={() => createNewChat()}>
 				<Plus size={16} />
@@ -623,18 +607,6 @@
 				</div>
 			{/each}
 		</div>
-
-		<footer class="sidebar-footer">
-			<button class="theme-toggle" onclick={toggleTheme} title="Toggle Dark/Light Mode">
-				{#if theme === 'light'}
-					<Moon size={14} />
-					<span>Dark Mode</span>
-				{:else}
-					<Sun size={14} />
-					<span>Light Mode</span>
-				{/if}
-			</button>
-		</footer>
 	</aside>
 
 	<div class="chat-content">
@@ -850,7 +822,6 @@
 		font-size: 1.4rem;
 		font-weight: 600;
 		color: var(--ink-0);
-		text-decoration: none;
 		letter-spacing: 0.02em;
 	}
 
@@ -874,33 +845,6 @@
 
 	.new-chat-btn:hover {
 		background: var(--kings-red-light);
-	}
-
-	.sidebar-footer {
-		padding: var(--size-4);
-		border-top: 1px solid var(--border);
-	}
-
-	.theme-toggle {
-		width: 100%;
-		display: flex;
-		align-items: center;
-		gap: var(--size-2);
-		padding: var(--size-2) var(--size-4);
-		background: var(--surface);
-		border: 1px solid var(--border);
-		border-radius: 4px;
-		cursor: pointer;
-		font-family: var(--font-mono);
-		font-size: 0.7rem;
-		text-transform: uppercase;
-		color: var(--ink-2);
-		transition: all 0.15s;
-	}
-
-	.theme-toggle:hover {
-		border-color: var(--kings-red);
-		color: var(--kings-red);
 	}
 
 	.session-list {
