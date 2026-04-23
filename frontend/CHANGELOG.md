@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.3.0](https://github.com/jmiguelv/klippy/compare/frontend-v0.2.0...frontend-v0.3.0) (2026-04-23)
+
+
+### Features
+
+* add user-configurable top_k and similarity threshold ([d4a1e6a](https://github.com/jmiguelv/klippy/commit/d4a1e6adb588da790804afe25dc32215fee071eb))
+
+
+### Bug Fixes
+
+* **backend:** enable true async streaming and fix qdrant async client initialization ([1adfff0](https://github.com/jmiguelv/klippy/commit/1adfff03637c427beeec17265f36a8df20567b82))
+* **frontend:** auto-scroll to loading message on send ([8baa65d](https://github.com/jmiguelv/klippy/commit/8baa65d4e97ad8501426d6bd9dc51d30f0c7028a))
+
+
+### Performance Improvements
+
+* **backend:** add streaming SSE endpoint and wire frontend to stream responses ([f5ed571](https://github.com/jmiguelv/klippy/commit/f5ed57110ffeb2ebff092358b650e0c6c56f85ed))
+* stream responses via SSE to eliminate perceived 3m+ wait ([f6a393a](https://github.com/jmiguelv/klippy/commit/f6a393ac221b76844124a27b44744c4c7d32f408))
+
 ## [0.2.0](https://github.com/jmiguelv/klippy/compare/frontend-v0.1.0...frontend-v0.2.0) (2026-04-20)
 
 
