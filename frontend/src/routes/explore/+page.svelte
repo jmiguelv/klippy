@@ -65,6 +65,8 @@
 	let expandedSources = $state<Set<number>>(new Set());
 	let isSidebarOpen = $state(true);
 	let activeFilters = $state<Record<string, string>>({});
+	let topK = $state(10);
+	let similarityCutoff = $state(0.5);
 	let chatMainEl: HTMLElement;
 
 	// Autocomplete state
@@ -411,7 +413,13 @@
 			const response = await fetch(`${PUBLIC_API_URL}/query-stream`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ text, session_id: currentSessionId, filters: activeFilters })
+				body: JSON.stringify({
+					text,
+					session_id: currentSessionId,
+					filters: activeFilters,
+					top_k: topK,
+					similarity_cutoff: similarityCutoff
+				})
 			});
 
 			if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
@@ -658,6 +666,18 @@
 
 	<section class="query-area">
 		<div class="container query-container">
+				<!-- Search Controls -->
+				<div class="search-controls">
+					<div class="control-group">
+						<label for="top-k">Top K</label>
+						<input id="top-k" type="number" min="1" max="50" bind:value={topK} />
+					</div>
+					<div class="control-group">
+						<label for="threshold">Threshold</label>
+						<input id="threshold" type="number" min="0" max="1" step="0.05" bind:value={similarityCutoff} />
+					</div>
+				</div>
+
 				<!-- Active filter chips — above the form, persist across turns -->
 				{#if hasFilters}
 					<div class="filter-chips">
@@ -1110,6 +1130,38 @@
 		background: linear-gradient(transparent, var(--canvas) 30%);
 		padding: var(--size-6) 0;
 		z-index: 100;
+	}
+
+	.search-controls {
+		display: flex;
+		gap: var(--size-6);
+		margin-bottom: var(--size-2);
+		padding: 0 var(--size-4);
+	}
+
+	.control-group {
+		display: flex;
+		align-items: center;
+		gap: var(--size-2);
+	}
+
+	.control-group label {
+		font-family: var(--font-mono);
+		font-size: 0.65rem;
+		text-transform: uppercase;
+		color: var(--ink-2);
+		letter-spacing: 0.05em;
+	}
+
+	.control-group input {
+		width: 60px;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 4px;
+		padding: 2px var(--size-2);
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		color: var(--ink-1);
 	}
 
 	.query-container {

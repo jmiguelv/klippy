@@ -206,7 +206,13 @@ class KlippyEngine:
 
         logger.info("Ingestion complete.")
 
-    def get_chat_engine(self, chat_history=None, filters: dict[str, str] | None = None):
+    def get_chat_engine(
+        self,
+        chat_history=None,
+        filters: dict[str, str] | None = None,
+        top_k: int = 10,
+        similarity_cutoff: float | None = None,
+    ):
         """Returns a chat engine with conversational memory."""
         if self._index is None:
             self._index = VectorStoreIndex.from_vector_store(
@@ -238,18 +244,29 @@ class KlippyEngine:
             chat_mode="condense_plus_context",
             chat_history=chat_history or [],
             context_prompt=context_prompt,
-            similarity_top_k=20,
+            similarity_top_k=top_k,
+            similarity_cutoff=similarity_cutoff,
             llm=Settings.llm,
             filters=metadata_filters,
         )
 
     def chat(
-        self, message: str, chat_history=None, filters: dict[str, str] | None = None
+        self,
+        message: str,
+        chat_history=None,
+        filters: dict[str, str] | None = None,
+        top_k: int = 10,
+        similarity_cutoff: float | None = None,
     ):
         """Executes a chat turn and returns the response object with timings."""
         import time
 
-        engine = self.get_chat_engine(chat_history=chat_history, filters=filters)
+        engine = self.get_chat_engine(
+            chat_history=chat_history,
+            filters=filters,
+            top_k=top_k,
+            similarity_cutoff=similarity_cutoff,
+        )
 
         start_time = time.time()
         response = engine.chat(message)
@@ -261,15 +278,35 @@ class KlippyEngine:
         return response
 
     def stream_chat(
-        self, message: str, chat_history=None, filters: dict[str, str] | None = None
+        self,
+        message: str,
+        chat_history=None,
+        filters: dict[str, str] | None = None,
+        top_k: int = 10,
+        similarity_cutoff: float | None = None,
     ):
         """Returns a streaming chat response for use with SSE endpoints."""
-        engine = self.get_chat_engine(chat_history=chat_history, filters=filters)
+        engine = self.get_chat_engine(
+            chat_history=chat_history,
+            filters=filters,
+            top_k=top_k,
+            similarity_cutoff=similarity_cutoff,
+        )
         return engine.stream_chat(message)
 
     async def astream_chat(
-        self, message: str, chat_history=None, filters: dict[str, str] | None = None
+        self,
+        message: str,
+        chat_history=None,
+        filters: dict[str, str] | None = None,
+        top_k: int = 10,
+        similarity_cutoff: float | None = None,
     ):
         """Returns an asynchronous streaming chat response."""
-        engine = self.get_chat_engine(chat_history=chat_history, filters=filters)
+        engine = self.get_chat_engine(
+            chat_history=chat_history,
+            filters=filters,
+            top_k=top_k,
+            similarity_cutoff=similarity_cutoff,
+        )
         return await engine.astream_chat(message)

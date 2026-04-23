@@ -36,6 +36,8 @@ class QueryRequest(BaseModel):
     text: str
     session_id: str = None
     filters: dict[str, str] = {}
+    top_k: int = 10
+    similarity_cutoff: float | None = None
 
 
 class QueryResponse(BaseModel):
@@ -126,7 +128,11 @@ async def query_klippy(request: QueryRequest):
 
         chat_history = get_history_from_redis(session_id)
         response_obj = engine.chat(
-            request.text, chat_history=chat_history, filters=request.filters or None
+            request.text,
+            chat_history=chat_history,
+            filters=request.filters or None,
+            top_k=request.top_k,
+            similarity_cutoff=request.similarity_cutoff,
         )
         answer = str(response_obj)
 
@@ -183,6 +189,8 @@ async def query_klippy_stream(request: QueryRequest):
                 message=request.text,
                 chat_history=chat_history,
                 filters=request.filters or None,
+                top_k=request.top_k,
+                similarity_cutoff=request.similarity_cutoff,
             )
 
             answer_parts = []
