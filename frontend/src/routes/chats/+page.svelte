@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
+	import { slide } from 'svelte/transition';
 	import { PUBLIC_API_URL } from '$env/static/public';
 	import { KNOWN_FIELDS } from '$lib/filters';
 	import { page } from '$app/state';
@@ -17,7 +18,8 @@
 		RotateCcw,
 		Search,
 		Code,
-		FileText
+		FileText,
+		SlidersHorizontal
 	} from 'lucide-svelte';
 
 	// Types
@@ -28,10 +30,18 @@
 		score: number;
 	}
 
+	interface RetrievalStep {
+		label: string;
+		detail: string;
+		t: number | null;
+		active?: boolean;
+	}
+
 	interface Message {
 		role: 'user' | 'klippy';
 		content: string;
 		sources?: Source[];
+		steps?: RetrievalStep[];
 		total_time_ms?: number;
 		cached_at?: string;
 		is_cached?: boolean;
@@ -60,13 +70,14 @@
 	let currentSessionId = $state('');
 	let query = $state('');
 	let isLoading = $state(false);
-	let loaderVerb = $state('Synthesising');
 	let sessionId = $state('');
 	let expandedSources = $state<Set<number>>(new Set());
 	let isSidebarOpen = $state(true);
 	let activeFilters = $state<Record<string, string>>({});
 	let topK = $state(10);
 	let similarityCutoff = $state(0.5);
+	let modelName = $state('...');
+	let showSettings = $state(false);
 	let chatMainEl: HTMLElement;
 
 	// Autocomplete state
@@ -81,17 +92,6 @@
 	let acCache: Record<string, string[]> = {};
 	let allStatsReady: Promise<void> | null = null;
 	let statsOffline = $state(false);
-
-	const LOADER_VERBS = [
-		'Synthesising',
-		'Retrieving',
-		'Collating',
-		'Indexing',
-		'Reasoning',
-		'Cross-referencing',
-		'Hermeneuticising',
-		'Lemmatising'
-	];
 
 	function getSessionId() {
 		if (typeof window === 'undefined') return '';
@@ -364,7 +364,11 @@
 		ac = { ...ac, visible: false };
 
 		if (!currentSessionId) createNewChat(text);
-		if (!textOverride) query = '';
+		if (!textOverride) {
+			// Keep only the filter tokens in the query input
+			const filterMatches = raw.match(/@\w+:(?:"[^"]+"|\S+)/g) || [];
+			query = filterMatches.join(' ') + (filterMatches.length > 0 ? ' ' : '');
+		}
 
 		const sIdx = sessions.findIndex((s) => s.id === currentSessionId);
 		if (sIdx === -1) return;
@@ -384,10 +388,6 @@
 		sessions[sIdx].updatedAt = Date.now();
 
 		isLoading = true;
-		let verbIndex = 0;
-		const interval = setInterval(() => {
-			loaderVerb = LOADER_VERBS[++verbIndex % LOADER_VERBS.length];
-		}, 2000);
 
 		if (isRefresh) {
 			await fetch(`${PUBLIC_API_URL}/feedback`, {
@@ -397,8 +397,27 @@
 			});
 		}
 
+		const startTime = Date.now();
 		// Add a placeholder message immediately so streaming renders in place
-		const streamingMessage: Message = { role: 'klippy', content: '' };
+		const streamingMessage: Message = {
+			role: 'klippy',
+			content: '',
+			steps: [
+				{
+					label: 'Parsing query',
+					detail: Object.keys(parsed).length > 0 ? `extracted ${Object.keys(parsed).length} filters` : 'no explicit filters',
+					t: Date.now() - startTime,
+					active: false
+				},
+				{
+					label: 'Searching Qdrant',
+					detail: `top_k=${topK} · threshold=${similarityCutoff.toFixed(2)}`,
+					t: null,
+					active: true
+				}
+			]
+		};
+
 		if (isRefresh) {
 			sessions[sIdx].messages[sessions[sIdx].messages.length - 1] = streamingMessage;
 		} else {
@@ -427,6 +446,7 @@
 			const reader = response.body.getReader();
 			const decoder = new TextDecoder();
 			let buffer = '';
+			let hasStartedSynthesis = false;
 
 			while (true) {
 				const { done, value } = await reader.read();
@@ -441,7 +461,38 @@
 					const evt = JSON.parse(part.slice(6));
 
 					if (evt.type === 'meta') {
-						// session_id already known; nothing to do
+						if (evt.model) {
+							modelName = evt.model.toUpperCase();
+							localStorage.setItem('klippy_model_name', modelName);
+						}
+					} else if (evt.type === 'retrieved') {
+						const searchTime = Date.now() - startTime;
+						const steps = sessions[sIdx].messages[msgIdx].steps || [];
+						// Finish "Searching Qdrant" (index 1)
+						if (steps[1]) {
+							steps[1].active = false;
+							steps[1].t = searchTime;
+						}
+
+						// Push "Retrieved N chunks" (index 2)
+						const numSources = evt.num_sources || 0;
+						steps.push({
+							label: `Retrieved ${numSources} chunk${numSources === 1 ? '' : 's'}`,
+							detail: 'Ranked by semantic relevance',
+							t: searchTime,
+							active: false
+						});
+
+						// Push "Synthesising" (index 3)
+						steps.push({
+							label: 'Synthesising',
+							detail: 'Reasoning across retrieved chunks',
+							t: null,
+							active: true
+						});
+						sessions[sIdx].messages[msgIdx].steps = steps;
+						// Trigger reactivity
+						sessions[sIdx].messages[msgIdx] = { ...sessions[sIdx].messages[msgIdx] };
 					} else if (evt.type === 'chunk') {
 						sessions[sIdx].messages[msgIdx] = {
 							...sessions[sIdx].messages[msgIdx],
@@ -450,8 +501,18 @@
 						await tick();
 						chatMainEl?.scrollTo({ top: chatMainEl.scrollHeight, behavior: 'smooth' });
 					} else if (evt.type === 'done') {
+						const totalTime = Date.now() - startTime;
+						const steps = sessions[sIdx].messages[msgIdx].steps || [];
+
+						// Finish "Synthesising" (index 3)
+						if (steps[3]) {
+							steps[3].active = false;
+							steps[3].t = totalTime - (steps[1]?.t || 0);
+						}
+
 						sessions[sIdx].messages[msgIdx] = {
 							...sessions[sIdx].messages[msgIdx],
+							steps,
 							sources: evt.sources,
 							total_time_ms: evt.total_time_ms,
 							cached_at: evt.cached_at,
@@ -476,7 +537,6 @@
 			};
 			saveSessions();
 		} finally {
-			clearInterval(interval);
 			isLoading = false;
 			await tick();
 			chatMainEl?.scrollTo({ top: chatMainEl.scrollHeight, behavior: 'smooth' });
@@ -503,16 +563,25 @@
 			activeFilters = sessions[0].filters ?? {};
 		}
 		allStatsReady = fetchAllStats();
+
+		// Load model name
+		const savedModel = localStorage.getItem('klippy_model_name');
+		if (savedModel) {
+			modelName = savedModel;
+		}
 	});
 </script>
 
 <svelte:head>
-	<title>Explore — Klippy Chat</title>
+	<title>Chats — Klippy Chat</title>
 </svelte:head>
 
 <div class="chat-layout">
 	<aside class="sidebar" class:closed={!isSidebarOpen}>
 		<header class="sidebar-header">
+			<div class="wordmark-wrap">
+				<span class="sidebar-wordmark">Chats</span>
+			</div>
 			<button class="new-chat-btn" onclick={() => createNewChat()}>
 				<Plus size={16} />
 				<span>New Chat</span>
@@ -541,7 +610,6 @@
 	</aside>
 
 	<div class="chat-content">
-	<main class="chat-main" bind:this={chatMainEl}>
 		<button
 			class="sidebar-toggle"
 			onclick={() => (isSidebarOpen = !isSidebarOpen)}
@@ -549,6 +617,8 @@
 		>
 			{#if isSidebarOpen}<ChevronLeft size={14} />{:else}<ChevronRight size={14} />{/if}
 		</button>
+
+		<main class="chat-main" bind:this={chatMainEl}>
 
 		<section class="explore-page container">
 			{#if currentSession}
@@ -578,85 +648,62 @@
 								</div>
 							</div>
 						{:else}
-							<article class="klippy-card">
-								<header class="card-meta">
-									<div class="meta-left">
-										<span class="query-label">Klippy</span>
-										{#if msg.is_cached}
-											<span class="badge badge--cached">⚡ Cached</span>
-										{/if}
-										{#if msg.context_length}
-											<span class="badge badge--context" title="Consumed context length">
-												{Math.round(msg.context_length / 1000)}k chars
-											</span>
-										{/if}
-									</div>
-									<div class="meta-right">
-										<div class="actions">
-											<button
-												class="icon-btn"
-												onclick={() => sendFeedback(true, currentSessionId)}
-												title="Helpful"
-											>
-												<ThumbsUp size={14} />
-											</button>
-											<button
-												class="icon-btn"
-												onclick={() => sendFeedback(false, currentSessionId)}
-												title="Not helpful"
-											>
-												<ThumbsDown size={14} />
-											</button>
-											<div class="sep"></div>
-											<button
-												class="icon-btn"
-												onclick={() => handleSend(chatHistory[i - 1]?.content, true)}
-												title="Refresh"
-											>
-												<RotateCcw size={14} />
-											</button>
-										</div>
-										{#if msg.total_time_ms}
-											<span class="timing">{msg.total_time_ms.toLocaleString()}ms</span>
-										{/if}
-									</div>
-								</header>
+							<section class="klippy-answer">
+								{#if msg.steps}
+									<ol class="retrieval-steps" aria-label="Retrieval pipeline">
+										{#each msg.steps as step}
+											<li class="step" class:step--active={step.active}>
+												<span class="step-mark" aria-hidden="true">
+													{#if step.active}●{:else}✓{/if}
+												</span>
+												<span class="step-label"><b>{step.label}</b> — <span class="step-detail">{step.detail}</span></span>
+												<span class="step-time">{step.t ? `${step.t}ms` : '…'}</span>
+											</li>
+										{/each}
+									</ol>
+								{/if}
 
-								<div class="card-content markdown-body">
-									{#if msg.content}
-										{@html marked.parse(msg.content)}
-									{:else if isLoading && i === chatHistory.length - 1}
-										<p class="loader-verb">{loaderVerb}…</p>
-									{:else}
-										<p>No content available.</p>
+								<div class="answer-prose markdown-body">
+									{#if msg.content}{@html marked.parse(msg.content)}{/if}
+									{#if isLoading && i === chatHistory.length - 1}
+										<span class="streaming-caret" aria-hidden="true"></span>
 									{/if}
 								</div>
-								{#if msg.sources && msg.sources.length > 0}
-									<footer class="card-footer">
-										<button class="toggle-btn" onclick={() => toggleSources(i)}>
-											<span class="toggle-label">Referenced Sources</span>
-											<ChevronDown
-												size={14}
-												class={expandedSources.has(i) ? 'toggle-icon rotated' : 'toggle-icon'}
-											/>
+
+								<div class="answer-actions">
+									<button class="iconbtn" onclick={() => sendFeedback(true, currentSessionId)} title="Helpful"><ThumbsUp size={13}/></button>
+									<button class="iconbtn" onclick={() => sendFeedback(false, currentSessionId)} title="Not helpful"><ThumbsDown size={13}/></button>
+									<span class="sep"></span>
+									<button class="iconbtn" onclick={() => handleSend(chatHistory[i-1]?.content, true)} title="Refresh"><RotateCcw size={13}/></button>
+									{#if msg.total_time_ms}
+										<span class="answer-time">{msg.total_time_ms.toLocaleString()}ms · {Math.round((msg.context_length ?? 0) / 1000)}k chars</span>
+									{/if}
+								</div>
+
+								{#if msg.sources?.length}
+									<div class="answer-sources">
+										<button class="sources-toggle" class:open={expandedSources.has(i)} onclick={() => toggleSources(i)}>
+											<span>Referenced sources</span>
+											<span class="sources-count">{msg.sources.length}</span>
+											<ChevronDown size={12} class={expandedSources.has(i) ? 'rotated' : ''}/>
 										</button>
 										{#if expandedSources.has(i)}
-											<div class="sources-grid">
-												{#each msg.sources as src}
-													<a href={src.url} target="_blank" rel="noopener" class="source-link">
-														{#if src.source === 'github'}
-															<Code size={13} />
-														{:else}
-															<FileText size={13} />
-														{/if}
-														<span>{src.title.replace('.md', '')}</span>
-													</a>
+											<ul class="sources-list">
+												{#each msg.sources as src, n}
+													<li>
+														<a href={src.url} target="_blank" rel="noopener">
+															<span class="source-num">[{n + 1}]</span>
+															{#if src.source === 'github'}<Code size={12}/>{:else}<FileText size={12}/>{/if}
+															<span class="source-title">{src.title.replace('.md', '')}</span>
+															<span class="source-score">{src.score.toFixed(2)}</span>
+														</a>
+													</li>
 												{/each}
-											</div>
+											</ul>
 										{/if}
-									</footer>
+									</div>
 								{/if}
-							</article>
+							</section>
 						{/if}
 					</div>
 				{/each}
@@ -664,34 +711,8 @@
 		</section>
 	</main>
 
-	<section class="query-area">
-		<div class="container query-container">
-				<!-- Search Controls -->
-				<div class="search-controls">
-					<div class="control-group">
-						<label for="top-k">Top K</label>
-						<input id="top-k" type="number" min="1" max="50" bind:value={topK} />
-					</div>
-					<div class="control-group">
-						<label for="threshold">Threshold</label>
-						<input id="threshold" type="number" min="0" max="1" step="0.05" bind:value={similarityCutoff} />
-					</div>
-				</div>
-
-				<!-- Active filter chips — above the form, persist across turns -->
-				{#if hasFilters}
-					<div class="filter-chips">
-						{#each Object.entries(activeFilters) as [k, v]}
-							<span class="chip">
-								<span class="chip-key">{k}</span>
-								<span class="chip-sep">:</span>
-								<span class="chip-val">{v}</span>
-								<button type="button" class="chip-remove" onclick={() => removeFilter(k)}>×</button>
-							</span>
-						{/each}
-					</div>
-				{/if}
-
+	<section class="composer">
+		<div class="container">
 				<!-- Autocomplete dropdown — anchored above the form -->
 				{#if ac.visible}
 					<div class="ac-dropdown" role="listbox">
@@ -717,37 +738,43 @@
 					</div>
 				{/if}
 
-				<form
-					class="query-box"
-					class:loading={isLoading}
-					onsubmit={(e) => {
-						e.preventDefault();
-						handleSend();
-					}}
-				>
-					{#if isLoading}
-						<div class="loading-rail" aria-hidden="true"></div>
-					{/if}
-					<p class="query-label">Ask Klippy</p>
-					<div class="query-input-row">
+				<form onsubmit={(e) => { e.preventDefault(); handleSend(); }}>
+					<div class="composer-input">
 						<input
 							id="chat-input"
 							type="text"
 							bind:value={query}
-							placeholder="Follow up or ask something new… type @ to filter"
+							placeholder="Ask Klippy… use @ to filter by field"
 							autocomplete="off"
 							oninput={handleInput}
 							onkeydown={handleKeydown}
 							onblur={() => setTimeout(() => (ac = { ...ac, visible: false }), 150)}
 						/>
-						<button type="submit" class="btn-primary" disabled={isLoading}>
-							<Search size={16} />
-							<span>Send</span>
-						</button>
 					</div>
-					<p class="query-hint">
-						Press <kbd>↵ Enter</kbd> to send · <kbd>@</kbd> to filter
-						{#if statsOffline}<span class="stats-offline"> · filters unavailable</span>{/if}
+
+					{#if showSettings}
+						<div class="composer-controls" transition:slide>
+							<label class="control">
+								<span class="control-lbl">Top K</span>
+								<input type="range" min="1" max="50" bind:value={topK}/>
+								<span class="control-val">{topK}</span>
+							</label>
+							<label class="control">
+								<span class="control-lbl">Threshold</span>
+								<input type="range" min="0" max="1" step="0.05" bind:value={similarityCutoff}/>
+								<span class="control-val">{similarityCutoff.toFixed(2)}</span>
+							</label>
+						</div>
+					{/if}
+
+					<p class="composer-hint">
+						<span class="hint-items">
+							<kbd>↵</kbd> send · <kbd>@</kbd> filter field ·
+							<button type="button" class="settings-toggle" onclick={() => showSettings = !showSettings}>
+								<SlidersHorizontal size={12} /> {showSettings ? 'Hide' : 'Tune'}
+							</button>
+						</span>
+						<span class="composer-meta">session <b>{currentSessionId.toUpperCase().split('-')[0]}</b> · {modelName}</span>
 					</p>
 				</form>
 		</div>
@@ -781,7 +808,22 @@
 
 	.sidebar-header {
 		padding: var(--size-4);
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-4);
 		border-bottom: 1px solid var(--border);
+	}
+
+	.wordmark-wrap {
+		padding: 0 var(--size-2);
+	}
+
+	.sidebar-wordmark {
+		font-family: var(--font-display);
+		font-size: 1.4rem;
+		font-weight: 600;
+		color: var(--ink-0);
+		letter-spacing: 0.02em;
 	}
 
 	.new-chat-btn {
@@ -834,8 +876,9 @@
 	}
 
 	.session-item.active {
-		background: var(--kings-red-light);
+		border-left: 2px solid var(--kings-red);
 		color: var(--kings-red);
+		border-radius: 0 4px 4px 0;
 	}
 
 	.session-icon {
@@ -880,6 +923,7 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
+		position: relative;
 	}
 
 	.chat-main {
@@ -972,8 +1016,8 @@
 	}
 
 	.user-bubble {
-		background: var(--ink-1);
-		color: white;
+		background: var(--u-bg);
+		color: var(--u-fg);
 		padding: var(--size-4) var(--size-6);
 		border-radius: 16px 16px 2px 16px;
 		font-size: 1rem;
@@ -981,243 +1025,395 @@
 		box-shadow: var(--shadow-2);
 	}
 
-	.klippy-card {
-		background: var(--surface);
-		border: 1px solid var(--border);
-		border-left: 4px solid var(--kings-red);
-		box-shadow: var(--shadow-subtle);
+	.klippy-answer {
+		padding: 2px 0 2px 24px;
+		margin: 32px 0;
+		border-left: 2px solid var(--kings-red);
 		max-width: 90%;
 	}
 
-	.card-meta {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--size-4) var(--size-6);
-		border-bottom: 1px solid var(--border);
-		background: var(--canvas);
-	}
-
-	.meta-left,
-	.meta-right {
-		display: flex;
-		align-items: center;
-		gap: var(--size-4);
-	}
-
-	.badge {
-		font-family: var(--font-mono);
-		font-size: 0.6rem;
-		padding: 2px var(--size-2);
-		border: 1px solid;
-		border-radius: 2px;
-		text-transform: uppercase;
-	}
-
-	.badge--cached {
-		color: var(--teal);
-		border-color: var(--teal);
-		background: var(--teal-light);
-	}
-
-	.badge--context {
-		color: var(--ink-2);
-		border-color: var(--border-dark);
-	}
-
-	.actions {
-		display: flex;
-		gap: var(--size-2);
-	}
-
-	.icon-btn {
-		background: none;
-		border: 1px solid var(--border);
-		border-radius: 4px;
-		cursor: pointer;
-		padding: 4px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		color: var(--ink-2);
-		opacity: 0.5;
-		transition: all 0.15s;
-		text-shadow: none;
-	}
-
-	.icon-btn:hover {
-		opacity: 1;
-		background: var(--kings-red-light);
-		border-color: var(--kings-red);
-		color: var(--kings-red);
-	}
-
-	.card-content {
-		padding: var(--size-6);
-		font-family: var(--font-sans);
-		font-size: 0.95rem;
-		line-height: 1.7;
-	}
-
-	.card-footer {
-		border-top: 1px solid var(--border);
-		background: var(--canvas);
-	}
-
-	.toggle-btn {
-		width: 100%;
-		display: flex;
-		justify-content: space-between;
-		padding: var(--size-4) var(--size-6);
-		background: none;
-		border: none;
-		cursor: pointer;
-		transition: background 0.1s;
-		text-shadow: none;
-	}
-
-	.toggle-btn:hover {
-		background: rgba(0, 0, 0, 0.02);
-	}
-
-	.toggle-label {
+	.retrieval-steps {
+		list-style: none;
+		padding: 0;
+		margin: 0 0 20px;
 		font-family: var(--font-mono);
 		font-size: 0.7rem;
-		text-transform: uppercase;
-		color: var(--ink-2);
-		letter-spacing: 0.08em;
-	}
-
-	.toggle-icon {
-		transition: transform 0.2s;
 		color: var(--ink-2);
 	}
 
-	.rotated {
-		transform: rotate(180deg);
-	}
-
-	.sources-grid {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--size-3);
-		padding: 0 var(--size-6) var(--size-6);
-	}
-
-	.source-link {
-		display: inline-flex;
+	.step {
+		display: grid;
+		grid-template-columns: 16px 1fr auto;
+		gap: 10px;
+		padding: 1px 0;
 		align-items: center;
-		gap: 8px;
-		padding: 5px 12px;
-		background: var(--surface);
-		border: 1px solid var(--border);
-		border-radius: 4px;
-		font-size: 0.8rem;
-		color: var(--ink-1);
-		transition: all 0.15s;
-		text-shadow: none;
 	}
 
-	.source-link:hover {
-		border-color: var(--kings-red);
+	.step-mark {
+		color: var(--teal);
+		opacity: 0.85;
+	}
+
+	.step--active .step-mark {
 		color: var(--kings-red);
-		transform: translateY(-1px);
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+		animation: pulse 1.1s ease-in-out infinite;
 	}
 
-	/* ── Query area ─────────────────────────────── */
-	.query-area {
-		background: linear-gradient(transparent, var(--canvas) 30%);
-		padding: var(--size-6) 0;
-		z-index: 100;
+	.step-label b {
+		color: var(--ink-0);
+		font-weight: 500;
 	}
 
-	.search-controls {
-		display: flex;
-		gap: var(--size-6);
-		margin-bottom: var(--size-2);
-		padding: 0 var(--size-4);
-	}
-
-	.control-group {
-		display: flex;
-		align-items: center;
-		gap: var(--size-2);
-	}
-
-	.control-group label {
-		font-family: var(--font-mono);
-		font-size: 0.65rem;
-		text-transform: uppercase;
+	.step-detail {
 		color: var(--ink-2);
-		letter-spacing: 0.05em;
+		font-size: 0.66rem;
 	}
 
-	.control-group input {
-		width: 60px;
-		background: var(--surface);
-		border: 1px solid var(--border);
-		border-radius: 4px;
-		padding: 2px var(--size-2);
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
-		color: var(--ink-1);
+	.step-time {
+		color: var(--ink-3);
+		font-size: 0.62rem;
 	}
 
-	.query-container {
-		position: relative;
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-2);
+	@keyframes pulse {
+		50% {
+			opacity: 0.2;
+		}
 	}
 
-	/* ── Filter chips ───────────────────────────── */
-	.filter-chips {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--size-2);
+	.answer-prose {
+		font-family: var(--font-display);
+		font-size: 1.28rem;
+		font-weight: 400;
+		line-height: 1.55;
+		color: var(--ink-0);
 	}
 
-	.chip {
-		display: inline-flex;
-		align-items: center;
-		gap: 2px;
-		font-family: var(--font-mono);
-		font-size: 0.65rem;
-		background: var(--kings-red-light);
-		color: var(--kings-red);
-		border: 1px solid var(--kings-red);
-		border-radius: 3px;
-		padding: 2px var(--size-2);
+	.answer-prose :global(p) {
+		margin: 0 0 1em;
 	}
 
-	.chip-key {
+	.answer-prose :global(strong) {
 		font-weight: 600;
 	}
 
-	.chip-sep {
-		opacity: 0.5;
+	.answer-prose :global(code) {
+		font-family: var(--font-mono);
+		font-size: 0.78em;
+		background: var(--kings-red-light);
+		color: var(--kings-red);
+		padding: 1px 6px;
+		border-radius: 2px;
 	}
 
-	.chip-remove {
+	.streaming-caret {
+		display: inline-block;
+		width: 10px;
+		height: 1.1em;
+		vertical-align: -2px;
+		background: var(--kings-red);
+		opacity: 0.7;
+		animation: blink 1s steps(2) infinite;
+	}
+
+	@keyframes blink {
+		50% {
+			opacity: 0;
+		}
+	}
+
+	.answer-actions {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		margin-top: 18px;
+		font-family: var(--font-mono);
+		font-size: 0.64rem;
+		color: var(--ink-2);
+	}
+
+	.answer-actions .iconbtn {
+		border: none;
+		background: transparent;
+		color: var(--ink-2);
+		padding: 3px;
+		cursor: pointer;
+		display: inline-flex;
+		border-radius: 2px;
+	}
+
+	.answer-actions .iconbtn:hover {
+		color: var(--kings-red);
+		background: var(--kings-red-light);
+	}
+
+	.answer-actions .sep {
+		width: 1px;
+		height: 14px;
+		background: var(--border-dark);
+		margin: 0 4px;
+	}
+
+	.answer-actions .answer-time {
+		margin-left: auto;
+		color: var(--ink-3);
+	}
+
+	.answer-sources {
+		margin-top: 18px;
+		border-top: 1px dashed var(--border-dark);
+		padding-top: 14px;
+	}
+
+	.sources-toggle {
+		border: none;
+		background: none;
+		padding: 0;
+		cursor: pointer;
+		font-family: var(--font-mono);
+		font-size: 0.64rem;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--ink-2);
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.sources-toggle:hover {
+		color: var(--kings-red);
+	}
+
+	.sources-toggle .sources-count {
+		color: var(--kings-red);
+		letter-spacing: 0;
+		font-size: 0.7rem;
+	}
+
+	.sources-toggle :global(.rotated) {
+		transform: rotate(180deg);
+	}
+
+	.sources-list {
+		list-style: none;
+		padding: 0;
+		margin: 10px 0 0;
+		display: flex;
+		flex-direction: column;
+		gap: 1px;
+	}
+
+	.sources-list a {
+		display: grid;
+		grid-template-columns: 22px 16px 1fr auto;
+		gap: 10px;
+		align-items: center;
+		padding: 7px 10px;
+		border-radius: 2px;
+		font-size: 0.82rem;
+		color: var(--ink-1);
+		text-decoration: none;
+		border: 1px solid transparent;
+	}
+
+	.sources-list a:hover {
+		background: var(--surface);
+		border-color: var(--border);
+	}
+
+	.source-num {
+		font-family: var(--font-mono);
+		font-size: 0.64rem;
+		color: var(--kings-red);
+	}
+
+	.source-title {
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.source-score {
+		font-family: var(--font-mono);
+		font-size: 0.62rem;
+		color: var(--ink-3);
+	}
+
+	/* ── Composer ─────────────────────────────── */
+	.composer {
+		background: var(--canvas);
+		padding: var(--size-6) var(--size-4);
+		position: relative;
+	}
+
+	.composer .container {
+		position: relative;
+	}
+
+	.composer form {
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-top: 2px solid var(--kings-red);
+		border-radius: 2px;
+		padding: 0;
+		box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+		max-width: 1040px;
+		margin: 0 auto;
+	}
+
+	.composer-input {
+		padding: var(--size-4) var(--size-6);
+	}
+
+	.composer-input input {
+		width: 100%;
+		border: none;
+		outline: none;
+		background: transparent;
+		color: var(--ink-0);
+		font-size: 1.1rem;
+		font-family: var(--font-sans);
+		font-weight: 400;
+	}
+
+	.composer-controls {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		border-top: 1px solid var(--border);
+		background: var(--surface);
+	}
+
+	.control {
+		display: flex;
+		align-items: center;
+		padding: var(--size-3) var(--size-6);
+	}
+
+	.control:first-child {
+		border-right: 1px solid var(--border);
+	}
+
+	.control-lbl {
+		font-family: var(--font-mono);
+		font-size: 0.65rem;
+		text-transform: uppercase;
+		color: var(--ink-2);
+		letter-spacing: 0.15em;
+		flex: 0 0 90px;
+	}
+
+	.control-val {
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		color: var(--ink-1);
+		flex: 0 0 30px;
+		text-align: right;
+		font-weight: 500;
+	}
+
+	/* Custom Range Input */
+	.control input[type='range'] {
+		flex: 1;
+		appearance: none;
+		background: transparent;
+		cursor: pointer;
+		margin: 0 var(--size-4);
+	}
+
+	.control input[type='range']::-webkit-slider-runnable-track {
+		background: var(--border);
+		height: 2px;
+		border-radius: 1px;
+	}
+
+	.control input[type='range']::-webkit-slider-thumb {
+		appearance: none;
+		height: 12px;
+		width: 12px;
+		background: var(--kings-red);
+		border-radius: 50%;
+		margin-top: -5px;
+		transition: transform 0.1s ease;
+	}
+
+	.control input[type='range']::-moz-range-track {
+		background: var(--border);
+		height: 2px;
+		border-radius: 1px;
+	}
+
+	.control input[type='range']::-moz-range-thumb {
+		border: none;
+		height: 12px;
+		width: 12px;
+		background: var(--kings-red);
+		border-radius: 50%;
+	}
+
+	.composer-hint {
+		padding: var(--size-2) var(--size-6);
+		font-family: var(--font-mono);
+		font-size: 0.65rem;
+		color: var(--ink-3);
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		border-top: 1px solid var(--border);
+		letter-spacing: 0.02em;
+	}
+
+	.hint-items {
+		display: flex;
+		align-items: center;
+		gap: 2px;
+	}
+
+	.composer-hint kbd {
+		background: none;
+		border: 1px solid var(--border-dark);
+		border-radius: 3px;
+		padding: 0 4px;
+		color: var(--ink-2);
+		font-family: var(--font-sans);
+		font-size: 0.7rem;
+		margin-right: 4px;
+		font-weight: 500;
+	}
+
+	.settings-toggle {
 		background: none;
 		border: none;
 		cursor: pointer;
-		color: inherit;
-		padding: 0 0 0 var(--size-1);
-		font-size: 0.8rem;
-		line-height: 1;
-		opacity: 0.6;
+		padding: 0;
+		color: var(--ink-2);
+		font-family: inherit;
+		font-size: inherit;
+		text-transform: inherit;
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		transition: color 0.15s;
+		margin-left: 2px;
 	}
 
-	.chip-remove:hover {
-		opacity: 1;
+	.settings-toggle:hover {
+		color: var(--kings-red);
+	}
+
+	.composer-meta {
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		opacity: 0.8;
+		font-weight: 500;
+	}
+
+	.composer-meta b {
+		color: var(--ink-1);
 	}
 
 	/* ── Autocomplete dropdown ──────────────────── */
 	.ac-dropdown {
 		position: absolute;
-		bottom: calc(100% + var(--size-2));
+		bottom: calc(100% + 8px);
 		left: 0;
 		right: 0;
 		background: var(--surface);
@@ -1252,82 +1448,6 @@
 	.ac-prefix,
 	.ac-suffix {
 		opacity: 0.5;
-	}
-
-	/* ── Loading ────────────────────────────────── */
-	.loader-verb {
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
-		color: var(--ink-2);
-		letter-spacing: 0.08em;
-		text-align: left;
-		margin: 0;
-		animation: fade-cycle 2s ease-in-out infinite;
-	}
-
-	.query-box {
-		position: relative;
-	}
-
-	.query-box.loading {
-		border-top-color: var(--border-dark);
-	}
-
-	.loading-rail {
-		position: absolute;
-		top: -4px;
-		left: 0;
-		right: 0;
-		height: 4px;
-		overflow: hidden;
-		pointer-events: none;
-	}
-
-	.loading-rail::after {
-		content: '';
-		position: absolute;
-		top: 0;
-		left: -35%;
-		width: 35%;
-		height: 100%;
-		background: var(--kings-red);
-		animation: border-scan 1.3s linear infinite;
-	}
-
-	@keyframes border-scan {
-		from {
-			left: -35%;
-		}
-		to {
-			left: 100%;
-		}
-	}
-
-	@keyframes fade-cycle {
-		0%,
-		100% {
-			opacity: 0.5;
-		}
-		50% {
-			opacity: 1;
-		}
-	}
-
-	#chat-input {
-		flex: 1;
-		border: none;
-		outline: none;
-		padding: var(--size-2) 0;
-		font-size: 1.1rem;
-		font-family: var(--font-sans);
-		font-weight: 300;
-		background: transparent;
-		color: var(--ink-0);
-	}
-
-	.stats-offline {
-		color: var(--ink-2);
-		opacity: 0.6;
 	}
 
 	.empty-state {

@@ -139,6 +139,19 @@ def test_chat_no_filters_or_history(engine_with_index, mocker):
     assert kwargs["chat_history"] == []
 
 
+def test_similarity_cutoff_respects_threshold(engine_with_index, mocker):
+    engine, mock_index = engine_with_index
+    from llama_index.core.postprocessor import SimilarityPostprocessor
+
+    engine.get_chat_engine(similarity_cutoff=0.8)
+
+    _, kwargs = mock_index.as_chat_engine.call_args
+    postprocessors = kwargs["node_postprocessors"]
+    assert len(postprocessors) == 1
+    assert isinstance(postprocessors[0], SimilarityPostprocessor)
+    assert postprocessors[0].similarity_cutoff == 0.8
+
+
 @pytest.mark.asyncio
 async def test_astream_chat(engine_with_index, mocker):
     engine, mock_index = engine_with_index

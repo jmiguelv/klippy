@@ -179,7 +179,7 @@ async def query_klippy_stream(request: QueryRequest):
     session_id = request.session_id or str(uuid.uuid4())
 
     async def event_stream():
-        yield f"data: {json.dumps({'type': 'meta', 'session_id': session_id})}\n\n"
+        yield f"data: {json.dumps({'type': 'meta', 'session_id': session_id, 'model': engine.llm_model})}\n\n"
         try:
             now = datetime.now().isoformat()
             chat_history = get_history_from_redis(session_id)
@@ -192,6 +192,10 @@ async def query_klippy_stream(request: QueryRequest):
                 top_k=request.top_k,
                 similarity_cutoff=request.similarity_cutoff,
             )
+
+            # Signal that retrieval is complete and LLM synthesis is starting
+            num_sources = len(streaming_response.source_nodes)
+            yield f"data: {json.dumps({'type': 'retrieved', 'num_sources': num_sources})}\n\n"
 
             answer_parts = []
             async for token in streaming_response.async_response_gen():

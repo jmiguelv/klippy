@@ -1,9 +1,27 @@
 <script lang="ts">
 	import '../app.css';
 	import { page } from '$app/state';
+	import { onMount } from 'svelte';
+	import { Sun, Moon } from 'lucide-svelte';
+
 	let { children } = $props();
 
-	let isExplore = $derived(page.url.pathname.startsWith('/explore'));
+	let isExplore = $derived(page.url.pathname.startsWith('/chats'));
+	let theme = $state<'light' | 'dark'>('light');
+
+	function toggleTheme() {
+		theme = theme === 'light' ? 'dark' : 'light';
+		document.documentElement.dataset.theme = theme;
+		localStorage.setItem('klippy_theme', theme);
+	}
+
+	onMount(() => {
+		const savedTheme = localStorage.getItem('klippy_theme') as 'light' | 'dark' | null;
+		if (savedTheme) {
+			theme = savedTheme;
+			document.documentElement.dataset.theme = theme;
+		}
+	});
 
 	$effect(() => {
 		document.body.style.overflow = isExplore ? 'hidden' : '';
@@ -25,7 +43,14 @@
 	<div class="container nav-inner">
 		<a href="/" class="nav-wordmark">Klippy</a>
 		<div class="nav-links">
-			<a href="/explore/" class="nav-link">Explore</a>
+			<a href="/chats/" class="nav-link">Chats</a>
+			<button class="nav-theme-toggle" onclick={toggleTheme} title="Toggle Dark/Light Mode">
+				{#if theme === 'light'}
+					<Moon size={16} />
+				{:else}
+					<Sun size={16} />
+				{/if}
+			</button>
 		</div>
 	</div>
 </nav>
@@ -67,6 +92,7 @@
 
 	.nav-links {
 		display: flex;
+		align-items: center;
 		gap: var(--size-6);
 	}
 
@@ -84,6 +110,24 @@
 	.nav-link:hover {
 		color: var(--kings-red);
 		text-decoration-color: var(--kings-red);
+	}
+
+	.nav-theme-toggle {
+		background: none;
+		border: none;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: var(--size-2);
+		color: var(--ink-2);
+		border-radius: 4px;
+		transition: background 0.15s, color 0.15s;
+	}
+
+	.nav-theme-toggle:hover {
+		background: var(--canvas);
+		color: var(--kings-red);
 	}
 
 	.site-footer {
