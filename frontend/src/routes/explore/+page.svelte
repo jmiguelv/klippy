@@ -404,6 +404,9 @@
 		}
 		const msgIdx = sessions[sIdx].messages.length - 1;
 
+		await tick();
+		chatMainEl?.scrollTo({ top: chatMainEl.scrollHeight, behavior: 'smooth' });
+
 		try {
 			const response = await fetch(`${PUBLIC_API_URL}/query-stream`, {
 				method: 'POST',
