@@ -790,7 +790,7 @@
 					</div>
 
 					<p class="composer-hint">
-						<span><kbd>↵</kbd> send · <kbd>@</kbd> filter field · <kbd>⌘K</kbd> new thread</span>
+						<span><kbd>↵</kbd> send · <kbd>@</kbd> filter field</span>
 						<span class="composer-meta">session <b>{currentSessionId.toUpperCase().split('-')[0]}</b> · {modelName}</span>
 					</p>
 				</form>
