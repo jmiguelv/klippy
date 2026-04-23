@@ -44,6 +44,7 @@ services:
       - LLM_API_KEY=${LLM_API_KEY}
       - LLM_BASE_URL=${LLM_BASE_URL}
       - LLM_MODEL=${LLM_MODEL}
+      - LLM_CONTEXT_WINDOW=${LLM_CONTEXT_WINDOW:-3900}
       - EMBED_MODEL=${EMBED_MODEL:-jinaai/jina-embeddings-v5-text-small}
       - EMBED_DEVICE=${EMBED_DEVICE:-}
       - PHOENIX_COLLECTOR_ENDPOINT=http://phoenix:6006

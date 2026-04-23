@@ -3,6 +3,7 @@ from engine import KlippyEngine
 from llama_index.core.vector_stores.types import MetadataFilters
 from llama_index.core.base.llms.types import ChatMessage, MessageRole
 from llama_index.core.base.embeddings.base import BaseEmbedding
+from llama_index.core.llms import LLM, LLMMetadata
 
 
 @pytest.fixture
@@ -11,6 +12,12 @@ def engine(mocker):
     mocker.patch("qdrant_client.AsyncQdrantClient")
     mocker.patch("engine.IngestionCache")
     mocker.patch("engine.RedisCache")
+    
+    # Mock OpenAILike so it passes isinstance(..., LLM)
+    mock_llm = mocker.Mock(spec=LLM)
+    mock_llm.callback_manager = None
+    mock_llm.metadata = LLMMetadata(context_window=3900, num_output=256)
+    mocker.patch("engine.OpenAILike", return_value=mock_llm)
     
     # Mock HuggingFaceEmbedding so it passes isinstance(..., BaseEmbedding)
     mock_embed = mocker.Mock(spec=BaseEmbedding)
@@ -27,9 +34,38 @@ def engine_with_index(engine, mocker):
     return engine, mock_index
 
 
-def test_engine_initialization(engine):
+def test_engine_initialization(engine, mocker):
     assert engine.qdrant_host == "localhost"
     assert engine.collection_name == "test_collection"
+
+
+def test_context_window_config(mocker):
+    mocker.patch("qdrant_client.QdrantClient")
+    mocker.patch("qdrant_client.AsyncQdrantClient")
+    mocker.patch("engine.IngestionCache")
+    mocker.patch("engine.RedisCache")
+    
+    mock_llm_instance = mocker.Mock(spec=LLM)
+    mock_llm_instance.callback_manager = None
+    mock_llm_instance.metadata = LLMMetadata(context_window=3900, num_output=256)
+    mock_llm_class = mocker.patch("engine.OpenAILike", return_value=mock_llm_instance)
+    
+    # Mock HuggingFaceEmbedding so it passes isinstance(..., BaseEmbedding)
+    mock_embed = mocker.Mock(spec=BaseEmbedding)
+    mocker.patch("engine.HuggingFaceEmbedding", return_value=mock_embed)
+    mocker.patch("engine.OpenAIEmbedding", return_value=mock_embed)
+    
+    import os
+    mocker.patch.dict(os.environ, {"LLM_CONTEXT_WINDOW": "123456"})
+    
+    KlippyEngine(qdrant_host="localhost", data_dir="/tmp/data", collection_name="test_collection")
+    
+    # Check if OpenAILike was called with the correct context_window
+    _, kwargs = mock_llm_class.call_args
+    assert kwargs["context_window"] == 123456
+    
+    from llama_index.core import Settings
+    assert Settings.context_window == 123456
 
 
 def test_get_chat_engine_filters(engine_with_index):

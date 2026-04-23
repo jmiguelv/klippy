@@ -50,6 +50,7 @@ class KlippyEngine:
         llm_api_key = os.getenv("LLM_API_KEY")
         llm_base_url = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
         llm_model = os.getenv("LLM_MODEL", "gpt-4-turbo-preview")
+        llm_context_window = int(os.getenv("LLM_CONTEXT_WINDOW", "3900"))
         embed_model = os.getenv("EMBED_MODEL") or "text-embedding-3-small"
 
         # Use OpenAILike for OpenAI-compatible endpoints
@@ -59,7 +60,9 @@ class KlippyEngine:
             api_key=llm_api_key,
             is_chat_model=True,
             temperature=0.1,
+            context_window=llm_context_window,
         )
+        Settings.context_window = llm_context_window
 
         if embed_model.startswith("local:") or "/" in embed_model:
             model_name = embed_model.replace("local:", "")
