@@ -467,7 +467,10 @@
 					const evt = JSON.parse(part.slice(6));
 
 					if (evt.type === 'meta') {
-						if (evt.model) modelName = evt.model.toUpperCase();
+						if (evt.model) {
+							modelName = evt.model.toUpperCase();
+							localStorage.setItem('klippy_model_name', modelName);
+						}
 					} else if (evt.type === 'retrieved') {
 						const searchTime = Date.now() - startTime;
 						const steps = sessions[sIdx].messages[msgIdx].steps || [];
@@ -572,6 +575,12 @@
 		if (savedTheme) {
 			theme = savedTheme;
 			document.documentElement.dataset.theme = theme;
+		}
+
+		// Load model name
+		const savedModel = localStorage.getItem('klippy_model_name');
+		if (savedModel) {
+			modelName = savedModel;
 		}
 	});
 </script>
