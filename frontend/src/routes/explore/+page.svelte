@@ -610,7 +610,6 @@
 	</aside>
 
 	<div class="chat-content">
-	<main class="chat-main" bind:this={chatMainEl}>
 		<button
 			class="sidebar-toggle"
 			onclick={() => (isSidebarOpen = !isSidebarOpen)}
@@ -618,6 +617,8 @@
 		>
 			{#if isSidebarOpen}<ChevronLeft size={14} />{:else}<ChevronRight size={14} />{/if}
 		</button>
+
+		<main class="chat-main" bind:this={chatMainEl}>
 
 		<section class="explore-page container">
 			{#if currentSession}
@@ -922,6 +923,7 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
+		position: relative;
 	}
 
 	.chat-main {
