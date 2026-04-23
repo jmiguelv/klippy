@@ -1,8 +1,11 @@
 import requests
 import base64
+import logging
+
+logger = logging.getLogger("harvester.github.client")
 
 class GitHubClient:
-    def __init__(self, token: str):
+    def __init__(self, token: str) -> None:
         self.token = token
         self.base_url = "https://api.github.com"
         self.headers = {
@@ -10,7 +13,7 @@ class GitHubClient:
             "Accept": "application/vnd.github.v3+json"
         }
 
-    def _get_paginated(self, url: str, params: dict = None) -> list:
+    def _get_paginated(self, url: str, params: dict | None = None) -> list:
         """Helper to handle paginated GitHub requests."""
         results = []
         while url:
@@ -29,8 +32,7 @@ class GitHubClient:
         url = f"{self.base_url}/repos/{repo}/git/trees/HEAD"
         response = requests.get(url, headers=self.headers, params={"recursive": "1"})
         if response.status_code != 200:
-            import logging
-            logging.getLogger("harvester.github.client").warning(
+            logger.warning(
                 f"get_markdown_files({repo}): status {response.status_code}"
             )
             return []

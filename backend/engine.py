@@ -5,6 +5,7 @@ import random
 import uuid
 import yaml
 import torch
+import time
 import qdrant_client
 from llama_index.core import (
     VectorStoreIndex,
@@ -15,11 +16,14 @@ from llama_index.core import (
 from llama_index.core.ingestion import IngestionPipeline, IngestionCache
 from llama_index.core.node_parser import MarkdownNodeParser
 from llama_index.core.vector_stores.types import MetadataFilter, MetadataFilters
+from llama_index.core.postprocessor import SimilarityPostprocessor
 from llama_index.storage.kvstore.redis import RedisKVStore as RedisCache
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from llama_index.llms.openai_like import OpenAILike
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from llama_index.core.base.llms.types import ChatMessage
+from llama_index.core.base.response.schema import Response, StreamingResponse, AsyncStreamingResponse
 
 # Setup logging
 logger = logging.getLogger("backend.engine")
@@ -35,6 +39,23 @@ DEFAULT_SYSTEM_PROMPT = (
     "4. When possible, mention whether the information came from ClickUp or GitHub based on the metadata.\n"
     "5. Be concise and professional."
 )
+
+
+def parse_frontmatter(text: str) -> tuple[str, dict[str, str]]:
+    """Strips YAML frontmatter and returns (content, metadata)."""
+    fm_match = re.match(r"^---\s*\n(.*?)\n---\s*\n", text, re.DOTALL)
+    if not fm_match:
+        return text, {}
+    
+    try:
+        fm_data = yaml.safe_load(fm_match.group(1))
+        if isinstance(fm_data, dict):
+            metadata = {k: str(v) for k, v in fm_data.items() if v is not None}
+            return text[fm_match.end() :], metadata
+    except yaml.YAMLError as e:
+        logger.warning(f"YAML parse error: {e}")
+    
+    return text, {}
 
 
 class KlippyEngine:
@@ -124,7 +145,7 @@ class KlippyEngine:
                 logger.error(f"Failed to read prompt file {self.prompt_file}: {e}")
         return DEFAULT_SYSTEM_PROMPT
 
-    def ingest_data(self, limit: int = None, force: bool = False):
+    def ingest_data(self, limit: int | None = None, force: bool = False) -> None:
         """Loads markdown files and indexes them. If limit is set, samples a random subset. If force is True, ignores cache."""
         if not os.path.exists(self.data_dir):
             logger.warning(f"Data directory {self.data_dir} does not exist.")
@@ -164,20 +185,9 @@ class KlippyEngine:
             if file_path:
                 doc.id_ = str(uuid.uuid5(uuid.NAMESPACE_URL, file_path))
 
-            # Strip YAML frontmatter from content and extract fields as metadata
-            text = doc.text or ""
-            fm_match = re.match(r"^---\s*\n(.*?)\n---\s*\n", text, re.DOTALL)
-            if fm_match:
-                try:
-                    fm_data = yaml.safe_load(fm_match.group(1))
-                    if isinstance(fm_data, dict):
-                        for k, v in fm_data.items():
-                            if v is not None:
-                                doc.metadata[k] = str(v)
-                except yaml.YAMLError as e:
-                    logger.warning(f"YAML parse error in {file_path}: {e}")
-                # Remove frontmatter from the text so it isn't indexed as content
-                doc.set_content(text[fm_match.end() :])
+            content, metadata = parse_frontmatter(doc.text or "")
+            doc.metadata.update(metadata)
+            doc.set_content(content)
 
         logger.info(
             f"Loaded {len(documents)} documents. Starting transformation pipeline..."

@@ -9,8 +9,9 @@ from clickup.client import ClickUpClient
 from github.client import GitHubClient
 from orchestrator import Orchestrator
 from utils.state import StateStore
+from typing import Optional
 
-def setup_logging(level=logging.INFO, log_file="harvester.log"):
+def setup_logging(level: int = logging.INFO, log_file: Optional[str] = "harvester.log") -> None:
     # Root logger
     logger = logging.getLogger()
     logger.setLevel(level)
@@ -28,7 +29,7 @@ def setup_logging(level=logging.INFO, log_file="harvester.log"):
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
 
-def main():
+def main() -> None:
     load_dotenv()
     
     parser = argparse.ArgumentParser(description="Klippy Data Harvester")

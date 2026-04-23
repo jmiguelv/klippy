@@ -1,10 +1,11 @@
 import requests
 import logging
+from typing import Optional
 
 logger = logging.getLogger("harvester.clickup.client")
 
 class ClickUpClient:
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str) -> None:
         self.api_key = api_key
         self.base_url_v2 = "https://api.clickup.com/api/v2"
         self.base_url_v3 = "https://api.clickup.com/api/v3"
@@ -13,7 +14,7 @@ class ClickUpClient:
             "Accept": "application/json"
         }
 
-    def _safe_get_list(self, response, key: str) -> list:
+    def _safe_get_list(self, response: requests.Response, key: str) -> list:
         """Safely extracts a flat list from a response, recursively flattening nested children."""
         try:
             data = response.json()
@@ -31,7 +32,7 @@ class ClickUpClient:
             result.extend(self._flatten(node.get("pages", [])))
         return result
 
-    def get_tasks(self, list_id: str, updated_since: str = None) -> list:
+    def get_tasks(self, list_id: str, updated_since: Optional[str] = None) -> list:
         url = f"{self.base_url_v2}/list/{list_id}/task"
         params = {}
         if updated_since:
@@ -40,7 +41,7 @@ class ClickUpClient:
         response.raise_for_status()
         return self._safe_get_list(response, "tasks")
 
-    def get_docs(self, workspace_id: str, parent_id: str = None, parent_type: str = None) -> list:
+    def get_docs(self, workspace_id: str, parent_id: Optional[str] = None, parent_type: Optional[str] = None) -> list:
         """Returns all docs in the workspace using a single unfiltered sweep with cursor pagination.
 
         The parent_type filter causes ClickUp's API to cycle infinitely for FOLDER/LIST types
