@@ -795,7 +795,7 @@
 					{/if}
 
 					<p class="composer-hint">
-						<span>
+						<span class="hint-items">
 							<kbd>↵</kbd> send · <kbd>@</kbd> filter field ·
 							<button type="button" class="settings-toggle" onclick={() => showSettings = !showSettings}>
 								<SlidersHorizontal size={12} /> {showSettings ? 'Hide' : 'Tune'}
@@ -1415,6 +1415,12 @@
 		letter-spacing: 0.02em;
 	}
 
+	.hint-items {
+		display: flex;
+		align-items: center;
+		gap: 2px;
+	}
+
 	.composer-hint kbd {
 		background: none;
 		border: 1px solid var(--border-dark);
@@ -1440,6 +1446,7 @@
 		align-items: center;
 		gap: 4px;
 		transition: color 0.15s;
+		margin-left: 2px;
 	}
 
 	.settings-toggle:hover {
