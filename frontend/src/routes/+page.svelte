@@ -26,24 +26,19 @@
 				</p>
 			</header>
 
-			<form class="search-form" onsubmit={handleSearch}>
-				<div class="query-box">
-					<label for="landing-search" class="query-label">Query</label>
-					<div class="query-input-row">
-						<input
-							id="landing-search"
-							type="text"
-							bind:value={query}
-							placeholder="What needs doing on the Slavery in War project?"
-							autocomplete="off"
-						/>
-						<button type="submit" aria-label="Explore" class="btn-primary">
-							<ArrowRight size={16} />
-							<span>Explore</span>
-						</button>
-					</div>
-					<p class="query-hint">Press <kbd>↵ Enter</kbd> to search</p>
+			<form class="composer-form" onsubmit={handleSearch}>
+				<div class="composer-input">
+					<input
+						id="landing-search"
+						type="text"
+						bind:value={query}
+						placeholder="Ask Klippy…"
+						autocomplete="off"
+					/>
 				</div>
+				<p class="composer-hint">
+					<kbd>↵</kbd> send
+				</p>
 			</form>
 		</div>
 	</section>
@@ -99,36 +94,54 @@
 		font-weight: 300;
 	}
 
-	.search-form {
+	.composer-form {
 		width: 100%;
-		max-width: 720px;
+		max-width: 640px;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-top: 2px solid var(--kings-red);
+		border-radius: 2px;
+		padding: 0;
+		box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
 	}
 
-	input {
-		flex: 1;
+	.composer-input {
+		padding: var(--size-4) var(--size-6);
+	}
+
+	.composer-input input {
+		width: 100%;
 		border: none;
-		padding: var(--size-2) 0;
-		font-size: 1.1rem;
-		font-family: var(--font-sans);
 		outline: none;
 		background: transparent;
-		font-weight: 300;
 		color: var(--ink-0);
+		font-size: 1.1rem;
+		font-family: var(--font-sans);
+		font-weight: 400;
 	}
 
-	input::placeholder {
+	.composer-hint {
+		padding: var(--size-2) var(--size-6);
+		font-family: var(--font-mono);
+		font-size: 0.65rem;
+		color: var(--ink-3);
+		border-top: 1px solid var(--border);
+		letter-spacing: 0.02em;
+	}
+
+	.composer-hint kbd {
+		background: none;
+		border: 1px solid var(--border-dark);
+		border-radius: 3px;
+		padding: 0 4px;
 		color: var(--ink-2);
-		opacity: 0.5;
+		font-family: var(--font-sans);
+		font-size: 0.7rem;
+		margin-right: 4px;
+		font-weight: 500;
 	}
 
 	@media (max-width: 640px) {
-		.query-input-row {
-			flex-direction: column;
-			align-items: stretch;
-		}
-		.btn-primary {
-			justify-content: center;
-		}
 		.hero-inner {
 			padding-bottom: 0;
 		}
