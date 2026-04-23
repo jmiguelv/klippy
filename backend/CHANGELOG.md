@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.4.0](https://github.com/jmiguelv/klippy/compare/backend-v0.3.1...backend-v0.4.0) (2026-04-23)
+
+
+### Features
+
+* add user-configurable top_k and similarity threshold ([d4a1e6a](https://github.com/jmiguelv/klippy/commit/d4a1e6adb588da790804afe25dc32215fee071eb))
+* **backend:** add LLM_CONTEXT_WINDOW environment variable ([2819d2d](https://github.com/jmiguelv/klippy/commit/2819d2d7691c0d811eff20bec71268ca36d70072))
+
+
+### Bug Fixes
+
+* **backend:** enable true async streaming and fix qdrant async client initialization ([1adfff0](https://github.com/jmiguelv/klippy/commit/1adfff03637c427beeec17265f36a8df20567b82))
+* **backend:** restore chat history continuity and fix serialization ([bb081f5](https://github.com/jmiguelv/klippy/commit/bb081f55d894052f7c9ae5aff7f2d4ba78d7b124))
+
+
+### Performance Improvements
+
+* **backend:** add streaming SSE endpoint and wire frontend to stream responses ([f5ed571](https://github.com/jmiguelv/klippy/commit/f5ed57110ffeb2ebff092358b650e0c6c56f85ed))
+* stream responses via SSE to eliminate perceived 3m+ wait ([f6a393a](https://github.com/jmiguelv/klippy/commit/f6a393ac221b76844124a27b44744c4c7d32f408))
+
 ## [0.3.1](https://github.com/jmiguelv/klippy/compare/backend-v0.3.0...backend-v0.3.1) (2026-04-22)
 
 
