@@ -77,6 +77,7 @@
 	let topK = $state(10);
 	let similarityCutoff = $state(0.5);
 	let theme = $state<'light' | 'dark'>('light');
+	let modelName = $state('...');
 	let chatMainEl: HTMLElement;
 
 	function toggleTheme() {
@@ -466,28 +467,36 @@
 					const evt = JSON.parse(part.slice(6));
 
 					if (evt.type === 'meta') {
-						// session_id already known; nothing to do
-					} else if (evt.type === 'chunk') {
-						if (!hasStartedSynthesis) {
-							hasStartedSynthesis = true;
-							const searchTime = Date.now() - startTime;
-							const steps = sessions[sIdx].messages[msgIdx].steps || [];
-							// Finish "Searching Qdrant" (index 1)
-							if (steps[1]) {
-								steps[1].active = false;
-								steps[1].t = searchTime;
-							}
-							
-							// Push "Synthesising" (index 2)
-							steps.push({
-								label: 'Synthesising',
-								detail: 'Reasoning across retrieved chunks',
-								t: null,
-								active: true
-							});
-							sessions[sIdx].messages[msgIdx].steps = steps;
+						if (evt.model) modelName = evt.model.toUpperCase();
+					} else if (evt.type === 'retrieved') {
+						const searchTime = Date.now() - startTime;
+						const steps = sessions[sIdx].messages[msgIdx].steps || [];
+						// Finish "Searching Qdrant" (index 1)
+						if (steps[1]) {
+							steps[1].active = false;
+							steps[1].t = searchTime;
 						}
 
+						// Push "Retrieved N chunks" (index 2)
+						const numSources = evt.num_sources || 0;
+						steps.push({
+							label: `Retrieved ${numSources} chunk${numSources === 1 ? '' : 's'}`,
+							detail: 'Ranked by semantic relevance',
+							t: searchTime,
+							active: false
+						});
+
+						// Push "Synthesising" (index 3)
+						steps.push({
+							label: 'Synthesising',
+							detail: 'Reasoning across retrieved chunks',
+							t: null,
+							active: true
+						});
+						sessions[sIdx].messages[msgIdx].steps = steps;
+						// Trigger reactivity
+						sessions[sIdx].messages[msgIdx] = { ...sessions[sIdx].messages[msgIdx] };
+					} else if (evt.type === 'chunk') {
 						sessions[sIdx].messages[msgIdx] = {
 							...sessions[sIdx].messages[msgIdx],
 							content: sessions[sIdx].messages[msgIdx].content + evt.text
@@ -497,21 +506,12 @@
 					} else if (evt.type === 'done') {
 						const totalTime = Date.now() - startTime;
 						const steps = sessions[sIdx].messages[msgIdx].steps || [];
-						
-						// Finish "Synthesising" (index 2)
-						if (steps[2]) {
-							steps[2].active = false;
-							steps[2].t = totalTime - (steps[1]?.t || 0);
-						}
 
-						// Insert "Retrieved N chunks" (insert at index 2, pushing Synthesising to 3)
-						const numSources = evt.sources?.length || 0;
-						steps.splice(2, 0, {
-							label: `Retrieved ${numSources} chunk${numSources === 1 ? '' : 's'}`,
-							detail: 'Ranked by semantic relevance',
-							t: steps[1]?.t || 0, // already completed by now
-							active: false
-						});
+						// Finish "Synthesising" (index 3)
+						if (steps[3]) {
+							steps[3].active = false;
+							steps[3].t = totalTime - (steps[1]?.t || 0);
+						}
 
 						sessions[sIdx].messages[msgIdx] = {
 							...sessions[sIdx].messages[msgIdx],
@@ -782,7 +782,7 @@
 
 					<p class="composer-hint">
 						<span><kbd>↵</kbd> send · <kbd>@</kbd> filter field · <kbd>⌘K</kbd> new thread</span>
-						<span class="composer-meta">session <b>{currentSessionId.toUpperCase().split('-')[0]}</b> · GPT-4-TURBO</span>
+						<span class="composer-meta">session <b>{currentSessionId.toUpperCase().split('-')[0]}</b> · {modelName}</span>
 					</p>
 				</form>
 		</div>
