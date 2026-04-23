@@ -5,6 +5,8 @@ Enterprise Search Aggregator and RAG system for ClickUp and GitHub.
 ## Capabilities
 
 - Natural language search across ClickUp tasks and GitHub documentation
+- Real-time streaming responses via Server-Sent Events (SSE)
+- Configurable search breadth (Top K) and precision (Similarity Threshold) directly in the UI
 - Incremental sync — only fetches data created or modified since the last run
 - Hybrid retrieval — semantic similarity combined with metadata filtering (source, date, type)
 - Synthesised answers with clickable citations back to the original ClickUp task or GitHub file
@@ -169,6 +171,7 @@ All configuration is via environment variables in a `.env` file at the project r
 | `LLM_API_KEY` | API key for the LLM provider | — |
 | `LLM_BASE_URL` | OpenAI-compatible API base URL | `https://api.openai.com/v1` |
 | `LLM_MODEL` | Model name | `gpt-4-turbo-preview` |
+| `LLM_CONTEXT_WINDOW` | Maximum context window for the LLM | `3900` |
 | `EMBED_MODEL` | Embedding model name or `local:<hf-model-id>` | `jinaai/jina-embeddings-v5-text-small` |
 | `EMBED_DEVICE` | Device for local embeddings (`cpu`, `mps`, `cuda`). Auto-detected if unset. | auto |
 

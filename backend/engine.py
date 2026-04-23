@@ -50,6 +50,7 @@ class KlippyEngine:
         llm_api_key = os.getenv("LLM_API_KEY")
         llm_base_url = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
         llm_model = os.getenv("LLM_MODEL", "gpt-4-turbo-preview")
+        llm_context_window = int(os.getenv("LLM_CONTEXT_WINDOW", "3900"))
         embed_model = os.getenv("EMBED_MODEL") or "text-embedding-3-small"
 
         # Use OpenAILike for OpenAI-compatible endpoints
@@ -59,7 +60,9 @@ class KlippyEngine:
             api_key=llm_api_key,
             is_chat_model=True,
             temperature=0.1,
+            context_window=llm_context_window,
         )
+        Settings.context_window = llm_context_window
 
         if embed_model.startswith("local:") or "/" in embed_model:
             model_name = embed_model.replace("local:", "")
@@ -92,8 +95,9 @@ class KlippyEngine:
 
         # Initialize Qdrant Client
         self.client = qdrant_client.QdrantClient(host=self.qdrant_host, port=6333)
+        self.aclient = qdrant_client.AsyncQdrantClient(host=self.qdrant_host, port=6333)
         self.vector_store = QdrantVectorStore(
-            client=self.client, collection_name=self.collection_name, dense_vector_name="text-dense"
+            client=self.client, aclient=self.aclient, collection_name=self.collection_name, dense_vector_name="text-dense"
         )
         self.storage_context = StorageContext.from_defaults(
             vector_store=self.vector_store
@@ -129,7 +133,7 @@ class KlippyEngine:
             logger.info("Force re-index: deleting existing collection...")
             self.client.delete_collection(self.collection_name)
             self.vector_store = QdrantVectorStore(
-                client=self.client, collection_name=self.collection_name
+                client=self.client, aclient=self.aclient, collection_name=self.collection_name
             )
             self.storage_context = StorageContext.from_defaults(
                 vector_store=self.vector_store
@@ -205,7 +209,13 @@ class KlippyEngine:
 
         logger.info("Ingestion complete.")
 
-    def get_chat_engine(self, chat_history=None, filters: dict[str, str] | None = None):
+    def get_chat_engine(
+        self,
+        chat_history=None,
+        filters: dict[str, str] | None = None,
+        top_k: int = 10,
+        similarity_cutoff: float | None = None,
+    ):
         """Returns a chat engine with conversational memory."""
         if self._index is None:
             self._index = VectorStoreIndex.from_vector_store(
@@ -237,25 +247,69 @@ class KlippyEngine:
             chat_mode="condense_plus_context",
             chat_history=chat_history or [],
             context_prompt=context_prompt,
-            similarity_top_k=20,
+            similarity_top_k=top_k,
+            similarity_cutoff=similarity_cutoff,
             llm=Settings.llm,
             filters=metadata_filters,
         )
 
     def chat(
-        self, message: str, chat_history=None, filters: dict[str, str] | None = None
+        self,
+        message: str,
+        chat_history=None,
+        filters: dict[str, str] | None = None,
+        top_k: int = 10,
+        similarity_cutoff: float | None = None,
     ):
         """Executes a chat turn and returns the response object with timings."""
         import time
 
-        engine = self.get_chat_engine(chat_history=chat_history, filters=filters)
+        engine = self.get_chat_engine(
+            chat_history=chat_history,
+            filters=filters,
+            top_k=top_k,
+            similarity_cutoff=similarity_cutoff,
+        )
 
         start_time = time.time()
         response = engine.chat(message)
         total_time_ms = int((time.time() - start_time) * 1000)
 
-        # Add timings and history to metadata
         if response.metadata is None:
             response.metadata = {}
         response.metadata["total_time_ms"] = total_time_ms
         return response
+
+    def stream_chat(
+        self,
+        message: str,
+        chat_history=None,
+        filters: dict[str, str] | None = None,
+        top_k: int = 10,
+        similarity_cutoff: float | None = None,
+    ):
+        """Returns a streaming chat response for use with SSE endpoints."""
+        engine = self.get_chat_engine(
+            chat_history=chat_history,
+            filters=filters,
+            top_k=top_k,
+            similarity_cutoff=similarity_cutoff,
+        )
+        return engine.stream_chat(message)
+
+    async def astream_chat(
+        self,
+        message: str,
+        chat_history=None,
+        filters: dict[str, str] | None = None,
+        top_k: int = 10,
+        similarity_cutoff: float | None = None,
+    ):
+        """Returns an asynchronous streaming chat response."""
+        engine = self.get_chat_engine(
+            chat_history=chat_history,
+            filters=filters,
+            top_k=top_k,
+            similarity_cutoff=similarity_cutoff,
+        )
+        return await engine.astream_chat(message)

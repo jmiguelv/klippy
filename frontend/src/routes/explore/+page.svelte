@@ -65,6 +65,8 @@
 	let expandedSources = $state<Set<number>>(new Set());
 	let isSidebarOpen = $state(true);
 	let activeFilters = $state<Record<string, string>>({});
+	let topK = $state(10);
+	let similarityCutoff = $state(0.5);
 	let chatMainEl: HTMLElement;
 
 	// Autocomplete state
@@ -395,37 +397,83 @@
 			});
 		}
 
+		// Add a placeholder message immediately so streaming renders in place
+		const streamingMessage: Message = { role: 'klippy', content: '' };
+		if (isRefresh) {
+			sessions[sIdx].messages[sessions[sIdx].messages.length - 1] = streamingMessage;
+		} else {
+			sessions[sIdx].messages = [...sessions[sIdx].messages, streamingMessage];
+		}
+		const msgIdx = sessions[sIdx].messages.length - 1;
+
+		await tick();
+		chatMainEl?.scrollTo({ top: chatMainEl.scrollHeight, behavior: 'smooth' });
+
 		try {
-			const response = await fetch(`${PUBLIC_API_URL}/query`, {
+			const response = await fetch(`${PUBLIC_API_URL}/query-stream`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ text, session_id: currentSessionId, filters: activeFilters })
+				body: JSON.stringify({
+					text,
+					session_id: currentSessionId,
+					filters: activeFilters,
+					top_k: topK,
+					similarity_cutoff: similarityCutoff
+				})
 			});
-			const data = await response.json();
 
-			const newMessage: Message = {
-				role: 'klippy',
-				content: data.answer,
-				sources: data.sources,
-				total_time_ms: data.total_time_ms,
-				cached_at: data.cached_at,
-				is_cached: data.cached,
-				context_length: data.context_length
-			};
+			if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
 
-			if (isRefresh) {
-				sessions[sIdx].messages[sessions[sIdx].messages.length - 1] = newMessage;
-			} else {
-				sessions[sIdx].messages = [...sessions[sIdx].messages, newMessage];
+			const reader = response.body.getReader();
+			const decoder = new TextDecoder();
+			let buffer = '';
+
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+				buffer += decoder.decode(value, { stream: true });
+
+				const parts = buffer.split('\n\n');
+				buffer = parts.pop() ?? '';
+
+				for (const part of parts) {
+					if (!part.startsWith('data: ')) continue;
+					const evt = JSON.parse(part.slice(6));
+
+					if (evt.type === 'meta') {
+						// session_id already known; nothing to do
+					} else if (evt.type === 'chunk') {
+						sessions[sIdx].messages[msgIdx] = {
+							...sessions[sIdx].messages[msgIdx],
+							content: sessions[sIdx].messages[msgIdx].content + evt.text
+						};
+						await tick();
+						chatMainEl?.scrollTo({ top: chatMainEl.scrollHeight, behavior: 'smooth' });
+					} else if (evt.type === 'done') {
+						sessions[sIdx].messages[msgIdx] = {
+							...sessions[sIdx].messages[msgIdx],
+							sources: evt.sources,
+							total_time_ms: evt.total_time_ms,
+							cached_at: evt.cached_at,
+							context_length: evt.context_length
+						};
+					} else if (evt.type === 'error') {
+						sessions[sIdx].messages[msgIdx] = {
+							...sessions[sIdx].messages[msgIdx],
+							content: `Error: ${evt.detail}`
+						};
+					}
+				}
 			}
+
 			sessions[sIdx].updatedAt = Date.now();
 			saveSessions();
 		} catch (e) {
 			console.error(e);
-			sessions[sIdx].messages = [
-				...sessions[sIdx].messages,
-				{ role: 'klippy', content: 'Error: Could not connect to the research engine.' }
-			];
+			sessions[sIdx].messages[msgIdx] = {
+				...sessions[sIdx].messages[msgIdx],
+				content: 'Error: Could not connect to the research engine.'
+			};
 			saveSessions();
 		} finally {
 			clearInterval(interval);
@@ -577,6 +625,8 @@
 								<div class="card-content markdown-body">
 									{#if msg.content}
 										{@html marked.parse(msg.content)}
+									{:else if isLoading && i === chatHistory.length - 1}
+										<p class="loader-verb">{loaderVerb}…</p>
 									{:else}
 										<p>No content available.</p>
 									{/if}
@@ -616,6 +666,18 @@
 
 	<section class="query-area">
 		<div class="container query-container">
+				<!-- Search Controls -->
+				<div class="search-controls">
+					<div class="control-group">
+						<label for="top-k">Top K</label>
+						<input id="top-k" type="number" min="1" max="50" bind:value={topK} />
+					</div>
+					<div class="control-group">
+						<label for="threshold">Threshold</label>
+						<input id="threshold" type="number" min="0" max="1" step="0.05" bind:value={similarityCutoff} />
+					</div>
+				</div>
+
 				<!-- Active filter chips — above the form, persist across turns -->
 				{#if hasFilters}
 					<div class="filter-chips">
@@ -628,10 +690,6 @@
 							</span>
 						{/each}
 					</div>
-				{/if}
-
-				{#if isLoading}
-					<p class="loader-verb">{loaderVerb}…</p>
 				{/if}
 
 				<!-- Autocomplete dropdown — anchored above the form -->
@@ -1072,6 +1130,38 @@
 		background: linear-gradient(transparent, var(--canvas) 30%);
 		padding: var(--size-6) 0;
 		z-index: 100;
+	}
+
+	.search-controls {
+		display: flex;
+		gap: var(--size-6);
+		margin-bottom: var(--size-2);
+		padding: 0 var(--size-4);
+	}
+
+	.control-group {
+		display: flex;
+		align-items: center;
+		gap: var(--size-2);
+	}
+
+	.control-group label {
+		font-family: var(--font-mono);
+		font-size: 0.65rem;
+		text-transform: uppercase;
+		color: var(--ink-2);
+		letter-spacing: 0.05em;
+	}
+
+	.control-group input {
+		width: 60px;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 4px;
+		padding: 2px var(--size-2);
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		color: var(--ink-1);
 	}
 
 	.query-container {
