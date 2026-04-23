@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
+	import { slide } from 'svelte/transition';
 	import { PUBLIC_API_URL } from '$env/static/public';
 	import { KNOWN_FIELDS } from '$lib/filters';
 	import { page } from '$app/state';
@@ -19,7 +20,8 @@
 		Code,
 		FileText,
 		Sun,
-		Moon
+		Moon,
+		SlidersHorizontal
 	} from 'lucide-svelte';
 
 	// Types
@@ -78,6 +80,7 @@
 	let similarityCutoff = $state(0.5);
 	let theme = $state<'light' | 'dark'>('light');
 	let modelName = $state('...');
+	let showSettings = $state(false);
 	let chatMainEl: HTMLElement;
 
 	function toggleTheme() {
@@ -776,21 +779,28 @@
 						/>
 					</div>
 
-					<div class="composer-controls">
-						<label class="control">
-							<span class="control-lbl">Top K</span>
-							<input type="range" min="1" max="50" bind:value={topK}/>
-							<span class="control-val">{topK}</span>
-						</label>
-						<label class="control">
-							<span class="control-lbl">Threshold</span>
-							<input type="range" min="0" max="1" step="0.05" bind:value={similarityCutoff}/>
-							<span class="control-val">{similarityCutoff.toFixed(2)}</span>
-						</label>
-					</div>
+					{#if showSettings}
+						<div class="composer-controls" transition:slide>
+							<label class="control">
+								<span class="control-lbl">Top K</span>
+								<input type="range" min="1" max="50" bind:value={topK}/>
+								<span class="control-val">{topK}</span>
+							</label>
+							<label class="control">
+								<span class="control-lbl">Threshold</span>
+								<input type="range" min="0" max="1" step="0.05" bind:value={similarityCutoff}/>
+								<span class="control-val">{similarityCutoff.toFixed(2)}</span>
+							</label>
+						</div>
+					{/if}
 
 					<p class="composer-hint">
-						<span><kbd>↵</kbd> send · <kbd>@</kbd> filter field</span>
+						<span>
+							<kbd>↵</kbd> send · <kbd>@</kbd> filter field ·
+							<button type="button" class="settings-toggle" onclick={() => showSettings = !showSettings}>
+								<SlidersHorizontal size={12} /> {showSettings ? 'Hide' : 'Tune'}
+							</button>
+						</span>
 						<span class="composer-meta">session <b>{currentSessionId.toUpperCase().split('-')[0]}</b> · {modelName}</span>
 					</p>
 				</form>
@@ -1415,6 +1425,25 @@
 		font-size: 0.7rem;
 		margin-right: 4px;
 		font-weight: 500;
+	}
+
+	.settings-toggle {
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 0;
+		color: var(--ink-2);
+		font-family: inherit;
+		font-size: inherit;
+		text-transform: inherit;
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		transition: color 0.15s;
+	}
+
+	.settings-toggle:hover {
+		color: var(--kings-red);
 	}
 
 	.composer-meta {
