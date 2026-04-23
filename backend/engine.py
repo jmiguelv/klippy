@@ -50,6 +50,7 @@ class KlippyEngine:
         llm_api_key = os.getenv("LLM_API_KEY")
         llm_base_url = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
         llm_model = os.getenv("LLM_MODEL", "gpt-4-turbo-preview")
+        self.llm_model = llm_model
         llm_context_window = int(os.getenv("LLM_CONTEXT_WINDOW", "3900"))
         embed_model = os.getenv("EMBED_MODEL") or "text-embedding-3-small"
 
@@ -214,7 +215,7 @@ class KlippyEngine:
         chat_history=None,
         filters: dict[str, str] | None = None,
         top_k: int = 10,
-        similarity_cutoff: float | None = None,
+        similarity_cutoff: float = 0.5,
     ):
         """Returns a chat engine with conversational memory."""
         if self._index is None:
@@ -243,12 +244,20 @@ class KlippyEngine:
             else None
         )
 
+        from llama_index.core.postprocessor import SimilarityPostprocessor
+
+        node_postprocessors = []
+        if similarity_cutoff is not None:
+            node_postprocessors.append(
+                SimilarityPostprocessor(similarity_cutoff=similarity_cutoff)
+            )
+
         return self._index.as_chat_engine(
             chat_mode="condense_plus_context",
             chat_history=chat_history or [],
             context_prompt=context_prompt,
             similarity_top_k=top_k,
-            similarity_cutoff=similarity_cutoff,
+            node_postprocessors=node_postprocessors,
             llm=Settings.llm,
             filters=metadata_filters,
         )
@@ -259,7 +268,7 @@ class KlippyEngine:
         chat_history=None,
         filters: dict[str, str] | None = None,
         top_k: int = 10,
-        similarity_cutoff: float | None = None,
+        similarity_cutoff: float = 0.5,
     ):
         """Executes a chat turn and returns the response object with timings."""
         import time
@@ -286,7 +295,7 @@ class KlippyEngine:
         chat_history=None,
         filters: dict[str, str] | None = None,
         top_k: int = 10,
-        similarity_cutoff: float | None = None,
+        similarity_cutoff: float = 0.5,
     ):
         """Returns a streaming chat response for use with SSE endpoints."""
         engine = self.get_chat_engine(
@@ -303,7 +312,7 @@ class KlippyEngine:
         chat_history=None,
         filters: dict[str, str] | None = None,
         top_k: int = 10,
-        similarity_cutoff: float | None = None,
+        similarity_cutoff: float = 0.5,
     ):
         """Returns an asynchronous streaming chat response."""
         engine = self.get_chat_engine(
