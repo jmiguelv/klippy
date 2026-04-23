@@ -102,6 +102,9 @@ def get_history_from_redis(session_id: str) -> list[ChatMessage]:
             role = m.get("role") or m.get("MessageRole")
             content = m.get("content") or m.get("text") or ""
             if role:
+                # Handle cases where the role was serialized as 'MessageRole.USER' string
+                if "." in role:
+                    role = role.split(".")[-1].lower()
                 history.append(ChatMessage(role=role, content=content))
         return history
     except Exception as e:
@@ -127,7 +130,7 @@ async def query_klippy(request: QueryRequest):
         )
         answer = str(response_obj)
 
-        updated_history = [{"role": str(m.role), "content": m.content or ""} for m in chat_history]
+        updated_history = [{"role": m.role.value, "content": m.content or ""} for m in chat_history]
         updated_history.append({"role": "user", "content": request.text})
         updated_history.append({"role": "assistant", "content": answer})
         save_history_to_redis(session_id, updated_history)
@@ -190,7 +193,7 @@ async def query_klippy_stream(request: QueryRequest):
             answer = "".join(answer_parts)
             total_time_ms = int((time.time() - start) * 1000)
 
-            updated_history = [{"role": str(m.role), "content": m.content or ""} for m in chat_history]
+            updated_history = [{"role": m.role.value, "content": m.content or ""} for m in chat_history]
             updated_history.append({"role": "user", "content": request.text})
             updated_history.append({"role": "assistant", "content": answer})
             save_history_to_redis(session_id, updated_history)
