@@ -573,7 +573,7 @@
 </script>
 
 <svelte:head>
-	<title>Explore — Klippy Chat</title>
+	<title>Chats — Klippy Chat</title>
 </svelte:head>
 
 <div class="chat-layout">

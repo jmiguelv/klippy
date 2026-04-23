@@ -6,7 +6,7 @@
 
 	let { children } = $props();
 
-	let isExplore = $derived(page.url.pathname.startsWith('/explore'));
+	let isExplore = $derived(page.url.pathname.startsWith('/chats'));
 	let theme = $state<'light' | 'dark'>('light');
 
 	function toggleTheme() {
@@ -43,7 +43,7 @@
 	<div class="container nav-inner">
 		<a href="/" class="nav-wordmark">Klippy</a>
 		<div class="nav-links">
-			<a href="/explore/" class="nav-link">Explore</a>
+			<a href="/chats/" class="nav-link">Chats</a>
 			<button class="nav-theme-toggle" onclick={toggleTheme} title="Toggle Dark/Light Mode">
 				{#if theme === 'light'}
 					<Moon size={16} />

@@ -16,13 +16,7 @@ describe('+page.svelte', () => {
 
 	it('renders the search input', () => {
 		render(Page);
-		const input = screen.getByPlaceholderText(/What needs doing on the Slavery in War project/i);
+		const input = screen.getByPlaceholderText(/Ask Klippy…/i);
 		expect(input).toBeInTheDocument();
-	});
-
-	it('renders the explore button', () => {
-		render(Page);
-		const button = screen.getByRole('button', { name: /explore/i });
-		expect(button).toBeInTheDocument();
 	});
 });

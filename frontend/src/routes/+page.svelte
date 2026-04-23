@@ -7,7 +7,7 @@
 	function handleSearch(e: Event) {
 		e.preventDefault();
 		if (!query.trim()) return;
-		goto(`/explore/?q=${encodeURIComponent(query.trim())}`);
+		goto(`/chats/?q=${encodeURIComponent(query.trim())}`);
 	}
 </script>
 
