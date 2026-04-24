@@ -581,7 +581,7 @@
 			<div class="wordmark-wrap">
 				<span class="sidebar-wordmark">Chats</span>
 			</div>
-			<button class="new-chat-btn" onclick={() => createNewChat()}>
+			<button class="new-chat-btn" onclick={() => { createNewChat(); document.getElementById('chat-input')?.focus(); }}>
 				<Plus size={16} />
 				<span>New Chat</span>
 			</button>
@@ -628,6 +628,23 @@
 				{#if !currentSessionId && sessions.length === 0}
 					<div class="empty-state">
 						<p>Start a new conversation to begin research.</p>
+						<div class="quickstart-chips">
+							{#each [
+								'Summarise my recent tasks',
+								"What's in progress this week?",
+								'Find open GitHub issues',
+								'Show me recent ClickUp updates',
+							] as prompt}
+								<button
+									type="button"
+									class="quickstart-chip"
+									onclick={() => {
+										query = prompt;
+										document.getElementById('chat-input')?.focus();
+									}}
+								>{prompt}</button>
+							{/each}
+						</div>
 					</div>
 				{/if}
 
@@ -772,14 +789,14 @@
 
 					{#if showSettings}
 						<div class="composer-controls" transition:slide>
-							<label class="control">
+							<label class="control" for="slider-topk">
 								<span class="control-lbl">Top K</span>
-								<input type="range" min="1" max="50" bind:value={topK}/>
+								<input id="slider-topk" type="range" min="1" max="50" bind:value={topK}/>
 								<span class="control-val">{topK}</span>
 							</label>
-							<label class="control">
+							<label class="control" for="slider-threshold">
 								<span class="control-lbl">Threshold</span>
-								<input type="range" min="0" max="1" step="0.05" bind:value={similarityCutoff}/>
+								<input id="slider-threshold" type="range" min="0" max="1" step="0.05" bind:value={similarityCutoff}/>
 								<span class="control-val">{similarityCutoff.toFixed(2)}</span>
 							</label>
 						</div>
@@ -788,7 +805,7 @@
 					<p class="composer-hint">
 						<span class="hint-items">
 							<kbd>↵</kbd> send · <kbd>@</kbd> filter field ·
-							<button type="button" class="settings-toggle" onclick={() => showSettings = !showSettings}>
+							<button type="button" class="settings-toggle" onclick={async () => { showSettings = !showSettings; if (showSettings) { await tick(); document.getElementById('slider-topk')?.focus(); } }}>
 								<SlidersHorizontal size={12} /> {showSettings ? 'Hide' : 'Tune'}
 							</button>
 						</span>
@@ -1549,6 +1566,33 @@
 		font-size: 1.5rem;
 		font-style: italic;
 		opacity: 0.5;
+	}
+
+	.quickstart-chips {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: var(--size-3);
+		margin-top: var(--size-5);
+	}
+
+	.quickstart-chip {
+		font-family: var(--font-sans);
+		font-size: 0.8rem;
+		font-style: normal;
+		font-weight: 400;
+		color: var(--ink-2);
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 20px;
+		padding: var(--size-2) var(--size-4);
+		cursor: pointer;
+		transition: border-color 0.15s, color 0.15s;
+	}
+
+	.quickstart-chip:hover {
+		border-color: var(--kings-red);
+		color: var(--ink-0);
 	}
 
 	@media (max-width: 768px) {
