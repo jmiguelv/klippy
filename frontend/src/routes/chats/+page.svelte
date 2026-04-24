@@ -576,6 +576,10 @@
 </svelte:head>
 
 <div class="chat-layout">
+	{#if isSidebarOpen}
+		<div class="sidebar-backdrop" aria-hidden="true" onclick={() => (isSidebarOpen = false)}></div>
+	{/if}
+
 	<aside class="sidebar" class:closed={!isSidebarOpen}>
 		<header class="sidebar-header">
 			<div class="wordmark-wrap">
@@ -584,6 +588,9 @@
 			<button class="new-chat-btn" onclick={() => { createNewChat(); document.getElementById('chat-input')?.focus(); }}>
 				<Plus size={16} />
 				<span>New Chat</span>
+			</button>
+			<button class="sidebar-close" onclick={() => (isSidebarOpen = false)} aria-label="Close sidebar">
+				<ChevronLeft size={16} />
 			</button>
 		</header>
 
@@ -950,6 +957,13 @@
 
 	.session-actions button:hover {
 		opacity: 1;
+	}
+
+	@media (hover: none) {
+		.session-actions {
+			display: flex;
+			opacity: 0.4;
+		}
 	}
 
 	/* ── Main Chat Area ─────────────────────────── */
@@ -1595,6 +1609,14 @@
 		color: var(--ink-0);
 	}
 
+	.sidebar-backdrop {
+		display: none;
+	}
+
+	.sidebar-close {
+		display: none;
+	}
+
 	@media (max-width: 768px) {
 		.sidebar {
 			position: fixed;
@@ -1604,6 +1626,30 @@
 
 		.sidebar.closed {
 			transform: translateX(-100%);
+		}
+
+		.sidebar-backdrop {
+			display: block;
+			position: fixed;
+			inset: 0;
+			background: rgba(0, 0, 0, 0.4);
+			z-index: 199;
+		}
+
+		.sidebar-close {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			background: none;
+			border: none;
+			cursor: pointer;
+			color: var(--ink-2);
+			padding: var(--size-2);
+			margin-left: auto;
+		}
+
+		.sidebar-close:hover {
+			color: var(--ink-0);
 		}
 	}
 </style>
