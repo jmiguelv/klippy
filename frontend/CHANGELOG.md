@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/jmiguelv/klippy/compare/frontend-v0.5.0...frontend-v0.6.0) (2026-04-24)
+
+
+### Features
+
+* **frontend:** URL-per-session routing, identity page, personalised hero ([5a74ac7](https://github.com/jmiguelv/klippy/commit/5a74ac70fc51b79bcace3816ebb3f0f805df1747))
+
 ## [0.5.0](https://github.com/jmiguelv/klippy/compare/frontend-v0.4.1...frontend-v0.5.0) (2026-04-24)
 
 
