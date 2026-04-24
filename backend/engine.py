@@ -225,7 +225,7 @@ class KlippyEngine:
         chat_history=None,
         filters: dict[str, str] | None = None,
         top_k: int = 10,
-        similarity_cutoff: float = 0.0,
+        similarity_cutoff: float | None = None,
     ):
         """Returns a chat engine with conversational memory."""
         if self._index is None:
@@ -254,10 +254,8 @@ class KlippyEngine:
             else None
         )
 
-        from llama_index.core.postprocessor import SimilarityPostprocessor
-
         node_postprocessors = []
-        if similarity_cutoff is not None:
+        if similarity_cutoff is not None and similarity_cutoff > 0.0:
             node_postprocessors.append(
                 SimilarityPostprocessor(similarity_cutoff=similarity_cutoff)
             )
@@ -278,7 +276,7 @@ class KlippyEngine:
         chat_history=None,
         filters: dict[str, str] | None = None,
         top_k: int = 10,
-        similarity_cutoff: float = 0.0,
+        similarity_cutoff: float | None = None,
     ):
         """Executes a chat turn and returns the response object with timings."""
         import time
@@ -305,7 +303,7 @@ class KlippyEngine:
         chat_history=None,
         filters: dict[str, str] | None = None,
         top_k: int = 10,
-        similarity_cutoff: float = 0.0,
+        similarity_cutoff: float | None = None,
     ):
         """Returns a streaming chat response for use with SSE endpoints."""
         engine = self.get_chat_engine(
@@ -322,7 +320,7 @@ class KlippyEngine:
         chat_history=None,
         filters: dict[str, str] | None = None,
         top_k: int = 10,
-        similarity_cutoff: float = 0.0,
+        similarity_cutoff: float | None = None,
     ):
         """Returns an asynchronous streaming chat response."""
         engine = self.get_chat_engine(

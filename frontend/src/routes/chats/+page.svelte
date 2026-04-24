@@ -66,6 +66,7 @@
 	}
 
 	// State
+	let mounted = $state(false);
 	let sessions = $state<Session[]>([]);
 	let currentSessionId = $state('');
 	let query = $state('');
@@ -75,7 +76,7 @@
 	let isSidebarOpen = $state(true);
 	let activeFilters = $state<Record<string, string>>({});
 	let topK = $state(10);
-	let similarityCutoff = $state(0.0);
+	let similarityCutoff = $state(0.3);
 	let modelName = $state('...');
 	let showSettings = $state(false);
 	let chatMainEl: HTMLElement;
@@ -437,7 +438,7 @@
 					session_id: currentSessionId,
 					filters: activeFilters,
 					top_k: topK,
-					similarity_cutoff: similarityCutoff
+					similarity_cutoff: similarityCutoff > 0 ? similarityCutoff : null
 				})
 			});
 
@@ -549,8 +550,10 @@
 	let hasFilters = $derived(Object.keys(activeFilters).length > 0);
 
 	$effect(() => {
+		if (!mounted) return;
 		const q = page.url.searchParams.get('q');
 		if (q && sessions.length === 0 && !isLoading) {
+			history.replaceState({}, '', page.url.pathname);
 			handleSend(q);
 		}
 	});
@@ -569,6 +572,7 @@
 		if (savedModel) {
 			modelName = savedModel;
 		}
+		mounted = true;
 	});
 </script>
 
