@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 from main import app, engine
+import json
 
 client = TestClient(app)
 
@@ -49,3 +50,22 @@ def test_get_questions_sampling(mocker):
     assert len(data["questions"]) == 3
     for q in data["questions"]:
         assert q in ["Q1", "Q2", "Q3", "Q4", "Q5"]
+
+def test_get_questions_nested_metadata(mocker):
+    metadata_key = "questions_this_excerpt_can_answer"
+    mock_point = mocker.Mock()
+    # No top-level metadata, only in _node_content
+    mock_point.payload = {
+        "_node_content": json.dumps({
+            "metadata": {
+                metadata_key: "Nested Question?"
+            }
+        })
+    }
+    
+    mocker.patch.object(engine.client, "scroll", return_value=([mock_point], None))
+    
+    response = client.get("/questions?n=1")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["questions"] == ["Nested Question?"]

@@ -413,7 +413,17 @@ def get_questions(n: int = 5):
             offset=offset,
         )
         for point in result:
-            raw = (point.payload or {}).get(metadata_key, "")
+            payload = point.payload or {}
+            raw = payload.get(metadata_key, "")
+
+            # If not at top level, check inside _node_content
+            if not raw and "_node_content" in payload:
+                try:
+                    content = json.loads(payload["_node_content"])
+                    raw = content.get("metadata", {}).get(metadata_key, "")
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
             if raw:
                 # LlamaIndex stores as a newline-separated string
                 for q in raw.strip().split("\n"):
