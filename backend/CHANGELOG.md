@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.1](https://github.com/jmiguelv/klippy/compare/backend-v0.5.0...backend-v0.5.1) (2026-04-24)
+
+
+### Bug Fixes
+
+* **backend,frontend:** lower default similarity threshold to prevent empty responses ([baa6dd3](https://github.com/jmiguelv/klippy/commit/baa6dd31e6008f711e82d05923242962739f9f5a))
+* **backend,frontend:** restore similarity filtering and fix session history on reload ([0ae6bb8](https://github.com/jmiguelv/klippy/commit/0ae6bb88cd76e9e0612fc0a5c1dc0a0149751390))
+
 ## [0.5.0](https://github.com/jmiguelv/klippy/compare/backend-v0.4.0...backend-v0.5.0) (2026-04-23)
 
 
