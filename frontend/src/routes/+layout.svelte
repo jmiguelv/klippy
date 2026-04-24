@@ -1,18 +1,23 @@
 <script lang="ts">
 	import '../app.css';
-	import { page } from '$app/state';
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { Sun, Moon } from 'lucide-svelte';
 
 	let { children } = $props();
 
-	let isExplore = $derived(page.url.pathname.startsWith('/chats'));
 	let theme = $state<'light' | 'dark'>('light');
+	let userName = $state('');
 
 	function toggleTheme() {
 		theme = theme === 'light' ? 'dark' : 'light';
 		document.documentElement.dataset.theme = theme;
 		localStorage.setItem('klippy_theme', theme);
+	}
+
+	function switchUser() {
+		localStorage.removeItem('klippy_user_name');
+		goto('/');
 	}
 
 	onMount(() => {
@@ -21,10 +26,8 @@
 			theme = savedTheme;
 			document.documentElement.dataset.theme = theme;
 		}
-	});
-
-	$effect(() => {
-		document.body.style.overflow = isExplore ? 'hidden' : '';
+		userName = localStorage.getItem('klippy_user_name') ?? '';
+		document.body.style.overflow = 'hidden';
 	});
 </script>
 
@@ -36,9 +39,11 @@
 
 <nav class="main-nav">
 	<div class="container nav-inner">
-		<a href="/" class="nav-wordmark">Klippy</a>
+		<a href="/chats/" class="nav-wordmark">Klippy <span class="nav-org">King's Digital Lab</span></a>
 		<div class="nav-links">
-			<a href="/chats/" class="nav-link">Chats</a>
+			{#if userName}
+				<button class="nav-user" onclick={switchUser} title="Switch user">{userName}</button>
+			{/if}
 			<button class="nav-theme-toggle" onclick={toggleTheme} title="Toggle Dark/Light Mode">
 				{#if theme === 'light'}
 					<Moon size={16} />
@@ -52,14 +57,6 @@
 
 {@render children()}
 
-{#if !isExplore}
-	<footer class="site-footer">
-		<div class="container footer-inner">
-			<span class="footer-brand">King's Digital Lab</span>
-			<span class="footer-stack">LlamaIndex · Qdrant · Redis · Arize Phoenix</span>
-		</div>
-	</footer>
-{/if}
 
 <style>
 	.main-nav {
@@ -83,6 +80,24 @@
 		font-weight: 600;
 		color: var(--ink-0);
 		letter-spacing: 0.02em;
+		display: flex;
+		align-items: baseline;
+		gap: var(--size-3);
+	}
+
+	.nav-org {
+		font-family: var(--font-mono);
+		font-size: 0.62rem;
+		font-weight: 400;
+		text-transform: uppercase;
+		letter-spacing: 0.12em;
+		color: var(--ink-3);
+	}
+
+	.nav-org::before {
+		content: '|';
+		margin-right: var(--size-3);
+		opacity: 0.4;
 	}
 
 	.nav-links {
@@ -91,20 +106,22 @@
 		gap: var(--size-6);
 	}
 
-	.nav-link {
-		font-family: var(--font-sans);
-		font-size: 0.95rem;
-		font-weight: 500;
-		color: var(--ink-0);
+	.nav-user {
+		background: none;
+		border: none;
+		cursor: pointer;
+		font-family: var(--font-mono);
+		font-size: 0.68rem;
+		text-transform: uppercase;
+		letter-spacing: 0.1em;
+		color: var(--ink-2);
+		padding: var(--size-1) var(--size-2);
+		border-radius: 3px;
 		transition: color 0.15s;
-		text-decoration: underline;
-		text-underline-offset: 4px;
-		text-decoration-color: transparent;
 	}
 
-	.nav-link:hover {
+	.nav-user:hover {
 		color: var(--kings-red);
-		text-decoration-color: var(--kings-red);
 	}
 
 	.nav-theme-toggle {
@@ -125,42 +142,4 @@
 		color: var(--kings-red);
 	}
 
-	.site-footer {
-		border-top: 1px solid var(--border);
-		background: var(--canvas);
-		padding: var(--size-10) 0;
-		margin-top: auto;
-	}
-
-	.footer-inner {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
-
-	.footer-brand {
-		font-family: var(--font-display);
-		font-size: 0.9rem;
-		color: var(--ink-2);
-		font-style: italic;
-		font-weight: 300;
-	}
-
-	.footer-stack {
-		font-family: var(--font-mono);
-		font-size: 0.65rem;
-		color: var(--ink-2);
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		font-weight: 300;
-		opacity: 0.6;
-	}
-
-	@media (max-width: 640px) {
-		.footer-inner {
-			flex-direction: column;
-			gap: var(--size-4);
-			text-align: center;
-		}
-	}
 </style>
