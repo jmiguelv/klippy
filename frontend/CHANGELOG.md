@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.1](https://github.com/jmiguelv/klippy/compare/frontend-v0.4.0...frontend-v0.4.1) (2026-04-24)
+
+
+### Bug Fixes
+
+* **backend,frontend:** lower default similarity threshold to prevent empty responses ([baa6dd3](https://github.com/jmiguelv/klippy/commit/baa6dd31e6008f711e82d05923242962739f9f5a))
+* **backend,frontend:** restore similarity filtering and fix session history on reload ([0ae6bb8](https://github.com/jmiguelv/klippy/commit/0ae6bb88cd76e9e0612fc0a5c1dc0a0149751390))
+* **frontend:** handle home page query in onMount to prevent duplicate sessions ([f9a7f98](https://github.com/jmiguelv/klippy/commit/f9a7f98a2fa74fd05dfaf3aab1c1101d9220ea86))
+
 ## [0.4.0](https://github.com/jmiguelv/klippy/compare/frontend-v0.3.0...frontend-v0.4.0) (2026-04-23)
 
 
