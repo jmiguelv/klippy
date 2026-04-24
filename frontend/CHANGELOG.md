@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.5.0](https://github.com/jmiguelv/klippy/compare/frontend-v0.4.1...frontend-v0.5.0) (2026-04-24)
+
+
+### Features
+
+* **frontend:** empty state quick-starts, focus management, slider a11y ([6edbfa2](https://github.com/jmiguelv/klippy/commit/6edbfa26c5cbff35d7ac8b44e6bc4b41eb1d508b))
+* **frontend:** mobile sidebar backdrop, touch targets, themed scrollbars ([b2e48f4](https://github.com/jmiguelv/klippy/commit/b2e48f4a77a5b6f370c2ede90dc8819125388195))
+* **frontend:** P3 ui-review items — fonts, streaming, numbers, a11y, placeholders ([9abe03f](https://github.com/jmiguelv/klippy/commit/9abe03f3868114db2fb210dc52b1f4586bd4be27))
+* **frontend:** replace [@field](https://github.com/field):value text tokens with removable filter chips ([ca9db64](https://github.com/jmiguelv/klippy/commit/ca9db641543eea9a326c85f3397be6ee443af8ca))
+* **frontend:** show active filters in user message bubble ([ea605f9](https://github.com/jmiguelv/klippy/commit/ea605f910f42cf5680627e91d24de18e9107c11b))
+* **frontend:** ui/ux review improvements ([79d3db2](https://github.com/jmiguelv/klippy/commit/79d3db2057c65d722d0bfd06ab65d9ef936ed887))
+
+
+### Bug Fixes
+
+* **frontend:** prevent dark mode FOUC with blocking theme script in &lt;head&gt; ([85f9bea](https://github.com/jmiguelv/klippy/commit/85f9beaf90dc8905f41c3a1c414eb4f4c156b4c0))
+* **frontend:** session icon visibility in dark mode, chip overflow scroll ([de3f05d](https://github.com/jmiguelv/klippy/commit/de3f05d008254e541e746498bd8604e969fcf4ff))
+
 ## [0.4.1](https://github.com/jmiguelv/klippy/compare/frontend-v0.4.0...frontend-v0.4.1) (2026-04-24)
 
 
