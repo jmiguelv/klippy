@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/jmiguelv/klippy/compare/frontend-v0.3.0...frontend-v0.4.0) (2026-04-23)
+
+
+### Features
+
+* chat redesign ([aa89485](https://github.com/jmiguelv/klippy/commit/aa89485e32ba2f4b33783503feab687ddfb8b284))
+
 ## [0.3.0](https://github.com/jmiguelv/klippy/compare/frontend-v0.2.0...frontend-v0.3.0) (2026-04-23)
 
 

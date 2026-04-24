@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/jmiguelv/klippy/compare/backend-v0.4.0...backend-v0.5.0) (2026-04-23)
+
+
+### Features
+
+* chat redesign ([aa89485](https://github.com/jmiguelv/klippy/commit/aa89485e32ba2f4b33783503feab687ddfb8b284))
+
 ## [0.4.0](https://github.com/jmiguelv/klippy/compare/backend-v0.3.1...backend-v0.4.0) (2026-04-23)
 
 
