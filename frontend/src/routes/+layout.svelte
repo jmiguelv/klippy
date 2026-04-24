@@ -38,7 +38,7 @@
 	<div class="container nav-inner">
 		<a href="/" class="nav-wordmark">Klippy</a>
 		<div class="nav-links">
-			<a href="/chats/" class="nav-link">Chats</a>
+			<a href="/chats/" class="nav-link" class:active={isExplore}>Chats</a>
 			<button class="nav-theme-toggle" onclick={toggleTheme} title="Toggle Dark/Light Mode">
 				{#if theme === 'light'}
 					<Moon size={16} />
