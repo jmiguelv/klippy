@@ -17,6 +17,8 @@ def engine(mocker):
     mock_llm = mocker.Mock(spec=LLM)
     mock_llm.callback_manager = None
     mock_llm.metadata = LLMMetadata(context_window=3900, num_output=256)
+    mock_llm.completion_to_prompt = mocker.Mock()
+    mock_llm.messages_to_prompt = mocker.Mock()
     mocker.patch("engine.OpenAILike", return_value=mock_llm)
     
     # Mock HuggingFaceEmbedding so it passes isinstance(..., BaseEmbedding)
@@ -176,3 +178,23 @@ async def test_astream_chat(engine_with_index, mocker):
     tokens = [t async for t in response.async_response_gen()]
     assert tokens == ["Hello", " world"]
     mock_chat_engine.astream_chat.assert_called_once_with("Hi")
+
+
+def test_ingest_data_with_questions_extractor(engine, mocker):
+    mock_pipeline = mocker.patch("engine.IngestionPipeline")
+    mock_reader = mocker.patch("engine.SimpleDirectoryReader")
+    mock_reader.return_value.load_data.return_value = [mocker.Mock(text="test content", metadata={"file_path": "test.md"})]
+    mocker.patch("engine.parse_frontmatter", return_value=("test content", {}))
+    mocker.patch("os.path.exists", return_value=True)
+    mocker.patch("llama_index.core.VectorStoreIndex.from_vector_store")
+
+    engine.ingest_data(extract_questions=True)
+
+    _, kwargs = mock_pipeline.call_args
+    transformations = kwargs["transformations"]
+    
+    from llama_index.core.extractors import QuestionsAnsweredExtractor
+    from llama_index.core.node_parser import MarkdownNodeParser
+    
+    assert any(isinstance(t, MarkdownNodeParser) for t in transformations)
+    assert any(isinstance(t, QuestionsAnsweredExtractor) for t in transformations)

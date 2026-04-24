@@ -39,7 +39,8 @@
 
 <nav class="main-nav">
 	<div class="container nav-inner">
-		<a href="/chats/" class="nav-wordmark">Klippy <span class="nav-org">King's Digital Lab</span></a>
+		<a href="/chats/" class="nav-wordmark">Klippy <span class="nav-org">King's Digital Lab</span></a
+		>
 		<div class="nav-links">
 			{#if userName}
 				<button class="nav-user" onclick={switchUser} title="Switch user">{userName}</button>
@@ -56,7 +57,6 @@
 </nav>
 
 {@render children()}
-
 
 <style>
 	.main-nav {
@@ -134,12 +134,13 @@
 		padding: var(--size-2);
 		color: var(--ink-2);
 		border-radius: 4px;
-		transition: background 0.15s, color 0.15s;
+		transition:
+			background 0.15s,
+			color 0.15s;
 	}
 
 	.nav-theme-toggle:hover {
 		background: var(--canvas);
 		color: var(--kings-red);
 	}
-
 </style>

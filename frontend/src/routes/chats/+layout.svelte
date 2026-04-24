@@ -57,7 +57,11 @@
 				<Plus size={16} />
 				<span>New Chat</span>
 			</button>
-			<button class="sidebar-close" onclick={() => (isSidebarOpen = false)} aria-label="Close sidebar">
+			<button
+				class="sidebar-close"
+				onclick={() => (isSidebarOpen = false)}
+				aria-label="Close sidebar"
+			>
 				<ChevronLeft size={16} />
 			</button>
 		</header>
@@ -75,8 +79,10 @@
 					<MessageSquare class="session-icon" size={14} />
 					<span class="session-title">{s.title}</span>
 					<div class="session-actions">
-						<button onclick={(e) => renameChat(s.id, e)} title="Rename"><Pencil size={12} /></button>
-						<button onclick={(e) => deleteChat(s.id, e)} title="Delete"><Trash2 size={12} /></button>
+						<button onclick={(e) => renameChat(s.id, e)} title="Rename"><Pencil size={12} /></button
+						>
+						<button onclick={(e) => deleteChat(s.id, e)} title="Delete"><Trash2 size={12} /></button
+						>
 					</div>
 				</div>
 			{/each}

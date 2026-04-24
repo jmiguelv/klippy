@@ -2,26 +2,42 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { chatState } from '$lib/chat-state.svelte';
+	import { PUBLIC_API_URL } from '$env/static/public';
 
 	let query = $state('');
 	let userName = $state('');
+	let questions = $state<string[]>([]);
 
-	onMount(() => {
+	onMount(async () => {
 		userName = localStorage.getItem('klippy_user_name') ?? '';
 		chatState.loadSessions();
 		const q = new URLSearchParams(window.location.search).get('q');
 		if (q) {
 			history.replaceState({}, '', window.location.pathname);
 			const id = chatState.createNewChat(q);
-			goto(`/chats/${id}/?q=${encodeURIComponent(q)}`);
+			goto(`/chats/${id}/?q=${encodeURIComponent(q)}`); // eslint-disable-line svelte/no-navigation-without-resolve
+		}
+
+		try {
+			const res = await fetch(`${PUBLIC_API_URL}/questions?n=5`);
+			if (res.ok) {
+				const data = await res.json();
+				questions = data.questions ?? [];
+			}
+		} catch {
+			// backend offline — show nothing
 		}
 	});
 
 	function handleSearch(e: Event) {
 		e.preventDefault();
 		if (!query.trim()) return;
-		const id = chatState.createNewChat(query.trim());
-		goto(`/chats/${id}/?q=${encodeURIComponent(query.trim())}`);
+		submitQuestion(query.trim());
+	}
+
+	function submitQuestion(q: string) {
+		const id = chatState.createNewChat(q);
+		goto(`/chats/${id}/?q=${encodeURIComponent(q)}`); // eslint-disable-line svelte/no-navigation-without-resolve
 	}
 </script>
 
@@ -42,6 +58,13 @@
 				Search across ClickUp tasks, GitHub repositories, and internal documentation.
 			</p>
 
+			{#if questions.length > 0}
+				<div class="question-chips">
+					{#each questions as q (q)}
+						<button class="question-chip" onclick={() => submitQuestion(q)}>{q}</button>
+					{/each}
+				</div>
+			{/if}
 		</div>
 	</section>
 </main>
@@ -121,6 +144,34 @@
 		max-width: 480px;
 		font-weight: 300;
 		margin-bottom: var(--size-6);
+	}
+
+	.question-chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--size-2);
+		margin-top: var(--size-4);
+	}
+
+	.question-chip {
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		padding: var(--size-2) var(--size-4);
+		font-family: var(--font-sans);
+		font-size: 0.8rem;
+		color: var(--ink-1);
+		cursor: pointer;
+		transition:
+			border-color 0.15s,
+			color 0.15s;
+		text-align: left;
+		line-height: 1.4;
+	}
+
+	.question-chip:hover {
+		border-color: var(--kings-red);
+		color: var(--kings-red);
 	}
 
 	/* ── Composer ─────────────────────────────── */

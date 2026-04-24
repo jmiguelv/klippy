@@ -42,7 +42,7 @@
 	--font-mono: 'IBM Plex Mono', 'Courier New', monospace;
 }
 
-:root[data-theme="dark"] {
+:root[data-theme='dark'] {
 	--canvas: #1a1714;
 	--surface: #221e1a;
 	--surface-2: #2b2622;

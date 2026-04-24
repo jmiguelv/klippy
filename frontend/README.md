@@ -21,14 +21,14 @@ PUBLIC_API_URL=http://localhost:8000
 
 ## Commands
 
-| Command | Description |
-| :--- | :--- |
-| `pnpm dev` | Start dev server |
-| `pnpm build` | Production build |
-| `pnpm preview` | Preview production build |
-| `pnpm check` | Svelte type-check |
-| `pnpm test:unit` | Run unit tests (Vitest) |
-| `pnpm test:e2e` | Run E2E tests (Playwright) |
+| Command          | Description                |
+| :--------------- | :------------------------- |
+| `pnpm dev`       | Start dev server           |
+| `pnpm build`     | Production build           |
+| `pnpm preview`   | Preview production build   |
+| `pnpm check`     | Svelte type-check          |
+| `pnpm test:unit` | Run unit tests (Vitest)    |
+| `pnpm test:e2e`  | Run E2E tests (Playwright) |
 
 ## Stack
 

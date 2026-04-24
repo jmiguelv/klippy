@@ -52,6 +52,7 @@ class QueryResponse(BaseModel):
 class IngestRequest(BaseModel):
     limit: int = None
     force: bool = False
+    extract_questions: bool = False
 
 
 class FeedbackRequest(BaseModel):
@@ -260,19 +261,25 @@ def invalidate_stats_cache():
     logger.info("Invalidated debug stats cache.")
 
 
-def _run_ingestion(limit, force):
-    engine.ingest_data(limit=limit, force=force)
+def _run_ingestion(limit, force, extract_questions):
+    engine.ingest_data(limit=limit, force=force, extract_questions=extract_questions)
     invalidate_stats_cache()
 
 
 @app.post("/ingest")
 async def trigger_ingestion(request: IngestRequest, background_tasks: BackgroundTasks):
     """Triggers a manual ingestion. Can optionally limit number of docs and force re-index."""
-    background_tasks.add_task(_run_ingestion, limit=request.limit, force=request.force)
+    background_tasks.add_task(
+        _run_ingestion,
+        limit=request.limit,
+        force=request.force,
+        extract_questions=request.extract_questions,
+    )
     return {
         "status": "Ingestion task started in background",
         "limit": request.limit,
         "force": request.force,
+        "extract_questions": request.extract_questions,
     }
 
 
@@ -387,6 +394,40 @@ async def collection_stats_all():
     return result_payload
 
 
+@app.get("/questions")
+def get_questions(n: int = 5):
+    """Sample n questions from Qdrant metadata."""
+    import random
+
+    metadata_key = "questions_this_excerpt_can_answer"
+    all_questions: list[str] = []
+
+    # Scroll through all points in the collection
+    offset = None
+    while True:
+        result, next_offset = engine.client.scroll(
+            collection_name=engine.collection_name,
+            with_payload=True,
+            with_vectors=False,
+            limit=200,
+            offset=offset,
+        )
+        for point in result:
+            raw = (point.payload or {}).get(metadata_key, "")
+            if raw:
+                # LlamaIndex stores as a newline-separated string
+                for q in raw.strip().split("\n"):
+                    q = q.strip()
+                    if q:
+                        all_questions.append(q)
+        if next_offset is None:
+            break
+        offset = next_offset
+
+    sample = random.sample(all_questions, min(n, len(all_questions)))
+    return {"questions": sample}
+
+
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
@@ -405,14 +446,21 @@ def main():
         action="store_true",
         help="Force re-indexing of all documents (ignore cache)",
     )
+    parser.add_argument(
+        "--extract-questions",
+        action="store_true",
+        help="Extract questions from nodes during ingestion",
+    )
 
     args, unknown = parser.parse_known_args()
 
     if args.ingest:
         logger.info(
-            f"CLI: Starting manual ingestion (limit={args.limit}, force={args.force})..."
+            f"CLI: Starting manual ingestion (limit={args.limit}, force={args.force}, extract_questions={args.extract_questions})..."
         )
-        engine.ingest_data(limit=args.limit, force=args.force)
+        engine.ingest_data(
+            limit=args.limit, force=args.force, extract_questions=args.extract_questions
+        )
         logger.info("CLI: Ingestion complete. Exiting.")
     else:
         logger.info("CLI: Starting FastAPI server...")
