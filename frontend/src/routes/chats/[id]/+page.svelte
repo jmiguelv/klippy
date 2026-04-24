@@ -483,22 +483,6 @@
 			{#if chatHistory.length === 0}
 				<div class="empty-state">
 					<p>Start typing below to begin your research.</p>
-					<div class="quickstart-chips">
-						{#each [
-							'Summarise my recent tasks',
-							"What's in progress this week?",
-							'Find open GitHub issues',
-							'Show me recent ClickUp updates',
-						] as prompt}
-							<button
-								type="button"
-								class="quickstart-chip"
-								onclick={() => {
-									query = prompt;
-									document.getElementById('chat-input')?.focus();
-								}}>{prompt}</button>
-						{/each}
-					</div>
 				</div>
 			{/if}
 
@@ -1312,30 +1296,4 @@
 		opacity: 0.5;
 	}
 
-	.quickstart-chips {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: center;
-		gap: var(--size-3);
-		margin-top: var(--size-5);
-	}
-
-	.quickstart-chip {
-		font-family: var(--font-sans);
-		font-size: 0.8rem;
-		font-style: normal;
-		font-weight: 400;
-		color: var(--ink-2);
-		background: var(--surface);
-		border: 1px solid var(--border);
-		border-radius: 20px;
-		padding: var(--size-2) var(--size-4);
-		cursor: pointer;
-		transition: border-color 0.15s, color 0.15s;
-	}
-
-	.quickstart-chip:hover {
-		border-color: var(--kings-red);
-		color: var(--ink-0);
-	}
 </style>

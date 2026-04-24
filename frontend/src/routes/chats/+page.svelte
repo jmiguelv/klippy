@@ -4,8 +4,10 @@
 	import { chatState } from '$lib/chat-state.svelte';
 
 	let query = $state('');
+	let userName = $state('');
 
 	onMount(() => {
+		userName = localStorage.getItem('klippy_user_name') ?? '';
 		chatState.loadSessions();
 		const q = new URLSearchParams(window.location.search).get('q');
 		if (q) {
@@ -30,26 +32,16 @@
 <main class="chat-main">
 	<section class="hero-section container">
 		<div class="empty-hero">
-			<p class="empty-eyebrow">King's Digital Lab</p>
-			<h2 class="empty-heading">What would you like<br />to research today?</h2>
+			{#if userName}
+				<h2 class="empty-greeting">Hello, {userName}.</h2>
+				<p class="empty-subheading">Ask anything about your research projects.</p>
+			{:else}
+				<h2 class="empty-heading">Ask anything about<br />your research projects.</h2>
+			{/if}
+			<p class="empty-description">
+				Search across ClickUp tasks, GitHub repositories, and internal documentation.
+			</p>
 
-			<div class="quickstart-chips">
-				{#each [
-					'Summarise my recent tasks',
-					"What's in progress this week?",
-					'Find open GitHub issues',
-					'Show me recent ClickUp updates',
-				] as prompt}
-					<button
-						type="button"
-						class="quickstart-chip"
-						onclick={() => {
-							query = prompt;
-							document.getElementById('chats-input')?.focus();
-						}}
-					>{prompt}</button>
-				{/each}
-			</div>
 		</div>
 	</section>
 </main>
@@ -79,61 +71,56 @@
 		overflow-y: auto;
 		display: flex;
 		align-items: center;
-		justify-content: center;
 	}
 
 	.hero-section {
 		width: 100%;
 		max-width: 800px;
-		padding-bottom: 8vh;
+		padding-bottom: var(--size-8);
 	}
 
 	.empty-hero {
 		display: flex;
 		flex-direction: column;
 		align-items: flex-start;
-		gap: var(--size-6);
 	}
 
-	.empty-eyebrow {
-		font-family: var(--font-mono);
-		font-size: 0.7rem;
-		color: var(--kings-red);
-		text-transform: uppercase;
-		letter-spacing: 0.12em;
-	}
-
-	.empty-heading {
+	.empty-greeting {
 		font-family: var(--font-display);
-		font-size: clamp(2rem, 6vw, 3.2rem);
+		font-size: clamp(1.8rem, 4vw, 2.8rem);
 		font-weight: 500;
 		line-height: 1.1;
 		color: var(--ink-0);
 		letter-spacing: -0.01em;
+		margin-bottom: var(--size-2);
 	}
 
-	.quickstart-chips {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--size-3);
+	.empty-subheading {
+		font-family: var(--font-display);
+		font-size: 1.1rem;
+		font-weight: 300;
+		font-style: italic;
+		color: var(--ink-1);
+		margin-bottom: var(--size-3);
 	}
 
-	.quickstart-chip {
-		font-family: var(--font-sans);
-		font-size: 0.8rem;
-		font-weight: 400;
-		color: var(--ink-2);
-		background: var(--surface);
-		border: 1px solid var(--border);
-		border-radius: 20px;
-		padding: var(--size-2) var(--size-4);
-		cursor: pointer;
-		transition: border-color 0.15s, color 0.15s;
-	}
-
-	.quickstart-chip:hover {
-		border-color: var(--kings-red);
+	.empty-heading {
+		font-family: var(--font-display);
+		font-size: clamp(1.8rem, 4vw, 2.8rem);
+		font-weight: 500;
+		line-height: 1.1;
 		color: var(--ink-0);
+		letter-spacing: -0.01em;
+		margin-bottom: var(--size-3);
+	}
+
+	.empty-description {
+		font-size: 0.95rem;
+		line-height: 1.6;
+		color: var(--ink-2);
+		max-width: 480px;
+		font-weight: 300;
+		margin-bottom: var(--size-6);
 	}
 
 	/* ── Composer ─────────────────────────────── */

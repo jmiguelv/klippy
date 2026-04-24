@@ -7,7 +7,7 @@
 
 	let { children } = $props();
 
-	let isSidebarOpen = $state(true);
+	let isSidebarOpen = $state(false);
 	let currentId = $derived(page.params.id ?? '');
 
 	onMount(() => {
