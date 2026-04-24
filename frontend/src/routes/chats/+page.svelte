@@ -66,7 +66,6 @@
 	}
 
 	// State
-	let mounted = $state(false);
 	let sessions = $state<Session[]>([]);
 	let currentSessionId = $state('');
 	let query = $state('');
@@ -549,15 +548,6 @@
 	let chatHistory = $derived(currentSession?.messages || []);
 	let hasFilters = $derived(Object.keys(activeFilters).length > 0);
 
-	$effect(() => {
-		if (!mounted) return;
-		const q = page.url.searchParams.get('q');
-		if (q && sessions.length === 0 && !isLoading) {
-			history.replaceState({}, '', page.url.pathname);
-			handleSend(q);
-		}
-	});
-
 	onMount(() => {
 		loadSessions();
 		getSessionId();
@@ -567,12 +557,18 @@
 		}
 		allStatsReady = fetchAllStats();
 
-		// Load model name
 		const savedModel = localStorage.getItem('klippy_model_name');
 		if (savedModel) {
 			modelName = savedModel;
 		}
-		mounted = true;
+
+		// Handle query forwarded from home page — consume once and clear URL
+		const q = new URLSearchParams(window.location.search).get('q');
+		if (q) {
+			history.replaceState({}, '', window.location.pathname);
+			createNewChat(q);
+			handleSend(q);
+		}
 	});
 </script>
 
