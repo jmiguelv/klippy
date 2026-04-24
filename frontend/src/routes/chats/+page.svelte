@@ -75,7 +75,7 @@
 	let isSidebarOpen = $state(true);
 	let activeFilters = $state<Record<string, string>>({});
 	let topK = $state(10);
-	let similarityCutoff = $state(0.5);
+	let similarityCutoff = $state(0.3);
 	let modelName = $state('...');
 	let showSettings = $state(false);
 	let chatMainEl: HTMLElement;
@@ -437,7 +437,7 @@
 					session_id: currentSessionId,
 					filters: activeFilters,
 					top_k: topK,
-					similarity_cutoff: similarityCutoff
+					similarity_cutoff: similarityCutoff > 0 ? similarityCutoff : null
 				})
 			});
 
@@ -548,13 +548,6 @@
 	let chatHistory = $derived(currentSession?.messages || []);
 	let hasFilters = $derived(Object.keys(activeFilters).length > 0);
 
-	$effect(() => {
-		const q = page.url.searchParams.get('q');
-		if (q && sessions.length === 0 && !isLoading) {
-			handleSend(q);
-		}
-	});
-
 	onMount(() => {
 		loadSessions();
 		getSessionId();
@@ -564,10 +557,17 @@
 		}
 		allStatsReady = fetchAllStats();
 
-		// Load model name
 		const savedModel = localStorage.getItem('klippy_model_name');
 		if (savedModel) {
 			modelName = savedModel;
+		}
+
+		// Handle query forwarded from home page — consume once and clear URL
+		const q = new URLSearchParams(window.location.search).get('q');
+		if (q) {
+			history.replaceState({}, '', window.location.pathname);
+			createNewChat(q);
+			handleSend(q);
 		}
 	});
 </script>

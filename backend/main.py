@@ -119,6 +119,29 @@ def save_history_to_redis(session_id: str, history: list[dict]):
     redis_client.setex(f"chat_history:{session_id}", 3600 * 24, json.dumps(history))
 
 
+def format_sources(source_nodes: list) -> tuple[list[dict], int]:
+    """Extracts sources and context length from a list of source nodes."""
+    sources = []
+    context_length = 0
+    for node in source_nodes:
+        text = node.node.get_text()
+        context_length += len(text)
+        metadata = node.node.metadata
+
+        title_match = re.search(r"^#\s+(.+)$", text, re.MULTILINE)
+        sources.append(
+            {
+                "source": metadata.get("source", "unknown"),
+                "url": metadata.get("url"),
+                "title": title_match.group(1)
+                if title_match
+                else metadata.get("file_name", "Untitled"),
+                "score": float(node.score) if node.score is not None else 0.0,
+            }
+        )
+    return sources, context_length
+
+
 @app.post("/query", response_model=QueryResponse)
 async def query_klippy(request: QueryRequest):
     session_id = request.session_id or str(uuid.uuid4())
@@ -141,25 +164,7 @@ async def query_klippy(request: QueryRequest):
         updated_history.append({"role": "assistant", "content": answer})
         save_history_to_redis(session_id, updated_history)
 
-        # Extract sources from node metadata (frontmatter fields are indexed there, not in text)
-        sources = []
-        context_length = 0
-        for node in response_obj.source_nodes:
-            text = node.node.get_text()
-            context_length += len(text)
-            metadata = node.node.metadata
-
-            title_match = re.search(r"^#\s+(.+)$", text, re.MULTILINE)
-            sources.append(
-                {
-                    "source": metadata.get("source", "unknown"),
-                    "url": metadata.get("url"),
-                    "title": title_match.group(1)
-                    if title_match
-                    else metadata.get("file_name", "Untitled"),
-                    "score": float(node.score) if node.score is not None else 0.0,
-                }
-            )
+        sources, context_length = format_sources(response_obj.source_nodes)
 
         return QueryResponse(
             answer=answer,
@@ -210,19 +215,7 @@ async def query_klippy_stream(request: QueryRequest):
             updated_history.append({"role": "assistant", "content": answer})
             save_history_to_redis(session_id, updated_history)
 
-            sources = []
-            context_length = 0
-            for node in streaming_response.source_nodes:
-                text = node.node.get_text()
-                context_length += len(text)
-                metadata = node.node.metadata
-                title_match = re.search(r"^#\s+(.+)$", text, re.MULTILINE)
-                sources.append({
-                    "source": metadata.get("source", "unknown"),
-                    "url": metadata.get("url"),
-                    "title": title_match.group(1) if title_match else metadata.get("file_name", "Untitled"),
-                    "score": float(node.score) if node.score is not None else 0.0,
-                })
+            sources, context_length = format_sources(streaming_response.source_nodes)
 
             yield f"data: {json.dumps({'type': 'done', 'sources': sources, 'total_time_ms': total_time_ms, 'context_length': context_length, 'cached_at': now})}\n\n"
 

@@ -1,14 +1,18 @@
 import os
 import json
 import logging
+from typing import Optional
 from datetime import datetime
+from clickup.client import ClickUpClient
+from github.client import GitHubClient
+from utils.state import StateStore
 from clickup.parser import task_to_markdown, page_to_markdown
 from github.parser import readme_to_markdown
 
 logger = logging.getLogger("harvester.orchestrator")
 
 class Orchestrator:
-    def __init__(self, clickup_client, github_client, state_store, data_dir: str):
+    def __init__(self, clickup_client: Optional[ClickUpClient], github_client: Optional[GitHubClient], state_store: StateStore, data_dir: str):
         self.clickup = clickup_client
         self.github = github_client
         self.state = state_store
@@ -22,7 +26,7 @@ class Orchestrator:
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(content)
 
-    def run_clickup(self, workspace_id: str, ignore_spaces: list[str] = None, force: bool = False, docs_only: bool = False):
+    def run_clickup(self, workspace_id: str, ignore_spaces: list[str] | None = None, force: bool = False, docs_only: bool = False) -> None:
         """Orchestrates ClickUp ingestion with deep document discovery."""
         logger.info(f"Starting ClickUp harvesting for workspace: {workspace_id} (force={force}, docs_only={docs_only})")
         
@@ -54,7 +58,8 @@ class Orchestrator:
                     if isinstance(l, dict):
                         all_lists.append((l["id"], l.get("name", "Untitled"), "None", space_name))
                         all_doc_containers.append(("LIST", l["id"]))
-            except Exception: pass
+            except Exception as e:
+                logger.warning(f"Failed to get folderless lists in space {space_id}: {e}")
 
             # Folders
             try:
@@ -67,7 +72,8 @@ class Orchestrator:
                         if isinstance(l, dict):
                             all_lists.append((l["id"], l.get("name", "Untitled"), folder.get('name', 'Untitled'), space_name))
                             all_doc_containers.append(("LIST", l["id"]))
-            except Exception: pass
+            except Exception as e:
+                logger.warning(f"Failed to get folders or lists in folders for space {space_id}: {e}")
 
         # 2. Process Tasks (if not docs_only)
         if not docs_only:
@@ -166,8 +172,8 @@ class Orchestrator:
 
         logger.info(f"Final: {page_count} pages from {doc_count} docs ({len(seen_doc_ids)} total discovered).")
 
-    def run_github(self, org_names: list[str] = None, user_names: list[str] = None,
-                   force: bool = False, ignore_repos: list[str] = None):
+    def run_github(self, org_names: list[str] | None = None, user_names: list[str] | None = None,
+                   force: bool = False, ignore_repos: list[str] | None = None) -> None:
         """Orchestrates GitHub ingestion by harvesting all markdown files from each repo."""
         logger.info(f"Starting GitHub harvesting (force={force})...")
         ignore_repos = {r.strip().lower() for r in (ignore_repos or [])}
