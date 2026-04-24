@@ -967,10 +967,12 @@
 		cursor: pointer;
 		font-size: 0.8rem;
 		padding: 2px;
+		color: var(--ink-2);
 		opacity: 0.6;
 	}
 
 	.session-actions button:hover {
+		color: var(--ink-0);
 		opacity: 1;
 	}
 
@@ -1091,11 +1093,18 @@
 
 	.bubble-filters {
 		display: flex;
-		flex-wrap: wrap;
+		flex-wrap: nowrap;
 		gap: var(--size-2);
 		margin-top: var(--size-3);
 		padding-top: var(--size-3);
 		border-top: 1px solid color-mix(in srgb, var(--u-fg) 15%, transparent);
+		overflow-x: auto;
+		max-width: 100%;
+		scrollbar-width: none;
+	}
+
+	.bubble-filters::-webkit-scrollbar {
+		display: none;
 	}
 
 	.bubble-chip {
@@ -1365,9 +1374,16 @@
 
 	.filter-chips {
 		display: flex;
-		flex-wrap: wrap;
+		flex-wrap: nowrap;
 		gap: var(--size-2);
 		padding-bottom: var(--size-3);
+		overflow-x: auto;
+		max-width: 100%;
+		scrollbar-width: none;
+	}
+
+	.filter-chips::-webkit-scrollbar {
+		display: none;
 	}
 
 	.chip {
