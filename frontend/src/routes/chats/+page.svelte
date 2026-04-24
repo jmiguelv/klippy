@@ -40,6 +40,7 @@
 	interface Message {
 		role: 'user' | 'klippy';
 		content: string;
+		filters?: Record<string, string>;
 		sources?: Source[];
 		steps?: RetrievalStep[];
 		total_time_ms?: number;
@@ -379,7 +380,7 @@
 		sessions[sIdx].filters = { ...activeFilters };
 
 		if (!isRefresh) {
-			sessions[sIdx].messages = [...sessions[sIdx].messages, { role: 'user', content: text }];
+			sessions[sIdx].messages = [...sessions[sIdx].messages, { role: 'user', content: text, filters: Object.keys(activeFilters).length ? { ...activeFilters } : undefined }];
 			await tick();
 			chatMainEl?.scrollTo({ top: chatMainEl.scrollHeight, behavior: 'smooth' });
 		}
@@ -643,6 +644,13 @@
 								</button>
 								<div class="user-bubble">
 									{msg.content}
+									{#if msg.filters && Object.keys(msg.filters).length > 0}
+										<div class="bubble-filters">
+											{#each Object.entries(msg.filters) as [key, value]}
+												<span class="bubble-chip"><span class="bubble-chip-key">{key}</span><span class="bubble-chip-sep">:</span>{value}</span>
+											{/each}
+										</div>
+									{/if}
 								</div>
 							</div>
 						{:else}
@@ -1033,6 +1041,30 @@
 		font-size: 1rem;
 		font-weight: 300;
 		box-shadow: var(--shadow-2);
+	}
+
+	.bubble-filters {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--size-2);
+		margin-top: var(--size-3);
+		padding-top: var(--size-3);
+		border-top: 1px solid color-mix(in srgb, var(--u-fg) 15%, transparent);
+	}
+
+	.bubble-chip {
+		font-family: var(--font-mono);
+		font-size: 0.68rem;
+		opacity: 0.75;
+	}
+
+	.bubble-chip-key {
+		font-weight: 600;
+	}
+
+	.bubble-chip-sep {
+		opacity: 0.5;
+		margin: 0 1px;
 	}
 
 	.klippy-answer {
