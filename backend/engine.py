@@ -225,7 +225,7 @@ class KlippyEngine:
         chat_history=None,
         filters: dict[str, str] | None = None,
         top_k: int = 10,
-        similarity_cutoff: float = 0.5,
+        similarity_cutoff: float = 0.0,
     ):
         """Returns a chat engine with conversational memory."""
         if self._index is None:
@@ -278,7 +278,7 @@ class KlippyEngine:
         chat_history=None,
         filters: dict[str, str] | None = None,
         top_k: int = 10,
-        similarity_cutoff: float = 0.5,
+        similarity_cutoff: float = 0.0,
     ):
         """Executes a chat turn and returns the response object with timings."""
         import time
@@ -305,7 +305,7 @@ class KlippyEngine:
         chat_history=None,
         filters: dict[str, str] | None = None,
         top_k: int = 10,
-        similarity_cutoff: float = 0.5,
+        similarity_cutoff: float = 0.0,
     ):
         """Returns a streaming chat response for use with SSE endpoints."""
         engine = self.get_chat_engine(
@@ -322,7 +322,7 @@ class KlippyEngine:
         chat_history=None,
         filters: dict[str, str] | None = None,
         top_k: int = 10,
-        similarity_cutoff: float = 0.5,
+        similarity_cutoff: float = 0.0,
     ):
         """Returns an asynchronous streaming chat response."""
         engine = self.get_chat_engine(

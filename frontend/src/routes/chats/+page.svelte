@@ -75,7 +75,7 @@
 	let isSidebarOpen = $state(true);
 	let activeFilters = $state<Record<string, string>>({});
 	let topK = $state(10);
-	let similarityCutoff = $state(0.5);
+	let similarityCutoff = $state(0.0);
 	let modelName = $state('...');
 	let showSettings = $state(false);
 	let chatMainEl: HTMLElement;
