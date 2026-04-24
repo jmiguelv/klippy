@@ -447,6 +447,22 @@
 			let buffer = '';
 			let hasStartedSynthesis = false;
 
+			// Buffer incoming text chunks and flush once per animation frame
+			// so DOM updates are batched and scrolling stays smooth.
+			let pendingText = '';
+			let rafId: number | null = null;
+			const rafFlush = () => {
+				if (pendingText) {
+					sessions[sIdx].messages[msgIdx] = {
+						...sessions[sIdx].messages[msgIdx],
+						content: sessions[sIdx].messages[msgIdx].content + pendingText
+					};
+					pendingText = '';
+					tick().then(() => chatMainEl?.scrollTo({ top: chatMainEl.scrollHeight, behavior: 'smooth' }));
+				}
+				rafId = null;
+			};
+
 			while (true) {
 				const { done, value } = await reader.read();
 				if (done) break;
@@ -493,13 +509,12 @@
 						// Trigger reactivity
 						sessions[sIdx].messages[msgIdx] = { ...sessions[sIdx].messages[msgIdx] };
 					} else if (evt.type === 'chunk') {
-						sessions[sIdx].messages[msgIdx] = {
-							...sessions[sIdx].messages[msgIdx],
-							content: sessions[sIdx].messages[msgIdx].content + evt.text
-						};
-						await tick();
-						chatMainEl?.scrollTo({ top: chatMainEl.scrollHeight, behavior: 'smooth' });
+						pendingText += evt.text;
+						if (!rafId) rafId = requestAnimationFrame(rafFlush);
 					} else if (evt.type === 'done') {
+						// Flush any buffered text before finalising
+						if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+						rafFlush();
 						const totalTime = Date.now() - startTime;
 						const steps = sessions[sIdx].messages[msgIdx].steps || [];
 
@@ -687,7 +702,7 @@
 													{#if step.active}●{:else}✓{/if}
 												</span>
 												<span class="step-label"><b>{step.label}</b> — <span class="step-detail">{step.detail}</span></span>
-												<span class="step-time">{step.t ? `${step.t}ms` : '…'}</span>
+												<span class="step-time">{step.t != null ? `${step.t.toLocaleString()}ms` : '…'}</span>
 											</li>
 										{/each}
 									</ol>
@@ -706,7 +721,7 @@
 									<span class="sep"></span>
 									<button class="iconbtn" onclick={() => handleSend(chatHistory[i-1]?.content, true)} title="Refresh"><RotateCcw size={13}/></button>
 									{#if msg.total_time_ms}
-										<span class="answer-time">{msg.total_time_ms.toLocaleString()}ms · {Math.round((msg.context_length ?? 0) / 1000)}k chars</span>
+										<span class="answer-time">{msg.total_time_ms.toLocaleString()}ms · {(msg.context_length ?? 0).toLocaleString()} chars</span>
 									{/if}
 								</div>
 

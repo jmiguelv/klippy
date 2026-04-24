@@ -16,7 +16,7 @@ describe('+page.svelte', () => {
 
 	it('renders the search input', () => {
 		render(Page);
-		const input = screen.getByPlaceholderText(/Ask Klippy…/i);
+		const input = screen.getByRole('textbox');
 		expect(input).toBeInTheDocument();
 	});
 });

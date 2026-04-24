@@ -1,8 +1,26 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { ArrowRight } from 'lucide-svelte';
+	import { onMount } from 'svelte';
+
+	const PLACEHOLDERS = [
+		"What's in progress this week?",
+		'Summarise my recent ClickUp tasks',
+		'Find open GitHub issues for the API',
+		'What did the team ship last sprint?',
+		'Show docs related to data ingestion',
+	];
 
 	let query = $state('');
+	let placeholder = $state(PLACEHOLDERS[0]);
+
+	onMount(() => {
+		let i = 0;
+		const id = setInterval(() => {
+			i = (i + 1) % PLACEHOLDERS.length;
+			placeholder = PLACEHOLDERS[i];
+		}, 3500);
+		return () => clearInterval(id);
+	});
 
 	function handleSearch(e: Event) {
 		e.preventDefault();
@@ -32,12 +50,12 @@
 						id="landing-search"
 						type="text"
 						bind:value={query}
-						placeholder="Ask Klippy…"
+						placeholder={placeholder}
 						autocomplete="off"
 					/>
 				</div>
 				<p class="composer-hint">
-					<kbd>↵</kbd> send
+					<kbd>↵</kbd> send · <kbd>@</kbd> filter by field
 				</p>
 			</form>
 		</div>
