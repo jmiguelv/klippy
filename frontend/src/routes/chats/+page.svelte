@@ -324,9 +324,9 @@
 			document.getElementById('chat-input')?.focus();
 			await showValueOptions(opt, '');
 		} else {
-			// Auto-quote values that contain spaces
-			const quotedOpt = opt.includes(' ') ? `"${opt}"` : opt;
-			query = query.replace(new RegExp(`@${ac.field}:(?:"[^"]*"|\\S*)$`), `@${ac.field}:${quotedOpt} `);
+			// Promote completed @field:value token to a chip immediately
+			activeFilters = { ...activeFilters, [ac.field]: opt };
+			query = query.replace(new RegExp(`@${ac.field}:(?:"[^"]*"|\\S*)$`), '').trimEnd();
 			ac = { ...ac, visible: false };
 			document.getElementById('chat-input')?.focus();
 		}
@@ -365,9 +365,7 @@
 
 		if (!currentSessionId) createNewChat(text);
 		if (!textOverride) {
-			// Keep only the filter tokens in the query input
-			const filterMatches = raw.match(/@\w+:(?:"[^"]+"|\S+)/g) || [];
-			query = filterMatches.join(' ') + (filterMatches.length > 0 ? ' ' : '');
+			query = '';
 		}
 
 		const sIdx = sessions.findIndex((s) => s.id === currentSessionId);
@@ -405,7 +403,7 @@
 			steps: [
 				{
 					label: 'Parsing query',
-					detail: Object.keys(parsed).length > 0 ? `extracted ${Object.keys(parsed).length} filters` : 'no explicit filters',
+					detail: Object.keys(activeFilters).length > 0 ? `${Object.keys(activeFilters).length} filter${Object.keys(activeFilters).length > 1 ? 's' : ''} active` : 'no filters',
 					t: Date.now() - startTime,
 					active: false
 				},
@@ -740,6 +738,18 @@
 
 				<form onsubmit={(e) => { e.preventDefault(); handleSend(); }}>
 					<div class="composer-input">
+						{#if hasFilters}
+							<div class="filter-chips">
+								{#each Object.entries(activeFilters) as [key, value]}
+									<span class="chip">
+										<span class="chip-label">
+											<span class="chip-key">{key}</span><span class="chip-sep">:</span><span class="chip-val">{value}</span>
+										</span>
+										<button type="button" class="chip-remove" onclick={() => removeFilter(key)} aria-label="Remove {key} filter">×</button>
+									</span>
+								{/each}
+							</div>
+						{/if}
 						<input
 							id="chat-input"
 							type="text"
@@ -1273,6 +1283,55 @@
 		font-size: 1.1rem;
 		font-family: var(--font-sans);
 		font-weight: 400;
+	}
+
+	.filter-chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--size-2);
+		padding-bottom: var(--size-3);
+	}
+
+	.chip {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--size-2);
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 4px;
+		padding: 2px 4px 2px 8px;
+		font-size: 0.72rem;
+		font-family: var(--font-mono);
+		line-height: 1.4;
+	}
+
+	.chip-key {
+		color: var(--kings-red);
+		font-weight: 600;
+	}
+
+	.chip-sep {
+		color: var(--ink-3);
+	}
+
+	.chip-val {
+		color: var(--ink-1);
+	}
+
+	.chip-remove {
+		background: none;
+		border: none;
+		cursor: pointer;
+		color: var(--ink-3);
+		padding: 0 2px;
+		font-size: 0.9rem;
+		line-height: 1;
+		display: flex;
+		align-items: center;
+	}
+
+	.chip-remove:hover {
+		color: var(--ink-0);
 	}
 
 	.composer-controls {

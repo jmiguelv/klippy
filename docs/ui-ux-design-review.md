@@ -50,6 +50,9 @@ While the visual hierarchy and aesthetics are strong, there are opportunities to
 - **[P2] Empty state:** The "Start a new conversation to begin research" text is functional but stark. This is prime real estate for "Quick Start" chips (e.g., "Summarize my recent tasks") that populate the input on click.
 - **[P2] Focus management:** When the user clicks "New Chat", the input box should automatically receive focus. When "Tune" is clicked, focus should move to the first slider for keyboard accessibility.
 - **[P3] Action button grouping:** The feedback (Thumbs Up/Down) and Refresh buttons are well-placed but could be visually grouped to separate them from the metadata string (time / context length).
+- **[P3] Fonts:** Install the fonts, from fontsource, rather than loading from Google Fonts; avoids external network request for font loading.
+- **[P3] Reduce the typing speed:** The _streaming_ typing speed is too fast and the content scrolls too quickly, making it difficult to follow.
+- **[P3] Number format:**: Use `toLocaleString` for the time / tokens / etc. strings.
 
 ---
 
