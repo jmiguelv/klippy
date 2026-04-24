@@ -40,6 +40,7 @@
 	interface Message {
 		role: 'user' | 'klippy';
 		content: string;
+		filters?: Record<string, string>;
 		sources?: Source[];
 		steps?: RetrievalStep[];
 		total_time_ms?: number;
@@ -324,9 +325,9 @@
 			document.getElementById('chat-input')?.focus();
 			await showValueOptions(opt, '');
 		} else {
-			// Auto-quote values that contain spaces
-			const quotedOpt = opt.includes(' ') ? `"${opt}"` : opt;
-			query = query.replace(new RegExp(`@${ac.field}:(?:"[^"]*"|\\S*)$`), `@${ac.field}:${quotedOpt} `);
+			// Promote completed @field:value token to a chip immediately
+			activeFilters = { ...activeFilters, [ac.field]: opt };
+			query = query.replace(new RegExp(`@${ac.field}:(?:"[^"]*"|\\S*)$`), '').trimEnd();
 			ac = { ...ac, visible: false };
 			document.getElementById('chat-input')?.focus();
 		}
@@ -365,9 +366,7 @@
 
 		if (!currentSessionId) createNewChat(text);
 		if (!textOverride) {
-			// Keep only the filter tokens in the query input
-			const filterMatches = raw.match(/@\w+:(?:"[^"]+"|\S+)/g) || [];
-			query = filterMatches.join(' ') + (filterMatches.length > 0 ? ' ' : '');
+			query = '';
 		}
 
 		const sIdx = sessions.findIndex((s) => s.id === currentSessionId);
@@ -381,7 +380,7 @@
 		sessions[sIdx].filters = { ...activeFilters };
 
 		if (!isRefresh) {
-			sessions[sIdx].messages = [...sessions[sIdx].messages, { role: 'user', content: text }];
+			sessions[sIdx].messages = [...sessions[sIdx].messages, { role: 'user', content: text, filters: Object.keys(activeFilters).length ? { ...activeFilters } : undefined }];
 			await tick();
 			chatMainEl?.scrollTo({ top: chatMainEl.scrollHeight, behavior: 'smooth' });
 		}
@@ -405,7 +404,7 @@
 			steps: [
 				{
 					label: 'Parsing query',
-					detail: Object.keys(parsed).length > 0 ? `extracted ${Object.keys(parsed).length} filters` : 'no explicit filters',
+					detail: Object.keys(activeFilters).length > 0 ? `${Object.keys(activeFilters).length} filter${Object.keys(activeFilters).length > 1 ? 's' : ''} active` : 'no filters',
 					t: Date.now() - startTime,
 					active: false
 				},
@@ -447,6 +446,22 @@
 			const decoder = new TextDecoder();
 			let buffer = '';
 			let hasStartedSynthesis = false;
+
+			// Buffer incoming text chunks and flush once per animation frame
+			// so DOM updates are batched and scrolling stays smooth.
+			let pendingText = '';
+			let rafId: number | null = null;
+			const rafFlush = () => {
+				if (pendingText) {
+					sessions[sIdx].messages[msgIdx] = {
+						...sessions[sIdx].messages[msgIdx],
+						content: sessions[sIdx].messages[msgIdx].content + pendingText
+					};
+					pendingText = '';
+					tick().then(() => chatMainEl?.scrollTo({ top: chatMainEl.scrollHeight, behavior: 'smooth' }));
+				}
+				rafId = null;
+			};
 
 			while (true) {
 				const { done, value } = await reader.read();
@@ -494,13 +509,12 @@
 						// Trigger reactivity
 						sessions[sIdx].messages[msgIdx] = { ...sessions[sIdx].messages[msgIdx] };
 					} else if (evt.type === 'chunk') {
-						sessions[sIdx].messages[msgIdx] = {
-							...sessions[sIdx].messages[msgIdx],
-							content: sessions[sIdx].messages[msgIdx].content + evt.text
-						};
-						await tick();
-						chatMainEl?.scrollTo({ top: chatMainEl.scrollHeight, behavior: 'smooth' });
+						pendingText += evt.text;
+						if (!rafId) rafId = requestAnimationFrame(rafFlush);
 					} else if (evt.type === 'done') {
+						// Flush any buffered text before finalising
+						if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+						rafFlush();
 						const totalTime = Date.now() - startTime;
 						const steps = sessions[sIdx].messages[msgIdx].steps || [];
 
@@ -577,14 +591,21 @@
 </svelte:head>
 
 <div class="chat-layout">
+	{#if isSidebarOpen}
+		<div class="sidebar-backdrop" aria-hidden="true" onclick={() => (isSidebarOpen = false)}></div>
+	{/if}
+
 	<aside class="sidebar" class:closed={!isSidebarOpen}>
 		<header class="sidebar-header">
 			<div class="wordmark-wrap">
 				<span class="sidebar-wordmark">Chats</span>
 			</div>
-			<button class="new-chat-btn" onclick={() => createNewChat()}>
+			<button class="new-chat-btn" onclick={() => { createNewChat(); document.getElementById('chat-input')?.focus(); }}>
 				<Plus size={16} />
 				<span>New Chat</span>
+			</button>
+			<button class="sidebar-close" onclick={() => (isSidebarOpen = false)} aria-label="Close sidebar">
+				<ChevronLeft size={16} />
 			</button>
 		</header>
 
@@ -629,6 +650,23 @@
 				{#if !currentSessionId && sessions.length === 0}
 					<div class="empty-state">
 						<p>Start a new conversation to begin research.</p>
+						<div class="quickstart-chips">
+							{#each [
+								'Summarise my recent tasks',
+								"What's in progress this week?",
+								'Find open GitHub issues',
+								'Show me recent ClickUp updates',
+							] as prompt}
+								<button
+									type="button"
+									class="quickstart-chip"
+									onclick={() => {
+										query = prompt;
+										document.getElementById('chat-input')?.focus();
+									}}
+								>{prompt}</button>
+							{/each}
+						</div>
 					</div>
 				{/if}
 
@@ -645,6 +683,13 @@
 								</button>
 								<div class="user-bubble">
 									{msg.content}
+									{#if msg.filters && Object.keys(msg.filters).length > 0}
+										<div class="bubble-filters">
+											{#each Object.entries(msg.filters) as [key, value]}
+												<span class="bubble-chip"><span class="bubble-chip-key">{key}</span><span class="bubble-chip-sep">:</span>{value}</span>
+											{/each}
+										</div>
+									{/if}
 								</div>
 							</div>
 						{:else}
@@ -657,7 +702,7 @@
 													{#if step.active}●{:else}✓{/if}
 												</span>
 												<span class="step-label"><b>{step.label}</b> — <span class="step-detail">{step.detail}</span></span>
-												<span class="step-time">{step.t ? `${step.t}ms` : '…'}</span>
+												<span class="step-time">{step.t != null ? `${step.t.toLocaleString()}ms` : '…'}</span>
 											</li>
 										{/each}
 									</ol>
@@ -676,7 +721,7 @@
 									<span class="sep"></span>
 									<button class="iconbtn" onclick={() => handleSend(chatHistory[i-1]?.content, true)} title="Refresh"><RotateCcw size={13}/></button>
 									{#if msg.total_time_ms}
-										<span class="answer-time">{msg.total_time_ms.toLocaleString()}ms · {Math.round((msg.context_length ?? 0) / 1000)}k chars</span>
+										<span class="answer-time">{msg.total_time_ms.toLocaleString()}ms · {(msg.context_length ?? 0).toLocaleString()} chars</span>
 									{/if}
 								</div>
 
@@ -740,6 +785,18 @@
 
 				<form onsubmit={(e) => { e.preventDefault(); handleSend(); }}>
 					<div class="composer-input">
+						{#if hasFilters}
+							<div class="filter-chips">
+								{#each Object.entries(activeFilters) as [key, value]}
+									<span class="chip">
+										<span class="chip-label">
+											<span class="chip-key">{key}</span><span class="chip-sep">:</span><span class="chip-val">{value}</span>
+										</span>
+										<button type="button" class="chip-remove" onclick={() => removeFilter(key)} aria-label="Remove {key} filter">×</button>
+									</span>
+								{/each}
+							</div>
+						{/if}
 						<input
 							id="chat-input"
 							type="text"
@@ -754,14 +811,14 @@
 
 					{#if showSettings}
 						<div class="composer-controls" transition:slide>
-							<label class="control">
+							<label class="control" for="slider-topk">
 								<span class="control-lbl">Top K</span>
-								<input type="range" min="1" max="50" bind:value={topK}/>
+								<input id="slider-topk" type="range" min="1" max="50" bind:value={topK}/>
 								<span class="control-val">{topK}</span>
 							</label>
-							<label class="control">
+							<label class="control" for="slider-threshold">
 								<span class="control-lbl">Threshold</span>
-								<input type="range" min="0" max="1" step="0.05" bind:value={similarityCutoff}/>
+								<input id="slider-threshold" type="range" min="0" max="1" step="0.05" bind:value={similarityCutoff}/>
 								<span class="control-val">{similarityCutoff.toFixed(2)}</span>
 							</label>
 						</div>
@@ -770,7 +827,7 @@
 					<p class="composer-hint">
 						<span class="hint-items">
 							<kbd>↵</kbd> send · <kbd>@</kbd> filter field ·
-							<button type="button" class="settings-toggle" onclick={() => showSettings = !showSettings}>
+							<button type="button" class="settings-toggle" onclick={async () => { showSettings = !showSettings; if (showSettings) { await tick(); document.getElementById('slider-topk')?.focus(); } }}>
 								<SlidersHorizontal size={12} /> {showSettings ? 'Hide' : 'Tune'}
 							</button>
 						</span>
@@ -910,11 +967,20 @@
 		cursor: pointer;
 		font-size: 0.8rem;
 		padding: 2px;
+		color: var(--ink-2);
 		opacity: 0.6;
 	}
 
 	.session-actions button:hover {
+		color: var(--ink-0);
 		opacity: 1;
+	}
+
+	@media (hover: none) {
+		.session-actions {
+			display: flex;
+			opacity: 0.4;
+		}
 	}
 
 	/* ── Main Chat Area ─────────────────────────── */
@@ -1023,6 +1089,37 @@
 		font-size: 1rem;
 		font-weight: 300;
 		box-shadow: var(--shadow-2);
+	}
+
+	.bubble-filters {
+		display: flex;
+		flex-wrap: nowrap;
+		gap: var(--size-2);
+		margin-top: var(--size-3);
+		padding-top: var(--size-3);
+		border-top: 1px solid color-mix(in srgb, var(--u-fg) 15%, transparent);
+		overflow-x: auto;
+		max-width: 100%;
+		scrollbar-width: none;
+	}
+
+	.bubble-filters::-webkit-scrollbar {
+		display: none;
+	}
+
+	.bubble-chip {
+		font-family: var(--font-mono);
+		font-size: 0.68rem;
+		opacity: 0.75;
+	}
+
+	.bubble-chip-key {
+		font-weight: 600;
+	}
+
+	.bubble-chip-sep {
+		opacity: 0.5;
+		margin: 0 1px;
 	}
 
 	.klippy-answer {
@@ -1275,6 +1372,62 @@
 		font-weight: 400;
 	}
 
+	.filter-chips {
+		display: flex;
+		flex-wrap: nowrap;
+		gap: var(--size-2);
+		padding-bottom: var(--size-3);
+		overflow-x: auto;
+		max-width: 100%;
+		scrollbar-width: none;
+	}
+
+	.filter-chips::-webkit-scrollbar {
+		display: none;
+	}
+
+	.chip {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--size-2);
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 4px;
+		padding: 2px 4px 2px 8px;
+		font-size: 0.72rem;
+		font-family: var(--font-mono);
+		line-height: 1.4;
+	}
+
+	.chip-key {
+		color: var(--kings-red);
+		font-weight: 600;
+	}
+
+	.chip-sep {
+		color: var(--ink-3);
+	}
+
+	.chip-val {
+		color: var(--ink-1);
+	}
+
+	.chip-remove {
+		background: none;
+		border: none;
+		cursor: pointer;
+		color: var(--ink-3);
+		padding: 0 2px;
+		font-size: 0.9rem;
+		line-height: 1;
+		display: flex;
+		align-items: center;
+	}
+
+	.chip-remove:hover {
+		color: var(--ink-0);
+	}
+
 	.composer-controls {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
@@ -1460,6 +1613,41 @@
 		opacity: 0.5;
 	}
 
+	.quickstart-chips {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: var(--size-3);
+		margin-top: var(--size-5);
+	}
+
+	.quickstart-chip {
+		font-family: var(--font-sans);
+		font-size: 0.8rem;
+		font-style: normal;
+		font-weight: 400;
+		color: var(--ink-2);
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 20px;
+		padding: var(--size-2) var(--size-4);
+		cursor: pointer;
+		transition: border-color 0.15s, color 0.15s;
+	}
+
+	.quickstart-chip:hover {
+		border-color: var(--kings-red);
+		color: var(--ink-0);
+	}
+
+	.sidebar-backdrop {
+		display: none;
+	}
+
+	.sidebar-close {
+		display: none;
+	}
+
 	@media (max-width: 768px) {
 		.sidebar {
 			position: fixed;
@@ -1469,6 +1657,30 @@
 
 		.sidebar.closed {
 			transform: translateX(-100%);
+		}
+
+		.sidebar-backdrop {
+			display: block;
+			position: fixed;
+			inset: 0;
+			background: rgba(0, 0, 0, 0.4);
+			z-index: 199;
+		}
+
+		.sidebar-close {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			background: none;
+			border: none;
+			cursor: pointer;
+			color: var(--ink-2);
+			padding: var(--size-2);
+			margin-left: auto;
+		}
+
+		.sidebar-close:hover {
+			color: var(--ink-0);
 		}
 	}
 </style>
