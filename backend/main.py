@@ -400,7 +400,7 @@ def get_questions(n: int = 5):
     import random
 
     metadata_key = "questions_this_excerpt_can_answer"
-    all_questions: list[str] = []
+    all_questions: set[str] = set()
 
     # Scroll through all points in the collection
     offset = None
@@ -426,15 +426,36 @@ def get_questions(n: int = 5):
 
             if raw:
                 # LlamaIndex stores as a newline-separated string
-                for q in raw.strip().split("\n"):
+                for q in raw.split("\n"):
                     q = q.strip()
-                    if q:
-                        all_questions.append(q)
-        if next_offset is None:
+                    if not q:
+                        continue
+
+                    # Skip intro lines and answers
+                    lower_q = q.lower()
+                    if (
+                        lower_q.startswith("based on")
+                        or lower_q.startswith("here are")
+                        or "answer:" in lower_q
+                    ):
+                        continue
+
+                    # Clean formatting
+                    # Remove leading numbers/bullets: "1. ", "1) ", "* ", "- "
+                    q = re.sub(r"^[\d\.\*\-\+\)\s]+", "", q)
+                    # Remove leading "Question:"
+                    q = re.sub(r"^question:\s*", "", q, flags=re.IGNORECASE)
+                    # Remove leading/trailing bolding
+                    q = q.strip("* ")
+
+                    if q.endswith("?"):
+                        all_questions.add(q)
+
+        if next_offset is None or len(all_questions) > 500:
             break
         offset = next_offset
 
-    sample = random.sample(all_questions, min(n, len(all_questions)))
+    sample = random.sample(list(all_questions), min(n, len(all_questions)))
     return {"questions": sample}
 
 

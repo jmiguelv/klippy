@@ -39,7 +39,7 @@ def test_get_questions_sampling(mocker):
     metadata_key = "questions_this_excerpt_can_answer"
     mock_point = mocker.Mock()
     mock_point.payload = {
-        metadata_key: "Q1\nQ2\nQ3\nQ4\nQ5"
+        metadata_key: "Q1?\nQ2?\nQ3?\nQ4?\nQ5?"
     }
     
     mocker.patch.object(engine.client, "scroll", return_value=([mock_point], None))
@@ -49,7 +49,7 @@ def test_get_questions_sampling(mocker):
     data = response.json()
     assert len(data["questions"]) == 3
     for q in data["questions"]:
-        assert q in ["Q1", "Q2", "Q3", "Q4", "Q5"]
+        assert q in ["Q1?", "Q2?", "Q3?", "Q4?", "Q5?"]
 
 def test_get_questions_nested_metadata(mocker):
     metadata_key = "questions_this_excerpt_can_answer"
@@ -69,3 +69,35 @@ def test_get_questions_nested_metadata(mocker):
     assert response.status_code == 200
     data = response.json()
     assert data["questions"] == ["Nested Question?"]
+
+def test_get_questions_cleaning(mocker):
+    metadata_key = "questions_this_excerpt_can_answer"
+    mock_point = mocker.Mock()
+    mock_point.payload = {
+        metadata_key: (
+            "Based on the context, here are questions:\n"
+            "1. **What is the status?**\n"
+            "   *Answer:* Open.\n"
+            "2. How does it work?\n"
+            "Not a question\n"
+            "* Question: What is Klippy?\n"
+        )
+    }
+    
+    mocker.patch.object(engine.client, "scroll", return_value=([mock_point], None))
+    
+    response = client.get("/questions?n=10")
+    assert response.status_code == 200
+    questions = response.json()["questions"]
+    
+    assert "What is the status?" in questions
+    assert "How does it work?" in questions
+    assert "What is Klippy?" in questions
+    assert len(questions) == 3
+    # Check cleaning: no bullets, no bolding, no "Question:"
+    for q in questions:
+        assert not q.startswith("1. ")
+        assert not q.startswith("**")
+        assert not q.startswith("* ")
+        assert not q.lower().startswith("question:")
+        assert q.endswith("?")
