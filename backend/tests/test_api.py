@@ -1,6 +1,15 @@
 import pytest
+from unittest.mock import patch, MagicMock
+
+# Only mock external clients that try to connect on init
+with patch("qdrant_client.QdrantClient"), \
+     patch("qdrant_client.AsyncQdrantClient"), \
+     patch("redis.Redis"), \
+     patch("engine.IngestionCache"), \
+     patch("engine.RedisCache"):
+    from main import app, engine
+
 from fastapi.testclient import TestClient
-from main import app, engine
 import json
 
 client = TestClient(app)
@@ -21,7 +30,7 @@ def test_get_questions_empty(mocker):
 def test_get_questions_with_data(mocker):
     # Mock point with questions metadata
     metadata_key = "questions_this_excerpt_can_answer"
-    mock_point = mocker.Mock()
+    mock_point = MagicMock()
     # Using strict format: starts with question word, ends with ?, 
     # and using double-newlines for blocks to match implementation
     mock_point.payload = {
@@ -40,7 +49,7 @@ def test_get_questions_with_data(mocker):
 
 def test_get_questions_sampling(mocker):
     metadata_key = "questions_this_excerpt_can_answer"
-    mock_point = mocker.Mock()
+    mock_point = MagicMock()
     mock_point.payload = {
         metadata_key: "What Q1?\n\nHow Q2?\n\nWhere Q3?\n\nWho Q4?\n\nWhy Q5?"
     }
@@ -56,7 +65,7 @@ def test_get_questions_sampling(mocker):
 
 def test_get_questions_nested_metadata(mocker):
     metadata_key = "questions_this_excerpt_can_answer"
-    mock_point = mocker.Mock()
+    mock_point = MagicMock()
     # No top-level metadata, only in _node_content
     mock_point.payload = {
         "_node_content": json.dumps({
@@ -75,7 +84,7 @@ def test_get_questions_nested_metadata(mocker):
 
 def test_get_questions_cleaning(mocker):
     metadata_key = "questions_this_excerpt_can_answer"
-    mock_point = mocker.Mock()
+    mock_point = MagicMock()
     mock_point.payload = {
         metadata_key: (
             "1. What is the status?\n\n"
