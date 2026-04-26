@@ -401,6 +401,11 @@ def get_questions(n: int = 5):
 
     metadata_key = "questions_this_excerpt_can_answer"
     all_questions: set[str] = set()
+    
+    question_words = {
+        "Are", "Can", "Could", "Did", "Do", "Does", "How", "Is",
+        "What", "When", "Where", "Which", "Who", "Whom", "Whose", "Why"
+    }
 
     # Scroll through all points in the collection
     offset = None
@@ -425,36 +430,23 @@ def get_questions(n: int = 5):
                     pass
 
             if raw:
-                # LlamaIndex stores as a newline-separated string
-                for q in raw.split("\n"):
-                    q = q.strip()
-                    if not q:
-                        continue
-
-                    # Skip intro lines and answers
-                    lower_q = q.lower()
-                    if (
-                        lower_q.startswith("based on")
-                        or lower_q.startswith("here are")
-                        or "answer:" in lower_q
-                        or "answer*:" in lower_q
-                        or "answer**:" in lower_q
-                    ):
-                        continue
-
-                    # Clean formatting aggressively
-                    # 1. Remove leading numbers/bullets/spaces/special chars: e.g., "1. ", "* ", "- ", "5.  **"
-                    q = re.sub(r"^[ \t\d\.\*\-\+\)\#_]+", "", q)
+                # Ported logic from user's TypeScript implementation
+                # 1. Split into blocks (handling the common 1., 2., 3. pattern)
+                blocks = re.split(r"\n\s*\n", raw.strip())
+                for block in blocks:
+                    # 2. Take the first line of the block (the question)
+                    q = block.split("\n")[0].strip()
                     
-                    # 2. Remove leading "Question:"
-                    q = re.sub(r"^question:\s*", "", q, flags=re.IGNORECASE)
+                    # 3. Clean formatting: remove numbering and "Question: "
+                    q = re.sub(r"^\d+\.\s+", "", q)
+                    q = re.sub(r"^Question:\s*", "", q, flags=re.IGNORECASE)
                     
-                    # 3. Strip remaining leading/trailing special characters like bolding, italics, or stray bullets
-                    q = q.strip(" *#-_/\\")
-
-                    if q and q.endswith("?"):
-                        # Ensure first letter is capitalized for better UI
-                        q = q[0].upper() + q[1:]
+                    # 4. Remove bolding markers and parentheticals
+                    q = q.strip("* ")
+                    q = q.split("(")[0].strip()
+                    
+                    # 5. Strict Filter: Must start with a question word and end with ?
+                    if any(q.startswith(word) for word in question_words) and q.endswith("?"):
                         all_questions.add(q)
 
         if next_offset is None or len(all_questions) > 500:
