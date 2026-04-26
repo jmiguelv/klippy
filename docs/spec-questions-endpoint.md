@@ -57,16 +57,22 @@ The value is a newline-separated string (e.g. `"What is X?\nHow does Y work?\nWh
 
 ### `GET /questions?n=5`
 
-Returns a random sample of `n` questions from across the Qdrant collection.
+Returns a random sample of `n` questions from across the Qdrant collection, using strict filtering to ensure high-quality suggestions.
 
 ```python
 import random
+import re
 
 @app.get("/questions")
 def get_questions(n: int = 5):
-    """Sample n questions from Qdrant metadata."""
+    """Sample n questions from Qdrant metadata with strict filtering."""
     metadata_key = "questions_this_excerpt_can_answer"
-    all_questions: list[str] = []
+    all_questions: set[str] = set()
+    
+    question_words = {
+        "Are", "Can", "Could", "Did", "Do", "Does", "How", "Is",
+        "What", "When", "Where", "Which", "Who", "Whom", "Whose", "Why"
+    }
 
     # Scroll through all points in the collection
     offset = None
@@ -74,23 +80,40 @@ def get_questions(n: int = 5):
         result, next_offset = engine.client.scroll(
             collection_name=engine.collection_name,
             with_payload=True,
-            with_vectors=False,
             limit=200,
             offset=offset,
         )
         for point in result:
-            raw = (point.payload or {}).get(metadata_key, "")
+            payload = point.payload or {}
+            raw = payload.get(metadata_key, "")
+
+            # Check inside _node_content if not at top level
+            if not raw and "_node_content" in payload:
+                try:
+                    content = json.loads(payload["_node_content"])
+                    raw = content.get("metadata", {}).get(metadata_key, "")
+                except: pass
+
             if raw:
-                # LlamaIndex stores as a newline-separated string
-                for q in raw.strip().split("\n"):
-                    q = q.strip()
-                    if q:
-                        all_questions.append(q)
-        if next_offset is None:
+                # 1. Split into blocks (double newlines)
+                blocks = re.split(r"\n\s*\n", raw.strip())
+                for block in blocks:
+                    # 2. Take the first line (the question)
+                    q = block.split("\n")[0].strip()
+                    # 3. Clean numbering, bolding, and parentheticals
+                    q = re.sub(r"^\d+\.\s+", "", q)
+                    q = re.sub(r"^Question:\s*", "", q, flags=re.IGNORECASE)
+                    q = q.strip("* ").split("(")[0].strip()
+                    
+                    # 4. Filter by interrogative words and trailing ?
+                    if any(q.startswith(word) for word in question_words) and q.endswith("?"):
+                        all_questions.add(q)
+        
+        if next_offset is None or len(all_questions) > 500:
             break
         offset = next_offset
 
-    sample = random.sample(all_questions, min(n, len(all_questions)))
+    sample = random.sample(list(all_questions), min(n, len(all_questions)))
     return {"questions": sample}
 ```
 
