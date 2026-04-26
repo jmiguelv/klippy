@@ -220,7 +220,31 @@ class KlippyEngine:
             logger.info(
                 f"Processing batch {i // batch_size + 1}/{(len(documents) - 1) // batch_size + 1} ({len(batch)} docs)..."
             )
-            pipeline.run(documents=batch, show_progress=False)
+            try:
+                pipeline.run(documents=batch, show_progress=False)
+            except Exception as e:
+                if extract_questions:
+                    logger.warning(
+                        f"Question extraction failed for batch (likely LLM error: {e}). "
+                        "Retrying batch without extraction..."
+                    )
+                    # Fallback pipeline without extractor
+                    fallback_pipeline = IngestionPipeline(
+                        transformations=[
+                            MarkdownNodeParser(include_metadata=True),
+                            Settings.embed_model,
+                        ],
+                        vector_store=self.vector_store,
+                        cache=self.ingest_cache if not force else None,
+                    )
+                    try:
+                        fallback_pipeline.run(documents=batch, show_progress=False)
+                    except Exception as fallback_e:
+                        logger.error(f"Ingestion failed even without extraction: {fallback_e}")
+                        raise fallback_e
+                else:
+                    logger.error(f"Ingestion failed for batch: {e}")
+                    raise e
 
         # Create or update index from the vector store
         self._index = VectorStoreIndex.from_vector_store(

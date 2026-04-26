@@ -198,3 +198,26 @@ def test_ingest_data_with_questions_extractor(engine, mocker):
     
     assert any(isinstance(t, MarkdownNodeParser) for t in transformations)
     assert any(isinstance(t, QuestionsAnsweredExtractor) for t in transformations)
+
+def test_ingest_data_fallback_on_extractor_failure(engine, mocker):
+    # Setup: 1st pipeline.run fails, 2nd (fallback) succeeds
+    mock_pipeline = mocker.patch("engine.IngestionPipeline")
+    mock_pipeline.return_value.run.side_effect = [Exception("LLM Error"), None]
+    
+    mock_reader = mocker.patch("engine.SimpleDirectoryReader")
+    mock_reader.return_value.load_data.return_value = [mocker.Mock(text="test content", metadata={"file_path": "test.md"})]
+    mocker.patch("engine.parse_frontmatter", return_value=("test content", {}))
+    mocker.patch("os.path.exists", return_value=True)
+    mocker.patch("llama_index.core.VectorStoreIndex.from_vector_store")
+
+    # This should not raise an exception
+    engine.ingest_data(extract_questions=True)
+    
+    # Verify it was called twice (once for initial fail, once for fallback)
+    assert mock_pipeline.return_value.run.call_count == 2
+    
+    # Verify fallback transformations (2nd call)
+    _, fallback_kwargs = mock_pipeline.call_args
+    fallback_transformations = fallback_kwargs["transformations"]
+    from llama_index.core.extractors import QuestionsAnsweredExtractor
+    assert not any(isinstance(t, QuestionsAnsweredExtractor) for t in fallback_transformations)
