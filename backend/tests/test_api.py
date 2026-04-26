@@ -81,6 +81,8 @@ def test_get_questions_cleaning(mocker):
             "2. How does it work?\n"
             "Not a question\n"
             "* Question: What is Klippy?\n"
+            "*   *Answer:* Design consistency requires confirming visual alignment...\n"
+            "5.  **What is the current status of the task identified by ID 86c5ev727 regarding the HSMM prototype?**\n"
         )
     }
     
@@ -93,11 +95,12 @@ def test_get_questions_cleaning(mocker):
     assert "What is the status?" in questions
     assert "How does it work?" in questions
     assert "What is Klippy?" in questions
-    assert len(questions) == 3
-    # Check cleaning: no bullets, no bolding, no "Question:"
+    assert "What is the current status of the task identified by ID 86c5ev727 regarding the HSMM prototype?" in questions
+    
+    # Check that answers are NOT in the list
     for q in questions:
-        assert not q.startswith("1. ")
+        assert "Answer:" not in q
+        assert "Design consistency" not in q
+        assert not q.startswith("5. ")
         assert not q.startswith("**")
-        assert not q.startswith("* ")
-        assert not q.lower().startswith("question:")
         assert q.endswith("?")

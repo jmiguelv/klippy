@@ -437,18 +437,24 @@ def get_questions(n: int = 5):
                         lower_q.startswith("based on")
                         or lower_q.startswith("here are")
                         or "answer:" in lower_q
+                        or "answer*:" in lower_q
+                        or "answer**:" in lower_q
                     ):
                         continue
 
-                    # Clean formatting
-                    # Remove leading numbers/bullets: "1. ", "1) ", "* ", "- "
-                    q = re.sub(r"^[\d\.\*\-\+\)\s]+", "", q)
-                    # Remove leading "Question:"
+                    # Clean formatting aggressively
+                    # 1. Remove leading numbers/bullets/spaces/special chars: e.g., "1. ", "* ", "- ", "5.  **"
+                    q = re.sub(r"^[ \t\d\.\*\-\+\)\#_]+", "", q)
+                    
+                    # 2. Remove leading "Question:"
                     q = re.sub(r"^question:\s*", "", q, flags=re.IGNORECASE)
-                    # Remove leading/trailing bolding
-                    q = q.strip("* ")
+                    
+                    # 3. Strip remaining leading/trailing special characters like bolding, italics, or stray bullets
+                    q = q.strip(" *#-_/\\")
 
-                    if q.endswith("?"):
+                    if q and q.endswith("?"):
+                        # Ensure first letter is capitalized for better UI
+                        q = q[0].upper() + q[1:]
                         all_questions.add(q)
 
         if next_offset is None or len(all_questions) > 500:
