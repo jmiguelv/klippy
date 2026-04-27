@@ -1,14 +1,35 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { chatState } from '$lib/chat-state.svelte';
 	import { PUBLIC_API_URL } from '$env/static/public';
+	import { KNOWN_FIELDS } from '$lib/filters';
+
+	interface AcState {
+		visible: boolean;
+		mode: 'field' | 'value';
+		field: string;
+		partial: string;
+		options: string[];
+		activeIdx: number;
+	}
 
 	let query = $state('');
 	let userName = $state('');
 	let questions = $state<string[]>([]);
 	let isLoading = $state(true);
+
+	// Autocomplete state
+	let ac = $state<AcState>({
+		visible: false,
+		mode: 'field',
+		field: '',
+		partial: '',
+		options: [],
+		activeIdx: 0
+	});
+	let acCache: Record<string, string[]> = {};
 
 	onMount(async () => {
 		userName = localStorage.getItem('klippy_user_name') ?? '';
@@ -32,6 +53,90 @@
 			isLoading = false;
 		}
 	});
+
+	async function fetchValues(field: string): Promise<string[]> {
+		if (acCache[field] !== undefined) return acCache[field];
+		try {
+			const res = await fetch(`${PUBLIC_API_URL}/debug/stats?field=${field}`);
+			const data = await res.json();
+			acCache[field] = Object.keys(data.counts ?? {});
+		} catch {
+			acCache[field] = [];
+		}
+		return acCache[field];
+	}
+
+	async function showValueOptions(field: string, partial: string): Promise<void> {
+		const values = acCache[field] !== undefined ? acCache[field] : await fetchValues(field);
+		const options = values.filter((v) => v.toLowerCase().includes(partial.toLowerCase()));
+		ac = { visible: options.length > 0, mode: 'value', field, partial, options, activeIdx: 0 };
+	}
+
+	async function handleInput(e: Event) {
+		const input = e.target as HTMLInputElement;
+		const before = input.value.slice(0, input.selectionStart ?? input.value.length);
+
+		const valueMatch = before.match(/@(\w+):(\w*)$/);
+		const fieldMatch = !valueMatch && before.match(/@(\w*)$/);
+
+		if (valueMatch) {
+			const [, field, partial] = valueMatch;
+			if (acCache[field] !== undefined) {
+				await showValueOptions(field, partial);
+			} else {
+				await fetchValues(field);
+				const inputEl = e.target as HTMLInputElement;
+				const nowBefore = inputEl.value.slice(0, inputEl.selectionStart ?? inputEl.value.length);
+				const nowMatch = nowBefore.match(/@(\w+):(\w*)$/);
+				if (nowMatch && nowMatch[1] === field) {
+					await showValueOptions(field, nowMatch[2]);
+				}
+			}
+		} else if (fieldMatch) {
+			const [, partial] = fieldMatch;
+			const options = KNOWN_FIELDS.filter((f) => f.toLowerCase().includes(partial.toLowerCase()));
+			ac = {
+				visible: options.length > 0,
+				mode: 'field',
+				field: '',
+				partial,
+				options,
+				activeIdx: 0
+			};
+		} else {
+			ac = { ...ac, visible: false };
+		}
+	}
+
+	function handleKeydown(e: KeyboardEvent) {
+		if (!ac.visible) return;
+		if (e.key === 'ArrowDown') {
+			e.preventDefault();
+			ac = { ...ac, activeIdx: (ac.activeIdx + 1) % ac.options.length };
+		} else if (e.key === 'ArrowUp') {
+			e.preventDefault();
+			ac = { ...ac, activeIdx: (ac.activeIdx - 1 + ac.options.length) % ac.options.length };
+		} else if (e.key === 'Enter' && ac.visible) {
+			e.preventDefault();
+			selectOption(ac.options[ac.activeIdx]);
+		} else if (e.key === 'Escape') {
+			ac = { ...ac, visible: false };
+		}
+	}
+
+	async function selectOption(opt: string) {
+		if (ac.mode === 'field') {
+			query = query.replace(/@\w*$/, `@${opt}:`);
+			ac = { ...ac, visible: false };
+			document.getElementById('chats-input')?.focus();
+			await showValueOptions(opt, '');
+		} else {
+			// Hero page doesn't have activeFilters visible but we keep query part
+			query = query.replace(new RegExp(`@${ac.field}:(?:"[^"]*"|\\S*)$`), `@${ac.field}:${opt} `);
+			ac = { ...ac, visible: false };
+			document.getElementById('chats-input')?.focus();
+		}
+	}
 
 	function handleSearch(e: Event) {
 		e.preventDefault();
@@ -85,6 +190,30 @@
 
 <section class="composer">
 	<div class="container">
+		{#if ac.visible}
+			<div class="ac-dropdown" role="listbox">
+				{#each ac.options as opt, i}
+					<button
+						type="button"
+						role="option"
+						aria-selected={i === ac.activeIdx}
+						class="ac-option"
+						class:ac-active={i === ac.activeIdx}
+						onmousedown={(e) => {
+							e.preventDefault();
+							selectOption(opt);
+						}}
+					>
+						{#if ac.mode === 'field'}
+							<span class="ac-prefix">@</span>{opt}<span class="ac-suffix">:</span>
+						{:else}
+							{opt}
+						{/if}
+					</button>
+				{/each}
+			</div>
+		{/if}
+
 		<form onsubmit={handleSearch}>
 			<div class="composer-input">
 				<input
@@ -93,6 +222,9 @@
 					bind:value={query}
 					placeholder="Ask Klippy… use @ to filter by field"
 					autocomplete="off"
+					oninput={handleInput}
+					onkeydown={handleKeydown}
+					onblur={() => setTimeout(() => (ac = { ...ac, visible: false }), 300)}
 				/>
 			</div>
 			<p class="composer-hint">
@@ -229,10 +361,13 @@
 	.composer {
 		background: var(--canvas);
 		padding: var(--size-6) var(--size-4);
+		position: relative;
+		overflow: visible;
 	}
 
 	.composer .container {
 		position: relative;
+		overflow: visible;
 	}
 
 	.composer form {
@@ -280,6 +415,46 @@
 		font-size: 0.7rem;
 		margin-right: 4px;
 		font-weight: 500;
+	}
+
+	/* ── Autocomplete dropdown ──────────────────── */
+	.ac-dropdown {
+		position: absolute;
+		bottom: calc(100% + 8px);
+		left: 0;
+		right: 0;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 4px;
+		box-shadow: var(--shadow-2);
+		overflow: hidden;
+		z-index: 1000;
+	}
+
+	.ac-option {
+		display: block;
+		width: 100%;
+		text-align: left;
+		padding: var(--size-2) var(--size-4);
+		background: none;
+		border: none;
+		cursor: pointer;
+		font-family: var(--font-mono);
+		font-size: 0.8rem;
+		color: var(--ink-1);
+		transition: background 0.1s;
+		text-shadow: none;
+	}
+
+	.ac-option:hover,
+	.ac-active {
+		background: var(--kings-red-light);
+		color: var(--kings-red);
+	}
+
+	.ac-prefix,
+	.ac-suffix {
+		opacity: 0.5;
 	}
 
 	@media (max-width: 640px) {
