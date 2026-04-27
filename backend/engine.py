@@ -226,6 +226,15 @@ class KlippyEngine:
             logger.info(
                 f"Processing batch {i // batch_size + 1}/{(len(documents) - 1) // batch_size + 1} ({len(batch)} docs)..."
             )
+
+            # Clear existing points for these documents to avoid duplicates
+            doc_ids = [doc.id_ for doc in batch if doc.id_]
+            if doc_ids:
+                try:
+                    self.vector_store.delete_nodes(node_ids=doc_ids)
+                except Exception as e:
+                    logger.warning(f"Failed to delete existing nodes for batch: {e}")
+
             try:
                 pipeline.run(documents=batch, show_progress=False)
             except Exception as e:

@@ -13,6 +13,9 @@ def engine(mocker):
     mocker.patch("engine.IngestionCache")
     mocker.patch("engine.RedisCache")
     
+    # Mock delete_nodes on the class level to avoid Pydantic attribute errors
+    mocker.patch("engine.QdrantVectorStore.delete_nodes")
+    
     # Mock OpenAILike so it passes isinstance(..., LLM)
     mock_llm = mocker.Mock(spec=LLM)
     mock_llm.callback_manager = None
@@ -248,3 +251,23 @@ def test_ingest_data_fallback_on_extractor_failure(engine, mocker):
     from llama_index.core.extractors import QuestionsAnsweredExtractor, KeywordExtractor
     assert not any(isinstance(t, QuestionsAnsweredExtractor) for t in fallback_transformations)
     assert not any(isinstance(t, KeywordExtractor) for t in fallback_transformations)
+
+def test_ingest_data_replaces_existing_docs(engine, mocker):
+    mocker.patch("engine.IngestionPipeline")
+    mock_reader = mocker.patch("engine.SimpleDirectoryReader")
+    
+    # Mock document with a specific ID
+    mock_doc = mocker.Mock(text="test content")
+    mock_doc.id_ = "existing-doc-id"
+    mock_doc.metadata = {"file_path": "test.md"}
+    mock_reader.return_value.load_data.return_value = [mock_doc]
+    
+    mocker.patch("engine.parse_frontmatter", return_value=("test content", {}))
+    mocker.patch("os.path.exists", return_value=True)
+    mocker.patch("llama_index.core.VectorStoreIndex.from_vector_store")
+
+    engine.ingest_data()
+
+    # Verify delete_nodes was called with the document ID (UUID5 of "test.md")
+    expected_id = "7444c9da-e923-571f-92e6-37b5ba0c2fa2"
+    engine.vector_store.delete_nodes.assert_called_once_with(node_ids=[expected_id])
