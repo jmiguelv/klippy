@@ -38,7 +38,7 @@ describe('Chats Page', () => {
 		render(Page);
 
 		// Check for contextual label
-		expect(screen.getByText(/Suggested queries/i)).toBeInTheDocument();
+		expect(screen.getByText(/Sample queries/i)).toBeInTheDocument();
 
 		await waitFor(() => {
 			expect(screen.getByText('What is Klippy?')).toBeInTheDocument();

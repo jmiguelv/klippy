@@ -64,7 +64,7 @@
 
 			{#if isLoading || questions.length > 0}
 				<div class="suggestions-container" in:fade={{ duration: 200 }}>
-					<p class="suggestions-label">Suggested queries based on your docs:</p>
+					<p class="suggestions-label">Sample queries based on indexed docs:</p>
 					<div class="question-chips">
 						{#if isLoading}
 							<div class="question-chip skeleton" style="width: 150px; height: 32px"></div>
