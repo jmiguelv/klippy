@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { chatState } from '$lib/chat-state.svelte';
-	import { Plus, MessageSquare, Pencil, Trash2, ChevronLeft, ChevronRight } from 'lucide-svelte';
+	import { Plus, MessageSquare, Pencil, Trash2, ChevronLeft, ChevronRight, Map } from 'lucide-svelte';
 
 	let { children } = $props();
 
@@ -108,6 +108,20 @@
 				</div>
 			{/each}
 		</div>
+
+		<nav class="sidebar-nav">
+			<a
+				href="/explore"
+				class="sidebar-nav-link"
+				class:active={page.url.pathname.startsWith('/explore')}
+				title={isSidebarOpen ? undefined : 'Explore'}
+			>
+				<Map size={14} />
+				{#if isSidebarOpen}
+					<span>Explore</span>
+				{/if}
+			</a>
+		</nav>
 	</aside>
 
 	<div class="chat-content">
@@ -329,6 +343,42 @@
 
 	.sidebar-backdrop {
 		display: none;
+	}
+
+	.sidebar-nav {
+		border-top: 1px solid var(--border);
+		padding: var(--size-2);
+	}
+
+	.sidebar-nav-link {
+		display: flex;
+		align-items: center;
+		gap: var(--size-2);
+		padding: var(--size-2) var(--size-3);
+		border-radius: 4px;
+		color: var(--ink-2);
+		text-decoration: none;
+		font-family: var(--font-sans);
+		font-size: 0.85rem;
+		transition: background 0.15s, color 0.15s;
+	}
+
+	.sidebar-nav-link:hover {
+		background: var(--canvas);
+		color: var(--ink-0);
+	}
+
+	.sidebar-nav-link.active {
+		color: var(--kings-red);
+	}
+
+	.sidebar.closed .sidebar-nav {
+		padding: var(--size-2);
+	}
+
+	.sidebar.closed .sidebar-nav-link {
+		justify-content: center;
+		padding: var(--size-2);
 	}
 
 	@media (max-width: 768px) {
