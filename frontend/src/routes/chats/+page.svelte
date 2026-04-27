@@ -623,6 +623,14 @@
 			grid-template-columns: 1fr;
 		}
 
+		.control {
+			padding: var(--size-3) var(--size-4);
+		}
+
+		.control-lbl {
+			flex: 0 0 70px;
+		}
+
 		.control:first-child {
 			border-right: none;
 			border-bottom: 1px solid var(--border);
