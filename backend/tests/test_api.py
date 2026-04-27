@@ -250,3 +250,74 @@ def test_aggregate_corpus_stats_keyword_title_case():
     result = _aggregate_corpus_stats([pt])
     assert result["keywords"]["top"][0]["keyword"] == "Machine Learning"
     assert result["by_source"]["X"]["top_keywords"] == ["Machine Learning"]
+
+# ── GET /corpus/stats ─────────────────────────────────────────────────────────
+
+def test_get_corpus_stats_empty_collection(mocker):
+    mocker.patch.object(engine.client, "scroll", return_value=([], None))
+    mocker.patch.object(redis_client, "get", return_value=None)
+    mocker.patch.object(redis_client, "setex")
+
+    response = client.get("/corpus/stats")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["overview"]["total_nodes"] == 0
+    assert data["keywords"]["top"] == []
+    assert data["by_source"] == {}
+    assert data["by_type"] == {}
+
+
+def test_get_corpus_stats_with_data(mocker):
+    pt = MagicMock()
+    pt.payload = {
+        "excerpt_keywords": "rag, llm",
+        "source": "GitHub",
+        "type": "readme",
+        "last_modified_date": "2026-01-15",
+    }
+    mocker.patch.object(engine.client, "scroll", return_value=([pt], None))
+    mocker.patch.object(redis_client, "get", return_value=None)
+    mocker.patch.object(redis_client, "setex")
+
+    response = client.get("/corpus/stats")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["overview"]["total_nodes"] == 1
+    assert "GitHub" in data["overview"]["sources"]
+    assert any(kw["keyword"] == "Rag" for kw in data["keywords"]["top"])
+
+
+def test_get_corpus_stats_redis_cache_hit(mocker):
+    cached_payload = {
+        "overview": {"total_nodes": 99, "sources": ["X"], "last_ingested": None, "date_range": {"from": None, "to": None}},
+        "keywords": {"top": []},
+        "by_source": {},
+        "by_type": {},
+    }
+    mocker.patch.object(redis_client, "get", return_value=json.dumps(cached_payload))
+    scroll_mock = mocker.patch.object(engine.client, "scroll")
+
+    response = client.get("/corpus/stats")
+    assert response.status_code == 200
+    assert response.json()["overview"]["total_nodes"] == 99
+    scroll_mock.assert_not_called()
+
+
+def test_get_corpus_stats_caches_result(mocker):
+    mocker.patch.object(engine.client, "scroll", return_value=([], None))
+    mocker.patch.object(redis_client, "get", return_value=None)
+    setex_mock = mocker.patch.object(redis_client, "setex")
+
+    client.get("/corpus/stats")
+    setex_mock.assert_called_once()
+    args = setex_mock.call_args[0]
+    assert args[0] == "corpus_stats"
+    assert args[1] == 3600
+
+
+def test_get_corpus_stats_qdrant_unreachable(mocker):
+    mocker.patch.object(redis_client, "get", return_value=None)
+    mocker.patch.object(engine.client, "scroll", side_effect=Exception("connection refused"))
+
+    response = client.get("/corpus/stats")
+    assert response.status_code == 503

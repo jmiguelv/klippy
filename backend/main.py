@@ -330,6 +330,38 @@ def _aggregate_corpus_stats(points: list) -> dict:
     }
 
 
+CORPUS_STATS_CACHE_KEY = "corpus_stats"
+
+
+@app.get("/corpus/stats")
+async def get_corpus_stats():
+    cached = redis_client.get(CORPUS_STATS_CACHE_KEY)
+    if cached:
+        return json.loads(cached)
+
+    try:
+        all_points = []
+        offset = None
+        while True:
+            result, offset = engine.client.scroll(
+                collection_name=engine.collection_name,
+                limit=1000,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False,
+            )
+            all_points.extend(result)
+            if offset is None:
+                break
+
+        stats = _aggregate_corpus_stats(all_points)
+        redis_client.setex(CORPUS_STATS_CACHE_KEY, STATS_CACHE_TTL, json.dumps(stats))
+        return stats
+    except Exception as e:
+        logger.error(f"Error fetching corpus stats: {e}")
+        raise HTTPException(status_code=503, detail="Qdrant unreachable")
+
+
 def invalidate_stats_cache():
     """Removes all cached debug/stats entries after ingestion."""
     for key in redis_client.scan_iter("debug_stats:*"):
