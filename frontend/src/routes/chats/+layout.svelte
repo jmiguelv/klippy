@@ -317,4 +317,10 @@
 			color: var(--ink-0);
 		}
 	}
+
+	@media (max-width: 640px) {
+		.sidebar-header {
+			padding: var(--size-3);
+		}
+	}
 </style>

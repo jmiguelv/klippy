@@ -281,4 +281,18 @@
 		margin-right: 4px;
 		font-weight: 500;
 	}
+
+	@media (max-width: 640px) {
+		.hero-section {
+			padding: var(--size-4);
+		}
+
+		.composer-input {
+			padding: var(--size-3);
+		}
+
+		.composer-hint {
+			display: none;
+		}
+	}
 </style>

@@ -1324,4 +1324,85 @@
 		font-style: italic;
 		opacity: 0.5;
 	}
+
+	@media (max-width: 640px) {
+		.explore-page {
+			padding-inline: var(--size-4);
+		}
+
+		.chat-history {
+			padding-inline: 0;
+		}
+
+		.user-bubble {
+			max-width: 100%;
+			padding: var(--size-3) var(--size-4);
+		}
+
+		.klippy-answer {
+			max-width: 100%;
+			padding-left: var(--size-4);
+			margin: 24px 0;
+		}
+
+		.retrieval-steps {
+			gap: var(--size-1);
+			display: flex;
+			flex-direction: column;
+		}
+
+		.step {
+			display: flex;
+			gap: 8px;
+			padding: var(--size-1) 0;
+		}
+
+		.step-label,
+		.step-time {
+			display: none;
+		}
+
+		.step-mark {
+			font-size: 0.8rem;
+		}
+
+		.answer-prose {
+			font-size: 1.15rem;
+		}
+
+		.answer-time {
+			display: none;
+		}
+
+		.sources-list a {
+			grid-template-columns: 22px 16px 1fr;
+			padding: var(--size-3);
+		}
+
+		.source-score {
+			display: none;
+		}
+
+		.composer-input {
+			padding: var(--size-3);
+		}
+
+		.filter-chips {
+			flex-wrap: wrap;
+			overflow-x: visible;
+		}
+
+		.composer-hint {
+			display: none;
+		}
+
+		.composer-controls {
+			grid-template-columns: 1fr;
+		}
+
+		.control:first-child {
+			border-right: none;
+			border-bottom: 1px solid var(--border);
+		}
+	}
 </style>
