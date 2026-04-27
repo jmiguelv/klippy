@@ -1446,6 +1446,11 @@
 			flex: 0 0 70px;
 		}
 
+		.control input[type='range'] {
+			margin: 0 var(--size-2);
+			min-width: 0;
+		}
+
 		.control:first-child {
 			border-right: none;
 			border-bottom: 1px solid var(--border);
