@@ -1,14 +1,40 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { chatState } from '$lib/chat-state.svelte';
 	import { PUBLIC_API_URL } from '$env/static/public';
+	import { KNOWN_FIELDS } from '$lib/filters';
+	import { SlidersHorizontal } from 'lucide-svelte';
+	import { slide } from 'svelte/transition';
+
+	interface AcState {
+		visible: boolean;
+		mode: 'field' | 'value';
+		field: string;
+		partial: string;
+		options: string[];
+		activeIdx: number;
+	}
 
 	let query = $state('');
 	let userName = $state('');
 	let questions = $state<string[]>([]);
 	let isLoading = $state(true);
+	let showSettings = $state(false);
+	let topK = $state(10);
+	let similarityCutoff = $state(0.3);
+
+	// Autocomplete state
+	let ac = $state<AcState>({
+		visible: false,
+		mode: 'field',
+		field: '',
+		partial: '',
+		options: [],
+		activeIdx: 0
+	});
+	let acCache: Record<string, string[]> = {};
 
 	onMount(async () => {
 		userName = localStorage.getItem('klippy_user_name') ?? '';
@@ -32,6 +58,93 @@
 			isLoading = false;
 		}
 	});
+
+	async function fetchValues(field: string): Promise<string[]> {
+		if (acCache[field] !== undefined) return acCache[field];
+		try {
+			const res = await fetch(`${PUBLIC_API_URL}/debug/stats?field=${field}`);
+			const data = await res.json();
+			acCache[field] = Object.keys(data.counts ?? {});
+		} catch {
+			acCache[field] = [];
+		}
+		return acCache[field];
+	}
+
+	async function showValueOptions(field: string, partial: string): Promise<void> {
+		const values = acCache[field] !== undefined ? acCache[field] : await fetchValues(field);
+		const options = values.filter((v) => v.toLowerCase().includes(partial.toLowerCase()));
+		ac = { visible: options.length > 0, mode: 'value', field, partial, options, activeIdx: 0 };
+	}
+
+	async function handleInput(e: Event) {
+		const input = e.target as HTMLInputElement;
+		const before = input.value.slice(0, input.selectionStart ?? input.value.length);
+
+		const valueMatch = before.match(/@(\w+):(?:"([^"]*)"|([^"\s]*))$/);
+		const fieldMatch = !valueMatch && before.match(/@(\w*)$/);
+
+		if (valueMatch) {
+			const [, field, quoted, unquoted] = valueMatch;
+			const partial = quoted ?? unquoted;
+			if (acCache[field] !== undefined) {
+				await showValueOptions(field, partial);
+			} else {
+				await fetchValues(field);
+				const inputEl = e.target as HTMLInputElement;
+				const nowBefore = inputEl.value.slice(0, inputEl.selectionStart ?? inputEl.value.length);
+				const nowMatch = nowBefore.match(/@(\w+):(?:"([^"]*)"|([^"\s]*))$/);
+				if (nowMatch && nowMatch[1] === field) {
+					const nowPartial = nowMatch[2] ?? nowMatch[3];
+					await showValueOptions(field, nowPartial);
+				}
+			}
+		} else if (fieldMatch) {
+			const [, partial] = fieldMatch;
+			const options = KNOWN_FIELDS.filter((f) => f.toLowerCase().includes(partial.toLowerCase()));
+			ac = {
+				visible: options.length > 0,
+				mode: 'field',
+				field: '',
+				partial,
+				options,
+				activeIdx: 0
+			};
+		} else {
+			ac = { ...ac, visible: false };
+		}
+	}
+
+	function handleKeydown(e: KeyboardEvent) {
+		if (!ac.visible) return;
+		if (e.key === 'ArrowDown') {
+			e.preventDefault();
+			ac = { ...ac, activeIdx: (ac.activeIdx + 1) % ac.options.length };
+		} else if (e.key === 'ArrowUp') {
+			e.preventDefault();
+			ac = { ...ac, activeIdx: (ac.activeIdx - 1 + ac.options.length) % ac.options.length };
+		} else if (e.key === 'Enter' && ac.visible) {
+			e.preventDefault();
+			selectOption(ac.options[ac.activeIdx]);
+		} else if (e.key === 'Escape') {
+			ac = { ...ac, visible: false };
+		}
+	}
+
+	async function selectOption(opt: string) {
+		if (ac.mode === 'field') {
+			query = query.replace(/@\w*$/, `@${opt}:`);
+			ac = { ...ac, visible: false };
+			document.getElementById('chats-input')?.focus();
+			await showValueOptions(opt, '');
+		} else {
+			const quotedOpt = opt.includes(' ') ? `"${opt}"` : opt;
+			// Hero page doesn't have activeFilters visible but we keep query part
+			query = query.replace(new RegExp(`@${ac.field}:(?:"[^"]*"|[^"\\s]*)$`), `@${ac.field}:${quotedOpt} `);
+			ac = { ...ac, visible: false };
+			document.getElementById('chats-input')?.focus();
+		}
+	}
 
 	function handleSearch(e: Event) {
 		e.preventDefault();
@@ -85,6 +198,30 @@
 
 <section class="composer">
 	<div class="container">
+		{#if ac.visible}
+			<div class="ac-dropdown" role="listbox">
+				{#each ac.options as opt, i}
+					<button
+						type="button"
+						role="option"
+						aria-selected={i === ac.activeIdx}
+						class="ac-option"
+						class:ac-active={i === ac.activeIdx}
+						onmousedown={(e) => {
+							e.preventDefault();
+							selectOption(opt);
+						}}
+					>
+						{#if ac.mode === 'field'}
+							<span class="ac-prefix">@</span>{opt}<span class="ac-suffix">:</span>
+						{:else}
+							{opt}
+						{/if}
+					</button>
+				{/each}
+			</div>
+		{/if}
+
 		<form onsubmit={handleSearch}>
 			<div class="composer-input">
 				<input
@@ -93,8 +230,49 @@
 					bind:value={query}
 					placeholder="Ask Klippy… use @ to filter by field"
 					autocomplete="off"
+					oninput={handleInput}
+					onkeydown={handleKeydown}
+					onblur={() => setTimeout(() => (ac = { ...ac, visible: false }), 300)}
 				/>
+				<button
+					type="button"
+					class="settings-toggle"
+					class:active={showSettings}
+					onclick={async () => {
+						showSettings = !showSettings;
+						if (showSettings) {
+							await tick();
+							document.getElementById('slider-topk-hero')?.focus();
+						}
+					}}
+					title="Tune search parameters"
+				>
+					<SlidersHorizontal size={18} />
+				</button>
 			</div>
+
+			{#if showSettings}
+				<div class="composer-controls" transition:slide>
+					<label class="control" for="slider-topk-hero">
+						<span class="control-lbl">Top K</span>
+						<input id="slider-topk-hero" type="range" min="1" max="50" bind:value={topK} />
+						<span class="control-val">{topK}</span>
+					</label>
+					<label class="control" for="slider-threshold-hero">
+						<span class="control-lbl">Threshold</span>
+						<input
+							id="slider-threshold-hero"
+							type="range"
+							min="0"
+							max="1"
+							step="0.05"
+							bind:value={similarityCutoff}
+						/>
+						<span class="control-val">{similarityCutoff.toFixed(2)}</span>
+					</label>
+				</div>
+			{/if}
+
 			<p class="composer-hint">
 				<kbd>↵</kbd> send · <kbd>@</kbd> filter field
 			</p>
@@ -229,10 +407,15 @@
 	.composer {
 		background: var(--canvas);
 		padding: var(--size-6) var(--size-4);
+		position: sticky;
+		bottom: 0;
+		z-index: 100;
+		overflow: visible;
 	}
 
 	.composer .container {
 		position: relative;
+		overflow: visible;
 	}
 
 	.composer form {
@@ -248,10 +431,13 @@
 
 	.composer-input {
 		padding: var(--size-4) var(--size-6);
+		display: flex;
+		align-items: center;
+		gap: var(--size-4);
 	}
 
 	.composer-input input {
-		width: 100%;
+		flex: 1;
 		border: none;
 		outline: none;
 		background: transparent;
@@ -259,6 +445,100 @@
 		font-size: 1.1rem;
 		font-family: var(--font-sans);
 		font-weight: 400;
+	}
+
+	.settings-toggle {
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: var(--size-2);
+		color: var(--ink-3);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 4px;
+		transition:
+			color 0.15s,
+			background 0.15s;
+	}
+
+	.settings-toggle:hover,
+	.settings-toggle.active {
+		color: var(--kings-red);
+		background: var(--kings-red-light);
+	}
+
+	.composer-controls {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		border-top: 1px solid var(--border);
+		background: var(--surface);
+	}
+
+	.control {
+		display: flex;
+		align-items: center;
+		padding: var(--size-3) var(--size-6);
+	}
+
+	.control:first-child {
+		border-right: 1px solid var(--border);
+	}
+
+	.control-lbl {
+		font-family: var(--font-mono);
+		font-size: 0.65rem;
+		text-transform: uppercase;
+		color: var(--ink-2);
+		letter-spacing: 0.15em;
+		flex: 0 0 90px;
+	}
+
+	.control-val {
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		color: var(--ink-1);
+		flex: 0 0 30px;
+		text-align: right;
+		font-weight: 500;
+	}
+
+	.control input[type='range'] {
+		flex: 1;
+		appearance: none;
+		background: transparent;
+		cursor: pointer;
+		margin: 0 var(--size-4);
+	}
+
+	.control input[type='range']::-webkit-slider-runnable-track {
+		background: var(--border);
+		height: 2px;
+		border-radius: 1px;
+	}
+
+	.control input[type='range']::-webkit-slider-thumb {
+		appearance: none;
+		height: 12px;
+		width: 12px;
+		background: var(--kings-red);
+		border-radius: 50%;
+		margin-top: -5px;
+		transition: transform 0.1s ease;
+	}
+
+	.control input[type='range']::-moz-range-track {
+		background: var(--border);
+		height: 2px;
+		border-radius: 1px;
+	}
+
+	.control input[type='range']::-moz-range-thumb {
+		border: none;
+		height: 12px;
+		width: 12px;
+		background: var(--kings-red);
+		border-radius: 50%;
 	}
 
 	.composer-hint {
@@ -280,5 +560,85 @@
 		font-size: 0.7rem;
 		margin-right: 4px;
 		font-weight: 500;
+	}
+
+	/* ── Autocomplete dropdown ──────────────────── */
+	.ac-dropdown {
+		position: absolute;
+		bottom: calc(100% + 8px);
+		left: 0;
+		right: 0;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 4px;
+		box-shadow: var(--shadow-2);
+		overflow: hidden;
+		z-index: 1000;
+	}
+
+	.ac-option {
+		display: block;
+		width: 100%;
+		text-align: left;
+		padding: var(--size-2) var(--size-4);
+		background: none;
+		border: none;
+		cursor: pointer;
+		font-family: var(--font-mono);
+		font-size: 0.8rem;
+		color: var(--ink-1);
+		transition: background 0.1s;
+		text-shadow: none;
+	}
+
+	.ac-option:hover,
+	.ac-active {
+		background: var(--kings-red-light);
+		color: var(--kings-red);
+	}
+
+	.ac-prefix,
+	.ac-suffix {
+		opacity: 0.5;
+	}
+
+	@media (max-width: 640px) {
+		.hero-section {
+			padding: 0 var(--size-4) var(--size-4);
+		}
+
+		.composer-input {
+			padding: var(--size-3);
+		}
+
+		.composer-input input {
+			padding: var(--size-2) 0;
+		}
+
+		.composer-hint {
+			display: none;
+		}
+
+		.composer-controls {
+			grid-template-columns: 1fr;
+		}
+
+		.control {
+			padding: var(--size-3) var(--size-4);
+		}
+
+		.control-lbl {
+			flex: 0 0 70px;
+		}
+
+		.control input[type='range'] {
+			margin: 0 var(--size-2);
+			min-width: 0;
+		}
+
+		.control:first-child {
+			border-right: none;
+			border-bottom: 1px solid var(--border);
+		}
 	}
 </style>

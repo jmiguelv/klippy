@@ -143,4 +143,22 @@
 		background: var(--canvas);
 		color: var(--kings-red);
 	}
+
+	@media (max-width: 640px) {
+		.nav-inner {
+			height: auto;
+			padding-top: var(--size-3);
+			padding-bottom: var(--size-3);
+		}
+
+		.nav-wordmark {
+			flex-direction: column;
+			gap: 2px;
+			align-items: flex-start;
+		}
+
+		.nav-org::before {
+			display: none;
+		}
+	}
 </style>

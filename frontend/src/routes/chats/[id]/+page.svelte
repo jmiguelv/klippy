@@ -162,20 +162,22 @@
 		const input = e.target as HTMLInputElement;
 		const before = input.value.slice(0, input.selectionStart ?? input.value.length);
 
-		const valueMatch = before.match(/@(\w+):(\w*)$/);
+		const valueMatch = before.match(/@(\w+):(?:"([^"]*)"|([^"\s]*))$/);
 		const fieldMatch = !valueMatch && before.match(/@(\w*)$/);
 
 		if (valueMatch) {
-			const [, field, partial] = valueMatch;
+			const [, field, quoted, unquoted] = valueMatch;
+			const partial = quoted ?? unquoted;
 			if (acCache[field] !== undefined) {
 				await showValueOptions(field, partial);
 			} else {
 				await fetchValues(field);
 				const inputEl = e.target as HTMLInputElement;
 				const nowBefore = inputEl.value.slice(0, inputEl.selectionStart ?? inputEl.value.length);
-				const nowMatch = nowBefore.match(/@(\w+):(\w*)$/);
+				const nowMatch = nowBefore.match(/@(\w+):(?:"([^"]*)"|([^"\s]*))$/);
 				if (nowMatch && nowMatch[1] === field) {
-					await showValueOptions(field, nowMatch[2]);
+					const nowPartial = nowMatch[2] ?? nowMatch[3];
+					await showValueOptions(field, nowPartial);
 				}
 			}
 		} else if (fieldMatch) {
@@ -218,7 +220,8 @@
 			await showValueOptions(opt, '');
 		} else {
 			activeFilters = { ...activeFilters, [ac.field]: opt };
-			query = query.replace(new RegExp(`@${ac.field}:(?:"[^"]*"|\\S*)$`), '').trimEnd();
+			const quotedOpt = opt.includes(' ') ? `"${opt}"` : opt;
+			query = query.replace(new RegExp(`@${ac.field}:(?:"[^"]*"|[^"\\s]*)$`), '').trimEnd();
 			ac = { ...ac, visible: false };
 			document.getElementById('chat-input')?.focus();
 		}
@@ -669,8 +672,23 @@
 					autocomplete="off"
 					oninput={handleInput}
 					onkeydown={handleKeydown}
-					onblur={() => setTimeout(() => (ac = { ...ac, visible: false }), 150)}
+					onblur={() => setTimeout(() => (ac = { ...ac, visible: false }), 300)}
 				/>
+				<button
+					type="button"
+					class="settings-toggle"
+					class:active={showSettings}
+					onclick={async () => {
+						showSettings = !showSettings;
+						if (showSettings) {
+							await tick();
+							document.getElementById('slider-topk')?.focus();
+						}
+					}}
+					title="Tune search parameters"
+				>
+					<SlidersHorizontal size={18} />
+				</button>
 			</div>
 
 			{#if showSettings}
@@ -697,21 +715,7 @@
 
 			<p class="composer-hint">
 				<span class="hint-items">
-					<kbd>↵</kbd> send · <kbd>@</kbd> filter field ·
-					<button
-						type="button"
-						class="settings-toggle"
-						onclick={async () => {
-							showSettings = !showSettings;
-							if (showSettings) {
-								await tick();
-								document.getElementById('slider-topk')?.focus();
-							}
-						}}
-					>
-						<SlidersHorizontal size={12} />
-						{showSettings ? 'Hide' : 'Tune'}
-					</button>
+					<kbd>↵</kbd> send · <kbd>@</kbd> filter field
 				</span>
 				<span class="composer-meta"
 					>session <b>{(page.params.id ?? '').toUpperCase().split('-')[0]}</b> · {modelName}</span
@@ -1051,11 +1055,15 @@
 	.composer {
 		background: var(--canvas);
 		padding: var(--size-6) var(--size-4);
-		position: relative;
+		position: sticky;
+		bottom: 0;
+		z-index: 100;
+		overflow: visible;
 	}
 
 	.composer .container {
 		position: relative;
+		overflow: visible;
 	}
 
 	.composer form {
@@ -1071,10 +1079,14 @@
 
 	.composer-input {
 		padding: var(--size-4) var(--size-6);
+		display: flex;
+		align-items: center;
+		gap: var(--size-4);
+		flex-wrap: wrap;
 	}
 
 	.composer-input input {
-		width: 100%;
+		flex: 1;
 		border: none;
 		outline: none;
 		background: transparent;
@@ -1082,6 +1094,28 @@
 		font-size: 1.1rem;
 		font-family: var(--font-sans);
 		font-weight: 400;
+		min-width: 200px;
+	}
+
+	.settings-toggle {
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: var(--size-2);
+		color: var(--ink-3);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 4px;
+		transition:
+			color 0.15s,
+			background 0.15s;
+	}
+
+	.settings-toggle:hover,
+	.settings-toggle.active {
+		color: var(--kings-red);
+		background: var(--kings-red-light);
 	}
 
 	.filter-chips {
@@ -1285,7 +1319,7 @@
 		border-radius: 4px;
 		box-shadow: var(--shadow-2);
 		overflow: hidden;
-		z-index: 200;
+		z-index: 1000;
 	}
 
 	.ac-option {
@@ -1323,5 +1357,103 @@
 		font-size: 1.5rem;
 		font-style: italic;
 		opacity: 0.5;
+	}
+
+	@media (max-width: 640px) {
+		.explore-page {
+			padding-top: 0;
+			padding-inline: var(--size-4);
+		}
+
+		.chat-history {
+			padding-inline: 0;
+		}
+
+		.user-bubble {
+			max-width: 100%;
+			padding: var(--size-3) var(--size-4);
+		}
+
+		.klippy-answer {
+			max-width: 100%;
+			padding-left: var(--size-4);
+			margin: 24px 0;
+		}
+
+		.retrieval-steps {
+			gap: var(--size-1);
+			display: flex;
+			flex-direction: column;
+		}
+
+		.step {
+			display: flex;
+			gap: 8px;
+			padding: var(--size-1) 0;
+		}
+
+		.step-label,
+		.step-time {
+			display: none;
+		}
+
+		.step-mark {
+			font-size: 0.8rem;
+		}
+
+		.answer-prose {
+			font-size: 1.15rem;
+		}
+
+		.answer-time {
+			display: none;
+		}
+
+		.sources-list a {
+			grid-template-columns: 22px 16px 1fr;
+			padding: var(--size-3);
+		}
+
+		.source-score {
+			display: none;
+		}
+
+		.composer-input {
+			padding: var(--size-3);
+		}
+
+		.composer-input input {
+			padding: var(--size-2) 0;
+		}
+
+		.filter-chips {
+			flex-wrap: wrap;
+		}
+
+		.composer-hint {
+			display: none;
+		}
+
+		.composer-controls {
+			grid-template-columns: 1fr;
+		}
+
+		.control {
+			padding: var(--size-3) var(--size-4);
+		}
+
+		.control-lbl {
+			flex: 0 0 70px;
+		}
+
+		.control input[type='range'] {
+			margin: 0 var(--size-2);
+			min-width: 0;
+		}
+
+		.control:first-child {
+			border-right: none;
+			border-bottom: 1px solid var(--border);
+		}
 	}
 </style>

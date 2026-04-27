@@ -283,6 +283,10 @@
 	}
 
 	@media (max-width: 768px) {
+		.chat-content {
+			padding-top: 60px;
+		}
+
 		.sidebar {
 			position: fixed;
 			height: 100%;
@@ -315,6 +319,12 @@
 
 		.sidebar-close:hover {
 			color: var(--ink-0);
+		}
+	}
+
+	@media (max-width: 640px) {
+		.sidebar-header {
+			padding: var(--size-3);
 		}
 	}
 </style>
