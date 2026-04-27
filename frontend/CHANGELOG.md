@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.8.0](https://github.com/jmiguelv/klippy/compare/frontend-v0.7.0...frontend-v0.8.0) (2026-04-27)
+
+
+### Features
+
+* **ui:** fix mobile wordmark stacking and sidebar toggle overlap ([80ba6d1](https://github.com/jmiguelv/klippy/commit/80ba6d12d1d074dfe2f44a0d6732908b4d31e5b4))
+* **ui:** implement mobile responsiveness and functional fixes ([0396140](https://github.com/jmiguelv/klippy/commit/03961404fd67d86574fc892dc7ccd1835ccd06c1))
+* **ui:** implement mobile responsiveness per spec ([c9b26e5](https://github.com/jmiguelv/klippy/commit/c9b26e52c223489bda3c83f89ae8826b06df22b2))
+
+
+### Bug Fixes
+
+* **ui:** ensure filter dropdown visibility and stability on mobile ([c5813a0](https://github.com/jmiguelv/klippy/commit/c5813a00ee9d33ef0f842469b7fa86d3a21a4f7d))
+* **ui:** make composer sticky to ensure tune section visibility ([16b6bf6](https://github.com/jmiguelv/klippy/commit/16b6bf6221554491125734cc819e799b9990d5ee))
+* **ui:** prevent Tune controls overflow on mobile ([9f5e0ca](https://github.com/jmiguelv/klippy/commit/9f5e0caf5c543600c8319dceeb12870a7027f014))
+* **ui:** prevent Tune sliders from overflowing on mobile ([b0f7f93](https://github.com/jmiguelv/klippy/commit/b0f7f93ad1956b50a5388669cec7d449b8939d78))
+* **ui:** restore composer input interaction on mobile ([7958716](https://github.com/jmiguelv/klippy/commit/7958716978f83d1796d0570fd6e6bd50c405521c))
+* **ui:** restore tune section and implement cross-page filter autocomplete ([8cbe8f8](https://github.com/jmiguelv/klippy/commit/8cbe8f844e73a1e0e53a03216cef2ecacb9b52bf))
+* **ui:** support spaces in filter values with quoting ([79e7629](https://github.com/jmiguelv/klippy/commit/79e7629f5f2bc934f0e9edd04f54261a070575c4))
+
 ## [0.7.0](https://github.com/jmiguelv/klippy/compare/frontend-v0.6.0...frontend-v0.7.0) (2026-04-27)
 
 
