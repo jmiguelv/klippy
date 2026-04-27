@@ -138,7 +138,29 @@ docker compose run --rm harvester uv run python main.py --all --force
 
 ### 4. Updating the Index
 
-Trigger re-indexing after a harvest:
+Trigger re-indexing after a harvest. You can do this via the API (curl) or directly via Docker Compose.
+
+#### Option A: Docker Compose (CLI)
+
+This is the recommended way to run ingestion manually with full control over flags.
+
+```bash
+# Ingest all documents
+docker compose run --rm backend uv run python main.py --ingest
+
+# Ingest and extract sample questions & keywords
+docker compose run --rm backend uv run python main.py --ingest --extract-questions --extract-keywords
+
+# Force re-index (clears and rebuilds the Qdrant collection)
+docker compose run --rm backend uv run python main.py --ingest --force
+
+# Ingest a random sample for testing
+docker compose run --rm backend uv run python main.py --ingest --limit 100
+```
+
+#### Option B: API (curl)
+
+Useful for triggering ingestion from external scripts or the UI.
 
 ```bash
 # Ingest all documents
@@ -147,11 +169,8 @@ curl -X POST http://localhost:8000/ingest
 # Ingest all documents and extract metadata (questions and keywords)
 curl -X POST http://localhost:8000/ingest -d '{"extract_questions": true, "extract_keywords": true}'
 
-# Force re-index (clears and rebuilds the Qdrant collection)
+# Force re-index
 curl -X POST http://localhost:8000/ingest -d '{"force": true}'
-
-# Ingest a random sample for testing
-curl -X POST http://localhost:8000/ingest -d '{"limit": 100}'
 
 # Fetch random sample questions
 curl http://localhost:8000/questions?n=5
