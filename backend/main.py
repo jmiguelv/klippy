@@ -465,6 +465,59 @@ def get_questions(n: int = 5):
     return {"questions": sample}
 
 
+@app.get("/keywords")
+def get_keywords(n: int = 10):
+    """Sample n keywords from Qdrant metadata."""
+    import random
+
+    metadata_key = "excerpt_keywords"
+    all_keywords: set[str] = set()
+
+    # Scroll through all points in the collection
+    offset = None
+    while True:
+        result, next_offset = engine.client.scroll(
+            collection_name=engine.collection_name,
+            with_payload=True,
+            with_vectors=False,
+            limit=200,
+            offset=offset,
+        )
+        for point in result:
+            payload = point.payload or {}
+            raw = payload.get(metadata_key, "")
+
+            # If not at top level, check inside _node_content
+            if not raw and "_node_content" in payload:
+                try:
+                    content = json.loads(payload["_node_content"])
+                    raw = content.get("metadata", {}).get(metadata_key, "")
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+            if raw:
+                # LlamaIndex KeywordExtractor stores as comma-separated string or list
+                if isinstance(raw, str):
+                    for k in raw.split(","):
+                        k = k.strip().lower()
+                        if k:
+                            all_keywords.add(k)
+                elif isinstance(raw, list):
+                    for k in raw:
+                        k = str(k).strip().lower()
+                        if k:
+                            all_keywords.add(k)
+
+        if next_offset is None or len(all_keywords) > 1000:
+            break
+        offset = next_offset
+
+    sample = random.sample(list(all_keywords), min(n, len(all_keywords)))
+    # Title case for better UI display
+    sample = [k.title() for k in sample]
+    return {"keywords": sample}
+
+
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}

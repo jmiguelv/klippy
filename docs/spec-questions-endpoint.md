@@ -100,6 +100,18 @@ def get_questions(n: int = 5):
     return {"questions": sample}
 ```
 
+### `GET /keywords?n=10`
+
+Returns a random sample of `n` keywords extracted from the document corpus. Keywords are deduplicated and returned in Title Case.
+
+```python
+@app.get("/keywords")
+def get_keywords(n: int = 10):
+    """Sample n keywords from Qdrant metadata."""
+    # ... extraction logic checking top-level and _node_content["metadata"]["excerpt_keywords"] ...
+    return {"keywords": sample}
+```
+
 Notes:
 - `engine.client` is the synchronous `qdrant_client.QdrantClient` already initialised in `KlippyEngine.__init__`.
 - `engine.collection_name` is `"klippy_data"` by default.

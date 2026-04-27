@@ -174,6 +174,9 @@ curl -X POST http://localhost:8000/ingest -d '{"force": true}'
 
 # Fetch random sample questions
 curl http://localhost:8000/questions?n=5
+
+# Fetch random sample keywords
+curl http://localhost:8000/keywords?n=10
 ```
 
 ### 5. Observability and Monitoring

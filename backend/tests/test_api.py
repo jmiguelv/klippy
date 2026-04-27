@@ -110,3 +110,38 @@ def test_get_questions_cleaning(mocker):
         assert "Answer:" not in q
         assert "(" not in q
         assert q.endswith("?")
+
+
+def test_get_keywords_empty(mocker):
+    mocker.patch.object(engine.client, "scroll", return_value=([], None))
+    response = client.get("/keywords?n=5")
+    assert response.status_code == 200
+    assert response.json() == {"keywords": []}
+
+
+def test_get_keywords_with_data(mocker):
+    metadata_key = "excerpt_keywords"
+    mock_point = MagicMock()
+    # Test both comma-separated string and list formats
+    mock_point.payload = {
+        metadata_key: "ai, machine learning, rag"
+    }
+    
+    mock_point_2 = MagicMock()
+    mock_point_2.payload = {
+        metadata_key: ["search", "indexing"]
+    }
+    
+    mocker.patch.object(engine.client, "scroll", return_value=([mock_point, mock_point_2], None))
+    
+    response = client.get("/keywords?n=10")
+    assert response.status_code == 200
+    data = response.json()
+    assert "keywords" in data
+    keywords = data["keywords"]
+    assert "Ai" in keywords
+    assert "Machine Learning" in keywords
+    assert "Rag" in keywords
+    assert "Search" in keywords
+    assert "Indexing" in keywords
+    assert len(keywords) == 5
