@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import { chatState } from '$lib/chat-state.svelte';
 	import { PUBLIC_API_URL } from '$env/static/public';
 
 	let query = $state('');
 	let userName = $state('');
 	let questions = $state<string[]>([]);
+	let isLoading = $state(true);
 
 	onMount(async () => {
 		userName = localStorage.getItem('klippy_user_name') ?? '';
@@ -26,6 +28,8 @@
 			}
 		} catch {
 			// backend offline — show nothing
+		} finally {
+			isLoading = false;
 		}
 	});
 
@@ -58,11 +62,21 @@
 				Search across ClickUp tasks, GitHub repositories, and internal documentation.
 			</p>
 
-			{#if questions.length > 0}
-				<div class="question-chips">
-					{#each questions as q (q)}
-						<button class="question-chip" onclick={() => submitQuestion(q)}>{q}</button>
-					{/each}
+			{#if isLoading || questions.length > 0}
+				<div class="suggestions-container" in:fade={{ duration: 200 }}>
+					<p class="suggestions-label">Suggested queries based on your docs:</p>
+					<div class="question-chips">
+						{#if isLoading}
+							<div class="question-chip skeleton" style="width: 150px; height: 32px"></div>
+							<div class="question-chip skeleton" style="width: 220px; height: 32px"></div>
+							<div class="question-chip skeleton" style="width: 180px; height: 32px"></div>
+							<div class="question-chip skeleton" style="width: 250px; height: 32px"></div>
+						{:else}
+							{#each questions as q (q)}
+								<button class="question-chip" onclick={() => submitQuestion(q)}>{q}</button>
+							{/each}
+						{/if}
+					</div>
 				</div>
 			{/if}
 		</div>
@@ -146,11 +160,25 @@
 		margin-bottom: var(--size-6);
 	}
 
+	.suggestions-container {
+		width: 100%;
+		margin-top: var(--size-4);
+	}
+
+	.suggestions-label {
+		font-family: var(--font-sans);
+		font-size: 0.75rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--ink-3);
+		margin-bottom: var(--size-2);
+		font-weight: 600;
+	}
+
 	.question-chips {
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--size-2);
-		margin-top: var(--size-4);
 	}
 
 	.question-chip {
@@ -172,6 +200,27 @@
 	.question-chip:hover {
 		border-color: var(--kings-red);
 		color: var(--kings-red);
+	}
+
+	.question-chip.skeleton {
+		background: var(--border);
+		border: none;
+		cursor: default;
+		pointer-events: none;
+		animation: pulse 1.5s infinite ease-in-out;
+		opacity: 0.5;
+	}
+
+	@keyframes pulse {
+		0% {
+			opacity: 0.3;
+		}
+		50% {
+			opacity: 0.6;
+		}
+		100% {
+			opacity: 0.3;
+		}
 	}
 
 	/* ── Composer ─────────────────────────────── */

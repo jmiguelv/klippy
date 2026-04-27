@@ -37,9 +37,38 @@ describe('Chats Page', () => {
 
 		render(Page);
 
+		// Check for contextual label
+		expect(screen.getByText(/Suggested queries/i)).toBeInTheDocument();
+
 		await waitFor(() => {
 			expect(screen.getByText('What is Klippy?')).toBeInTheDocument();
 			expect(screen.getByText('How it works?')).toBeInTheDocument();
+		});
+	});
+
+	it('should show skeletons while loading', async () => {
+		let resolveFetch: (value: Response) => void;
+		const fetchPromise = new Promise<Response>((resolve) => {
+			resolveFetch = resolve;
+		});
+
+		global.fetch = vi.fn().mockReturnValue(fetchPromise);
+
+		const { container } = render(Page);
+
+		// Skeletons should be present
+		const skeletons = container.querySelectorAll('.skeleton');
+		expect(skeletons.length).toBeGreaterThan(0);
+
+		// Finalize fetch
+		resolveFetch!({
+			ok: true,
+			json: async () => ({ questions: ['Question 1?'] })
+		});
+
+		await waitFor(() => {
+			expect(screen.getByText('Question 1?')).toBeInTheDocument();
+			expect(container.querySelectorAll('.skeleton').length).toBe(0);
 		});
 	});
 
