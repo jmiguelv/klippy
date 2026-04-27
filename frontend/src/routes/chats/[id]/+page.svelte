@@ -1388,9 +1388,12 @@
 			padding: var(--size-3);
 		}
 
+		.composer-input input {
+			padding: var(--size-2) 0;
+		}
+
 		.filter-chips {
 			flex-wrap: wrap;
-			overflow-x: visible;
 		}
 
 		.composer-hint {

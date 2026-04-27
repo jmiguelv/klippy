@@ -291,6 +291,10 @@
 			padding: var(--size-3);
 		}
 
+		.composer-input input {
+			padding: var(--size-2) 0;
+		}
+
 		.composer-hint {
 			display: none;
 		}
