@@ -8,42 +8,25 @@ During document ingestion, extract representative questions that each text chunk
 
 ## Backend — ingestion (`backend/engine.py`)
 
-### Add `QuestionsAnsweredExtractor` to the pipeline
+### Add Extractors to the pipeline
 
-`IngestionPipeline` in `ingest_data()` currently has:
-
-```python
-pipeline = IngestionPipeline(
-    transformations=[
-        MarkdownNodeParser(include_metadata=True),
-        Settings.embed_model,
-    ],
-    ...
-)
-```
-
-Add the extractor between the parser and the embed model:
+`IngestionPipeline` in `ingest_data()` now supports independent flags for `QuestionsAnsweredExtractor` and `KeywordExtractor`:
 
 ```python
-from llama_index.core.extractors import QuestionsAnsweredExtractor
+from llama_index.core.extractors import QuestionsAnsweredExtractor, KeywordExtractor
 
-pipeline = IngestionPipeline(
-    transformations=[
-        MarkdownNodeParser(include_metadata=True),
-        QuestionsAnsweredExtractor(llm=Settings.llm, num_questions=3),
-        Settings.embed_model,
-    ],
-    ...
-)
+transformations = [MarkdownNodeParser(include_metadata=True)]
+if extract_questions:
+    transformations.append(QuestionsAnsweredExtractor(llm=Settings.llm, num_questions=3))
+if extract_keywords:
+    transformations.append(KeywordExtractor(llm=Settings.llm, keywords=5))
+transformations.append(Settings.embed_model)
 ```
 
-`QuestionsAnsweredExtractor` calls the LLM once per node to generate `num_questions` questions. It stores them in:
+### Robustness and Cleanup
 
-```
-node.metadata["questions_this_excerpt_can_answer"]
-```
-
-The value is a newline-separated string (e.g. `"What is X?\nHow does Y work?\nWhen was Z created?"`).
+- **LLM Fallback**: If an LLM-based extraction fails (e.g. connection timeout, rate limit), the engine logs a warning and automatically retries the batch without extractors to ensure ingestion completes.
+- **Duplicate Prevention**: Before processing each batch, the engine explicitly deletes existing nodes associated with the document IDs (`self.vector_store.delete_nodes`). This ensures that re-ingesting a document replaces its old chunks rather than duplicating them.
 
 ### Important caveats
 

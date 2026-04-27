@@ -144,8 +144,8 @@ Trigger re-indexing after a harvest:
 # Ingest all documents
 curl -X POST http://localhost:8000/ingest
 
-# Ingest all documents and extract sample questions
-curl -X POST http://localhost:8000/ingest -d '{"extract_questions": true}'
+# Ingest all documents and extract metadata (questions and keywords)
+curl -X POST http://localhost:8000/ingest -d '{"extract_questions": true, "extract_keywords": true}'
 
 # Force re-index (clears and rebuilds the Qdrant collection)
 curl -X POST http://localhost:8000/ingest -d '{"force": true}'
