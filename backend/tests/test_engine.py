@@ -193,11 +193,12 @@ def test_ingest_data_with_questions_extractor(engine, mocker):
     _, kwargs = mock_pipeline.call_args
     transformations = kwargs["transformations"]
     
-    from llama_index.core.extractors import QuestionsAnsweredExtractor
+    from llama_index.core.extractors import QuestionsAnsweredExtractor, KeywordExtractor
     from llama_index.core.node_parser import MarkdownNodeParser
     
     assert any(isinstance(t, MarkdownNodeParser) for t in transformations)
     assert any(isinstance(t, QuestionsAnsweredExtractor) for t in transformations)
+    assert any(isinstance(t, KeywordExtractor) for t in transformations)
 
 def test_ingest_data_fallback_on_extractor_failure(engine, mocker):
     # Setup: 1st pipeline.run fails, 2nd (fallback) succeeds
@@ -219,5 +220,6 @@ def test_ingest_data_fallback_on_extractor_failure(engine, mocker):
     # Verify fallback transformations (2nd call)
     _, fallback_kwargs = mock_pipeline.call_args
     fallback_transformations = fallback_kwargs["transformations"]
-    from llama_index.core.extractors import QuestionsAnsweredExtractor
+    from llama_index.core.extractors import QuestionsAnsweredExtractor, KeywordExtractor
     assert not any(isinstance(t, QuestionsAnsweredExtractor) for t in fallback_transformations)
+    assert not any(isinstance(t, KeywordExtractor) for t in fallback_transformations)

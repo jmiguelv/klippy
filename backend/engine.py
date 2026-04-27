@@ -15,7 +15,7 @@ from llama_index.core import (
 )
 from llama_index.core.ingestion import IngestionPipeline, IngestionCache
 from llama_index.core.node_parser import MarkdownNodeParser
-from llama_index.core.extractors import QuestionsAnsweredExtractor
+from llama_index.core.extractors import QuestionsAnsweredExtractor, KeywordExtractor
 from llama_index.core.vector_stores.types import MetadataFilter, MetadataFilters
 from llama_index.core.postprocessor import SimilarityPostprocessor
 from llama_index.storage.kvstore.redis import RedisKVStore as RedisCache
@@ -201,9 +201,12 @@ class KlippyEngine:
 
         transformations: list = [MarkdownNodeParser(include_metadata=True)]
         if extract_questions:
-            logger.info("Enabling QuestionsAnsweredExtractor...")
-            transformations.append(
-                QuestionsAnsweredExtractor(llm=Settings.llm, num_questions=3)
+            logger.info("Enabling QuestionsAnsweredExtractor and KeywordExtractor...")
+            transformations.extend(
+                [
+                    QuestionsAnsweredExtractor(llm=Settings.llm, num_questions=3),
+                    KeywordExtractor(llm=Settings.llm, keywords=5),
+                ]
             )
         transformations.append(Settings.embed_model)
 
