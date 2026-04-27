@@ -107,12 +107,14 @@
 		flex: 1;
 		overflow-y: auto;
 		display: flex;
-		align-items: center;
+		/* Removed align-items: center to left-align content */
 	}
 
 	.hero-section {
 		width: 100%;
-		max-width: 800px;
+		/* Match container max-width to align with query box */
+		max-width: 1040px;
+		padding-top: var(--size-10);
 		padding-bottom: var(--size-8);
 	}
 

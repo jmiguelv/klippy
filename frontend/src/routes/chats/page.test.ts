@@ -64,7 +64,7 @@ describe('Chats Page', () => {
 		resolveFetch!({
 			ok: true,
 			json: async () => ({ questions: ['Question 1?'] })
-		});
+		} as Response);
 
 		await waitFor(() => {
 			expect(screen.getByText('Question 1?')).toBeInTheDocument();
