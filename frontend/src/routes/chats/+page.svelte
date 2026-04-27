@@ -76,20 +76,22 @@
 		const input = e.target as HTMLInputElement;
 		const before = input.value.slice(0, input.selectionStart ?? input.value.length);
 
-		const valueMatch = before.match(/@(\w+):(\w*)$/);
+		const valueMatch = before.match(/@(\w+):(?:"([^"]*)"|([^"\s]*))$/);
 		const fieldMatch = !valueMatch && before.match(/@(\w*)$/);
 
 		if (valueMatch) {
-			const [, field, partial] = valueMatch;
+			const [, field, quoted, unquoted] = valueMatch;
+			const partial = quoted ?? unquoted;
 			if (acCache[field] !== undefined) {
 				await showValueOptions(field, partial);
 			} else {
 				await fetchValues(field);
 				const inputEl = e.target as HTMLInputElement;
 				const nowBefore = inputEl.value.slice(0, inputEl.selectionStart ?? inputEl.value.length);
-				const nowMatch = nowBefore.match(/@(\w+):(\w*)$/);
+				const nowMatch = nowBefore.match(/@(\w+):(?:"([^"]*)"|([^"\s]*))$/);
 				if (nowMatch && nowMatch[1] === field) {
-					await showValueOptions(field, nowMatch[2]);
+					const nowPartial = nowMatch[2] ?? nowMatch[3];
+					await showValueOptions(field, nowPartial);
 				}
 			}
 		} else if (fieldMatch) {
@@ -131,8 +133,9 @@
 			document.getElementById('chats-input')?.focus();
 			await showValueOptions(opt, '');
 		} else {
+			const quotedOpt = opt.includes(' ') ? `"${opt}"` : opt;
 			// Hero page doesn't have activeFilters visible but we keep query part
-			query = query.replace(new RegExp(`@${ac.field}:(?:"[^"]*"|\\S*)$`), `@${ac.field}:${opt} `);
+			query = query.replace(new RegExp(`@${ac.field}:(?:"[^"]*"|[^"\\s]*)$`), `@${ac.field}:${quotedOpt} `);
 			ac = { ...ac, visible: false };
 			document.getElementById('chats-input')?.focus();
 		}
