@@ -674,6 +674,21 @@
 					onkeydown={handleKeydown}
 					onblur={() => setTimeout(() => (ac = { ...ac, visible: false }), 300)}
 				/>
+				<button
+					type="button"
+					class="settings-toggle"
+					class:active={showSettings}
+					onclick={async () => {
+						showSettings = !showSettings;
+						if (showSettings) {
+							await tick();
+							document.getElementById('slider-topk')?.focus();
+						}
+					}}
+					title="Tune search parameters"
+				>
+					<SlidersHorizontal size={18} />
+				</button>
 			</div>
 
 			{#if showSettings}
@@ -700,21 +715,7 @@
 
 			<p class="composer-hint">
 				<span class="hint-items">
-					<kbd>↵</kbd> send · <kbd>@</kbd> filter field ·
-					<button
-						type="button"
-						class="settings-toggle"
-						onclick={async () => {
-							showSettings = !showSettings;
-							if (showSettings) {
-								await tick();
-								document.getElementById('slider-topk')?.focus();
-							}
-						}}
-					>
-						<SlidersHorizontal size={12} />
-						{showSettings ? 'Hide' : 'Tune'}
-					</button>
+					<kbd>↵</kbd> send · <kbd>@</kbd> filter field
 				</span>
 				<span class="composer-meta"
 					>session <b>{(page.params.id ?? '').toUpperCase().split('-')[0]}</b> · {modelName}</span
@@ -1054,7 +1055,9 @@
 	.composer {
 		background: var(--canvas);
 		padding: var(--size-6) var(--size-4);
-		position: relative;
+		position: sticky;
+		bottom: 0;
+		z-index: 100;
 		overflow: visible;
 	}
 
@@ -1076,10 +1079,14 @@
 
 	.composer-input {
 		padding: var(--size-4) var(--size-6);
+		display: flex;
+		align-items: center;
+		gap: var(--size-4);
+		flex-wrap: wrap;
 	}
 
 	.composer-input input {
-		width: 100%;
+		flex: 1;
 		border: none;
 		outline: none;
 		background: transparent;
@@ -1087,6 +1094,28 @@
 		font-size: 1.1rem;
 		font-family: var(--font-sans);
 		font-weight: 400;
+		min-width: 200px;
+	}
+
+	.settings-toggle {
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: var(--size-2);
+		color: var(--ink-3);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 4px;
+		transition:
+			color 0.15s,
+			background 0.15s;
+	}
+
+	.settings-toggle:hover,
+	.settings-toggle.active {
+		color: var(--kings-red);
+		background: var(--kings-red-light);
 	}
 
 	.filter-chips {

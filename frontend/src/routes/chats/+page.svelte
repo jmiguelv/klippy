@@ -5,6 +5,8 @@
 	import { chatState } from '$lib/chat-state.svelte';
 	import { PUBLIC_API_URL } from '$env/static/public';
 	import { KNOWN_FIELDS } from '$lib/filters';
+	import { SlidersHorizontal } from 'lucide-svelte';
+	import { slide } from 'svelte/transition';
 
 	interface AcState {
 		visible: boolean;
@@ -19,6 +21,9 @@
 	let userName = $state('');
 	let questions = $state<string[]>([]);
 	let isLoading = $state(true);
+	let showSettings = $state(false);
+	let topK = $state(10);
+	let similarityCutoff = $state(0.3);
 
 	// Autocomplete state
 	let ac = $state<AcState>({
@@ -229,7 +234,45 @@
 					onkeydown={handleKeydown}
 					onblur={() => setTimeout(() => (ac = { ...ac, visible: false }), 300)}
 				/>
+				<button
+					type="button"
+					class="settings-toggle"
+					class:active={showSettings}
+					onclick={async () => {
+						showSettings = !showSettings;
+						if (showSettings) {
+							await tick();
+							document.getElementById('slider-topk-hero')?.focus();
+						}
+					}}
+					title="Tune search parameters"
+				>
+					<SlidersHorizontal size={18} />
+				</button>
 			</div>
+
+			{#if showSettings}
+				<div class="composer-controls" transition:slide>
+					<label class="control" for="slider-topk-hero">
+						<span class="control-lbl">Top K</span>
+						<input id="slider-topk-hero" type="range" min="1" max="50" bind:value={topK} />
+						<span class="control-val">{topK}</span>
+					</label>
+					<label class="control" for="slider-threshold-hero">
+						<span class="control-lbl">Threshold</span>
+						<input
+							id="slider-threshold-hero"
+							type="range"
+							min="0"
+							max="1"
+							step="0.05"
+							bind:value={similarityCutoff}
+						/>
+						<span class="control-val">{similarityCutoff.toFixed(2)}</span>
+					</label>
+				</div>
+			{/if}
+
 			<p class="composer-hint">
 				<kbd>↵</kbd> send · <kbd>@</kbd> filter field
 			</p>
@@ -364,7 +407,9 @@
 	.composer {
 		background: var(--canvas);
 		padding: var(--size-6) var(--size-4);
-		position: relative;
+		position: sticky;
+		bottom: 0;
+		z-index: 100;
 		overflow: visible;
 	}
 
@@ -386,10 +431,13 @@
 
 	.composer-input {
 		padding: var(--size-4) var(--size-6);
+		display: flex;
+		align-items: center;
+		gap: var(--size-4);
 	}
 
 	.composer-input input {
-		width: 100%;
+		flex: 1;
 		border: none;
 		outline: none;
 		background: transparent;
@@ -397,6 +445,100 @@
 		font-size: 1.1rem;
 		font-family: var(--font-sans);
 		font-weight: 400;
+	}
+
+	.settings-toggle {
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: var(--size-2);
+		color: var(--ink-3);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 4px;
+		transition:
+			color 0.15s,
+			background 0.15s;
+	}
+
+	.settings-toggle:hover,
+	.settings-toggle.active {
+		color: var(--kings-red);
+		background: var(--kings-red-light);
+	}
+
+	.composer-controls {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		border-top: 1px solid var(--border);
+		background: var(--surface);
+	}
+
+	.control {
+		display: flex;
+		align-items: center;
+		padding: var(--size-3) var(--size-6);
+	}
+
+	.control:first-child {
+		border-right: 1px solid var(--border);
+	}
+
+	.control-lbl {
+		font-family: var(--font-mono);
+		font-size: 0.65rem;
+		text-transform: uppercase;
+		color: var(--ink-2);
+		letter-spacing: 0.15em;
+		flex: 0 0 90px;
+	}
+
+	.control-val {
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		color: var(--ink-1);
+		flex: 0 0 30px;
+		text-align: right;
+		font-weight: 500;
+	}
+
+	.control input[type='range'] {
+		flex: 1;
+		appearance: none;
+		background: transparent;
+		cursor: pointer;
+		margin: 0 var(--size-4);
+	}
+
+	.control input[type='range']::-webkit-slider-runnable-track {
+		background: var(--border);
+		height: 2px;
+		border-radius: 1px;
+	}
+
+	.control input[type='range']::-webkit-slider-thumb {
+		appearance: none;
+		height: 12px;
+		width: 12px;
+		background: var(--kings-red);
+		border-radius: 50%;
+		margin-top: -5px;
+		transition: transform 0.1s ease;
+	}
+
+	.control input[type='range']::-moz-range-track {
+		background: var(--border);
+		height: 2px;
+		border-radius: 1px;
+	}
+
+	.control input[type='range']::-moz-range-thumb {
+		border: none;
+		height: 12px;
+		width: 12px;
+		background: var(--kings-red);
+		border-radius: 50%;
 	}
 
 	.composer-hint {
@@ -475,6 +617,15 @@
 
 		.composer-hint {
 			display: none;
+		}
+
+		.composer-controls {
+			grid-template-columns: 1fr;
+		}
+
+		.control:first-child {
+			border-right: none;
+			border-bottom: 1px solid var(--border);
 		}
 	}
 </style>
