@@ -181,7 +181,14 @@
 		} else if (fieldMatch) {
 			const [, partial] = fieldMatch;
 			const options = KNOWN_FIELDS.filter((f) => f.toLowerCase().includes(partial.toLowerCase()));
-			ac = { visible: options.length > 0, mode: 'field', field: '', partial, options, activeIdx: 0 };
+			ac = {
+				visible: options.length > 0,
+				mode: 'field',
+				field: '',
+				partial,
+				options,
+				activeIdx: 0
+			};
 		} else {
 			ac = { ...ac, visible: false };
 		}
@@ -503,7 +510,10 @@
 									<div class="bubble-filters">
 										{#each Object.entries(msg.filters) as [key, value]}
 											<span class="bubble-chip"
-												><span class="bubble-chip-key">{key}</span><span class="bubble-chip-sep">:</span>{value}</span>
+												><span class="bubble-chip-key">{key}</span><span class="bubble-chip-sep"
+													>:</span
+												>{value}</span
+											>
 										{/each}
 									</div>
 								{/if}
@@ -519,8 +529,11 @@
 												{#if step.active}●{:else}✓{/if}
 											</span>
 											<span class="step-label"
-												><b>{step.label}</b> — <span class="step-detail">{step.detail}</span></span>
-											<span class="step-time">{step.t != null ? `${step.t.toLocaleString()}ms` : '…'}</span>
+												><b>{step.label}</b> — <span class="step-detail">{step.detail}</span></span
+											>
+											<span class="step-time"
+												>{step.t != null ? `${step.t.toLocaleString()}ms` : '…'}</span
+											>
 										</li>
 									{/each}
 								</ol>
@@ -537,19 +550,25 @@
 								<button
 									class="iconbtn"
 									onclick={() => sendFeedback(true, page.params.id!)}
-									title="Helpful"><ThumbsUp size={13} /></button>
+									title="Helpful"><ThumbsUp size={13} /></button
+								>
 								<button
 									class="iconbtn"
 									onclick={() => sendFeedback(false, page.params.id!)}
-									title="Not helpful"><ThumbsDown size={13} /></button>
+									title="Not helpful"><ThumbsDown size={13} /></button
+								>
 								<span class="sep"></span>
 								<button
 									class="iconbtn"
 									onclick={() => handleSend(chatHistory[i - 1]?.content, true)}
-									title="Refresh"><RotateCcw size={13} /></button>
+									title="Refresh"><RotateCcw size={13} /></button
+								>
 								{#if msg.total_time_ms}
 									<span class="answer-time"
-										>{msg.total_time_ms.toLocaleString()}ms · {(msg.context_length ?? 0).toLocaleString()} chars</span>
+										>{msg.total_time_ms.toLocaleString()}ms · {(
+											msg.context_length ?? 0
+										).toLocaleString()} chars</span
+									>
 								{/if}
 							</div>
 
@@ -570,7 +589,9 @@
 												<li>
 													<a href={src.url} target="_blank" rel="noopener">
 														<span class="source-num">[{n + 1}]</span>
-														{#if src.source === 'github'}<Code size={12} />{:else}<FileText size={12} />{/if}
+														{#if src.source === 'github'}<Code size={12} />{:else}<FileText
+																size={12}
+															/>{/if}
 														<span class="source-title">{src.title.replace('.md', '')}</span>
 														<span class="source-score">{src.score.toFixed(2)}</span>
 													</a>
@@ -614,7 +635,12 @@
 			</div>
 		{/if}
 
-		<form onsubmit={(e) => { e.preventDefault(); handleSend(); }}>
+		<form
+			onsubmit={(e) => {
+				e.preventDefault();
+				handleSend();
+			}}
+		>
 			<div class="composer-input">
 				{#if hasFilters}
 					<div class="filter-chips">
@@ -622,13 +648,15 @@
 							<span class="chip">
 								<span class="chip-label">
 									<span class="chip-key">{key}</span><span class="chip-sep">:</span><span
-										class="chip-val">{value}</span>
+										class="chip-val">{value}</span
+									>
 								</span>
 								<button
 									type="button"
 									class="chip-remove"
 									onclick={() => removeFilter(key)}
-									aria-label="Remove {key} filter">×</button>
+									aria-label="Remove {key} filter">×</button
+								>
 							</span>
 						{/each}
 					</div>
@@ -686,7 +714,8 @@
 					</button>
 				</span>
 				<span class="composer-meta"
-					>session <b>{(page.params.id ?? '').toUpperCase().split('-')[0]}</b> · {modelName}</span>
+					>session <b>{(page.params.id ?? '').toUpperCase().split('-')[0]}</b> · {modelName}</span
+				>
 			</p>
 		</form>
 	</div>
@@ -1295,5 +1324,4 @@
 		font-style: italic;
 		opacity: 0.5;
 	}
-
 </style>

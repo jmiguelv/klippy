@@ -1,27 +1,47 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import { chatState } from '$lib/chat-state.svelte';
+	import { PUBLIC_API_URL } from '$env/static/public';
 
 	let query = $state('');
 	let userName = $state('');
+	let questions = $state<string[]>([]);
+	let isLoading = $state(true);
 
-	onMount(() => {
+	onMount(async () => {
 		userName = localStorage.getItem('klippy_user_name') ?? '';
 		chatState.loadSessions();
 		const q = new URLSearchParams(window.location.search).get('q');
 		if (q) {
 			history.replaceState({}, '', window.location.pathname);
 			const id = chatState.createNewChat(q);
-			goto(`/chats/${id}/?q=${encodeURIComponent(q)}`);
+			goto(`/chats/${id}/?q=${encodeURIComponent(q)}`); // eslint-disable-line svelte/no-navigation-without-resolve
+		}
+
+		try {
+			const res = await fetch(`${PUBLIC_API_URL}/questions?n=5`);
+			if (res.ok) {
+				const data = await res.json();
+				questions = data.questions ?? [];
+			}
+		} catch {
+			// backend offline — show nothing
+		} finally {
+			isLoading = false;
 		}
 	});
 
 	function handleSearch(e: Event) {
 		e.preventDefault();
 		if (!query.trim()) return;
-		const id = chatState.createNewChat(query.trim());
-		goto(`/chats/${id}/?q=${encodeURIComponent(query.trim())}`);
+		submitQuestion(query.trim());
+	}
+
+	function submitQuestion(q: string) {
+		const id = chatState.createNewChat(q);
+		goto(`/chats/${id}/?q=${encodeURIComponent(q)}`); // eslint-disable-line svelte/no-navigation-without-resolve
 	}
 </script>
 
@@ -42,6 +62,23 @@
 				Search across ClickUp tasks, GitHub repositories, and internal documentation.
 			</p>
 
+			{#if isLoading || questions.length > 0}
+				<div class="suggestions-container" in:fade={{ duration: 200 }}>
+					<p class="suggestions-label">Sample queries based on indexed docs:</p>
+					<div class="question-chips">
+						{#if isLoading}
+							<div class="question-chip skeleton" style="width: 150px; height: 32px"></div>
+							<div class="question-chip skeleton" style="width: 220px; height: 32px"></div>
+							<div class="question-chip skeleton" style="width: 180px; height: 32px"></div>
+							<div class="question-chip skeleton" style="width: 250px; height: 32px"></div>
+						{:else}
+							{#each questions as q (q)}
+								<button class="question-chip" onclick={() => submitQuestion(q)}>{q}</button>
+							{/each}
+						{/if}
+					</div>
+				</div>
+			{/if}
 		</div>
 	</section>
 </main>
@@ -70,12 +107,14 @@
 		flex: 1;
 		overflow-y: auto;
 		display: flex;
-		align-items: center;
+		/* Removed align-items: center to left-align content */
 	}
 
 	.hero-section {
 		width: 100%;
-		max-width: 800px;
+		/* Match container max-width to align with query box */
+		max-width: 1040px;
+		padding-top: var(--size-10);
 		padding-bottom: var(--size-8);
 	}
 
@@ -121,6 +160,69 @@
 		max-width: 480px;
 		font-weight: 300;
 		margin-bottom: var(--size-6);
+	}
+
+	.suggestions-container {
+		width: 100%;
+		margin-top: var(--size-4);
+	}
+
+	.suggestions-label {
+		font-family: var(--font-sans);
+		font-size: 0.75rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--ink-3);
+		margin-bottom: var(--size-2);
+		font-weight: 600;
+	}
+
+	.question-chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--size-2);
+	}
+
+	.question-chip {
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		padding: var(--size-2) var(--size-4);
+		font-family: var(--font-sans);
+		font-size: 0.8rem;
+		color: var(--ink-1);
+		cursor: pointer;
+		transition:
+			border-color 0.15s,
+			color 0.15s;
+		text-align: left;
+		line-height: 1.4;
+	}
+
+	.question-chip:hover {
+		border-color: var(--kings-red);
+		color: var(--kings-red);
+	}
+
+	.question-chip.skeleton {
+		background: var(--border);
+		border: none;
+		cursor: default;
+		pointer-events: none;
+		animation: pulse 1.5s infinite ease-in-out;
+		opacity: 0.5;
+	}
+
+	@keyframes pulse {
+		0% {
+			opacity: 0.3;
+		}
+		50% {
+			opacity: 0.6;
+		}
+		100% {
+			opacity: 0.3;
+		}
 	}
 
 	/* ── Composer ─────────────────────────────── */

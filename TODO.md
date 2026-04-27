@@ -18,5 +18,5 @@ L7: - [x] **`fix/hardcoded-api-url`** — replace hardcoded `http://localhost:80
 - [x] **`feat/identity-page`** — `/` identity page with typeahead seeded from `creator`/`assignee` fields; personalised `/chats` hero; user name in nav
 - [ ] **`feat/mobile-responsiveness`** — general mobile layout pass: composer, chat bubbles, retrieval steps, and source cards need responsive sizing and spacing adjustments below 640px
 - [ ] **`feat/sidebar-icons`** — redesign sidebar to show icon-only view when collapsed, similar to shadcn-svelte sidebar pattern (https://shadcn-svelte.com/docs/components/sidebar); each session item shows a chat icon when collapsed, expanding to show the full title
-- [ ] **`feat/questions-endpoint`** — implement `/questions` backend endpoint using `QuestionsAnsweredExtractor` on ingestion; store in Qdrant metadata; frontend fetches and rotates as placeholder chips
+- [x] **`feat/questions-endpoint`** — implement `/questions` backend endpoint using `QuestionsAnsweredExtractor` on ingestion; store in Qdrant metadata; frontend fetches and rotates as placeholder chips
 

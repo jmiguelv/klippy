@@ -11,7 +11,10 @@
 
 	onMount(async () => {
 		const saved = localStorage.getItem('klippy_user_name');
-		if (saved) { goto('/chats/'); return; }
+		if (saved) {
+			goto('/chats/');
+			return;
+		}
 
 		document.body.style.overflow = '';
 
@@ -32,12 +35,18 @@
 				}
 			}
 			allNames = [...names].filter(Boolean).sort();
-		} catch { /* backend offline — proceed without suggestions */ }
+		} catch {
+			/* backend offline — proceed without suggestions */
+		}
 	});
 
 	function handleInput() {
 		const q = name.trim();
-		if (!q) { filtered = []; showDropdown = false; return; }
+		if (!q) {
+			filtered = [];
+			showDropdown = false;
+			return;
+		}
 		filtered = allNames.filter((n) => n.toLowerCase().includes(q.toLowerCase()));
 		showDropdown = filtered.length > 0;
 		activeIdx = -1;
@@ -90,39 +99,42 @@
 		<div class="identity-form-group">
 			<p class="form-label">Before we begin, who are you?</p>
 
-		<form onsubmit={handleSubmit} class="identity-form">
-			<div class="input-wrap">
-				<input
-					id="name-input"
-					type="text"
-					bind:value={name}
-					oninput={handleInput}
-					onkeydown={handleKeydown}
-					onblur={() => setTimeout(() => (showDropdown = false), 150)}
-					placeholder="Start typing your name…"
-					autocomplete="off"
-					spellcheck="false"
-				/>
+			<form onsubmit={handleSubmit} class="identity-form">
+				<div class="input-wrap">
+					<input
+						id="name-input"
+						type="text"
+						bind:value={name}
+						oninput={handleInput}
+						onkeydown={handleKeydown}
+						onblur={() => setTimeout(() => (showDropdown = false), 150)}
+						placeholder="Start typing your name…"
+						autocomplete="off"
+						spellcheck="false"
+					/>
 
-				{#if showDropdown}
-					<ul class="dropdown" role="listbox">
-						{#each filtered as n, i}
-							<li
-								role="option"
-								aria-selected={i === activeIdx}
-								class="dropdown-option"
-								class:active={i === activeIdx}
-								onmousedown={(e) => { e.preventDefault(); select(n); }}
-							>{n}</li>
-						{/each}
-					</ul>
-				{/if}
-			</div>
+					{#if showDropdown}
+						<ul class="dropdown" role="listbox">
+							{#each filtered as n, i}
+								<li
+									role="option"
+									aria-selected={i === activeIdx}
+									class="dropdown-option"
+									class:active={i === activeIdx}
+									onmousedown={(e) => {
+										e.preventDefault();
+										select(n);
+									}}
+								>
+									{n}
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
 
-			<button type="submit" class="submit-btn" disabled={!name.trim()}>
-				Continue →
-			</button>
-		</form>
+				<button type="submit" class="submit-btn" disabled={!name.trim()}> Continue → </button>
+			</form>
 		</div>
 	</div>
 </main>

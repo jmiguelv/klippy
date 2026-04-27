@@ -52,6 +52,8 @@ class QueryResponse(BaseModel):
 class IngestRequest(BaseModel):
     limit: int = None
     force: bool = False
+    extract_questions: bool = False
+    extract_keywords: bool = False
 
 
 class FeedbackRequest(BaseModel):
@@ -260,19 +262,32 @@ def invalidate_stats_cache():
     logger.info("Invalidated debug stats cache.")
 
 
-def _run_ingestion(limit, force):
-    engine.ingest_data(limit=limit, force=force)
+def _run_ingestion(limit, force, extract_questions, extract_keywords):
+    engine.ingest_data(
+        limit=limit,
+        force=force,
+        extract_questions=extract_questions,
+        extract_keywords=extract_keywords,
+    )
     invalidate_stats_cache()
 
 
 @app.post("/ingest")
 async def trigger_ingestion(request: IngestRequest, background_tasks: BackgroundTasks):
     """Triggers a manual ingestion. Can optionally limit number of docs and force re-index."""
-    background_tasks.add_task(_run_ingestion, limit=request.limit, force=request.force)
+    background_tasks.add_task(
+        _run_ingestion,
+        limit=request.limit,
+        force=request.force,
+        extract_questions=request.extract_questions,
+        extract_keywords=request.extract_keywords,
+    )
     return {
         "status": "Ingestion task started in background",
         "limit": request.limit,
         "force": request.force,
+        "extract_questions": request.extract_questions,
+        "extract_keywords": request.extract_keywords,
     }
 
 
@@ -387,6 +402,122 @@ async def collection_stats_all():
     return result_payload
 
 
+@app.get("/questions")
+def get_questions(n: int = 5):
+    """Sample n questions from Qdrant metadata."""
+    import random
+
+    metadata_key = "questions_this_excerpt_can_answer"
+    all_questions: set[str] = set()
+    
+    question_words = {
+        "Are", "Can", "Could", "Did", "Do", "Does", "How", "Is",
+        "What", "When", "Where", "Which", "Who", "Whom", "Whose", "Why"
+    }
+
+    # Scroll through all points in the collection
+    offset = None
+    while True:
+        result, next_offset = engine.client.scroll(
+            collection_name=engine.collection_name,
+            with_payload=True,
+            with_vectors=False,
+            limit=200,
+            offset=offset,
+        )
+        for point in result:
+            payload = point.payload or {}
+            raw = payload.get(metadata_key, "")
+
+            # If not at top level, check inside _node_content
+            if not raw and "_node_content" in payload:
+                try:
+                    content = json.loads(payload["_node_content"])
+                    raw = content.get("metadata", {}).get(metadata_key, "")
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+            if raw:
+                # Ported logic from user's TypeScript implementation
+                # 1. Split into blocks (handling the common 1., 2., 3. pattern)
+                blocks = re.split(r"\n\s*\n", raw.strip())
+                for block in blocks:
+                    # 2. Take the first line of the block (the question)
+                    q = block.split("\n")[0].strip()
+                    
+                    # 3. Clean formatting: remove numbering and "Question: "
+                    q = re.sub(r"^\d+\.\s+", "", q)
+                    q = re.sub(r"^Question:\s*", "", q, flags=re.IGNORECASE)
+                    
+                    # 4. Remove bolding markers and parentheticals
+                    q = q.strip("* ")
+                    q = q.split("(")[0].strip()
+                    
+                    # 5. Strict Filter: Must start with a question word and end with ?
+                    if any(q.startswith(word) for word in question_words) and q.endswith("?"):
+                        all_questions.add(q)
+
+        if next_offset is None or len(all_questions) > 500:
+            break
+        offset = next_offset
+
+    sample = random.sample(list(all_questions), min(n, len(all_questions)))
+    return {"questions": sample}
+
+
+@app.get("/keywords")
+def get_keywords(n: int = 10):
+    """Sample n keywords from Qdrant metadata."""
+    import random
+
+    metadata_key = "excerpt_keywords"
+    all_keywords: set[str] = set()
+
+    # Scroll through all points in the collection
+    offset = None
+    while True:
+        result, next_offset = engine.client.scroll(
+            collection_name=engine.collection_name,
+            with_payload=True,
+            with_vectors=False,
+            limit=200,
+            offset=offset,
+        )
+        for point in result:
+            payload = point.payload or {}
+            raw = payload.get(metadata_key, "")
+
+            # If not at top level, check inside _node_content
+            if not raw and "_node_content" in payload:
+                try:
+                    content = json.loads(payload["_node_content"])
+                    raw = content.get("metadata", {}).get(metadata_key, "")
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+            if raw:
+                # LlamaIndex KeywordExtractor stores as comma-separated string or list
+                if isinstance(raw, str):
+                    for k in raw.split(","):
+                        k = k.strip().lower()
+                        if k:
+                            all_keywords.add(k)
+                elif isinstance(raw, list):
+                    for k in raw:
+                        k = str(k).strip().lower()
+                        if k:
+                            all_keywords.add(k)
+
+        if next_offset is None or len(all_keywords) > 1000:
+            break
+        offset = next_offset
+
+    sample = random.sample(list(all_keywords), min(n, len(all_keywords)))
+    # Title case for better UI display
+    sample = [k.title() for k in sample]
+    return {"keywords": sample}
+
+
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
@@ -405,14 +536,29 @@ def main():
         action="store_true",
         help="Force re-indexing of all documents (ignore cache)",
     )
+    parser.add_argument(
+        "--extract-questions",
+        action="store_true",
+        help="Extract questions from nodes during ingestion",
+    )
+    parser.add_argument(
+        "--extract-keywords",
+        action="store_true",
+        help="Extract keywords from nodes during ingestion",
+    )
 
     args, unknown = parser.parse_known_args()
 
     if args.ingest:
         logger.info(
-            f"CLI: Starting manual ingestion (limit={args.limit}, force={args.force})..."
+            f"CLI: Starting manual ingestion (limit={args.limit}, force={args.force}, extract_questions={args.extract_questions}, extract_keywords={args.extract_keywords})..."
         )
-        engine.ingest_data(limit=args.limit, force=args.force)
+        engine.ingest_data(
+            limit=args.limit,
+            force=args.force,
+            extract_questions=args.extract_questions,
+            extract_keywords=args.extract_keywords,
+        )
         logger.info("CLI: Ingestion complete. Exiting.")
     else:
         logger.info("CLI: Starting FastAPI server...")

@@ -15,6 +15,7 @@ from llama_index.core import (
 )
 from llama_index.core.ingestion import IngestionPipeline, IngestionCache
 from llama_index.core.node_parser import MarkdownNodeParser
+from llama_index.core.extractors import QuestionsAnsweredExtractor, KeywordExtractor
 from llama_index.core.vector_stores.types import MetadataFilter, MetadataFilters
 from llama_index.core.postprocessor import SimilarityPostprocessor
 from llama_index.storage.kvstore.redis import RedisKVStore as RedisCache
@@ -22,8 +23,6 @@ from llama_index.vector_stores.qdrant import QdrantVectorStore
 from llama_index.llms.openai_like import OpenAILike
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-from llama_index.core.base.llms.types import ChatMessage
-from llama_index.core.base.response.schema import Response, StreamingResponse, AsyncStreamingResponse
 
 # Setup logging
 logger = logging.getLogger("backend.engine")
@@ -145,7 +144,13 @@ class KlippyEngine:
                 logger.error(f"Failed to read prompt file {self.prompt_file}: {e}")
         return DEFAULT_SYSTEM_PROMPT
 
-    def ingest_data(self, limit: int | None = None, force: bool = False) -> None:
+    def ingest_data(
+        self,
+        limit: int | None = None,
+        force: bool = False,
+        extract_questions: bool = False,
+        extract_keywords: bool = False,
+    ) -> None:
         """Loads markdown files and indexes them. If limit is set, samples a random subset. If force is True, ignores cache."""
         if not os.path.exists(self.data_dir):
             logger.warning(f"Data directory {self.data_dir} does not exist.")
@@ -155,7 +160,9 @@ class KlippyEngine:
             logger.info("Force re-index: deleting existing collection...")
             self.client.delete_collection(self.collection_name)
             self.vector_store = QdrantVectorStore(
-                client=self.client, aclient=self.aclient, collection_name=self.collection_name
+                client=self.client,
+                aclient=self.aclient,
+                collection_name=self.collection_name,
             )
             self.storage_context = StorageContext.from_defaults(
                 vector_store=self.vector_store
@@ -193,23 +200,66 @@ class KlippyEngine:
             f"Loaded {len(documents)} documents. Starting transformation pipeline..."
         )
 
+        transformations: list = [MarkdownNodeParser(include_metadata=True)]
+        if extract_questions or extract_keywords:
+            if extract_questions:
+                logger.info("Enabling QuestionsAnsweredExtractor...")
+                transformations.append(
+                    QuestionsAnsweredExtractor(llm=Settings.llm, num_questions=3)
+                )
+            if extract_keywords:
+                logger.info("Enabling KeywordExtractor...")
+                transformations.append(KeywordExtractor(llm=Settings.llm, keywords=5))
+
+        transformations.append(Settings.embed_model)
+
         pipeline = IngestionPipeline(
-            transformations=[
-                MarkdownNodeParser(include_metadata=True),
-                Settings.embed_model,
-            ],
+            transformations=transformations,
             vector_store=self.vector_store,
             cache=self.ingest_cache if not force else None,
         )
 
         # Process in manual batches to avoid pickling errors and manage memory
-        batch_size = 100
+        batch_size = 20 if (extract_questions or extract_keywords) else 100
         for i in range(0, len(documents), batch_size):
             batch = documents[i : i + batch_size]
             logger.info(
                 f"Processing batch {i // batch_size + 1}/{(len(documents) - 1) // batch_size + 1} ({len(batch)} docs)..."
             )
-            pipeline.run(documents=batch, show_progress=False)
+
+            # Clear existing points for these documents to avoid duplicates
+            doc_ids = [doc.id_ for doc in batch if doc.id_]
+            if doc_ids:
+                try:
+                    self.vector_store.delete_nodes(node_ids=doc_ids)
+                except Exception as e:
+                    logger.warning(f"Failed to delete existing nodes for batch: {e}")
+
+            try:
+                pipeline.run(documents=batch, show_progress=False)
+            except Exception as e:
+                if extract_questions or extract_keywords:
+                    logger.warning(
+                        f"Metadata extraction failed for batch (likely LLM error: {e}). "
+                        "Retrying batch without extractions..."
+                    )
+                    # Fallback pipeline without extractors
+                    fallback_pipeline = IngestionPipeline(
+                        transformations=[
+                            MarkdownNodeParser(include_metadata=True),
+                            Settings.embed_model,
+                        ],
+                        vector_store=self.vector_store,
+                        cache=self.ingest_cache if not force else None,
+                    )
+                    try:
+                        fallback_pipeline.run(documents=batch, show_progress=False)
+                    except Exception as fallback_e:
+                        logger.error(f"Ingestion failed even without extraction: {fallback_e}")
+                        raise fallback_e
+                else:
+                    logger.error(f"Ingestion failed for batch: {e}")
+                    raise e
 
         # Create or update index from the vector store
         self._index = VectorStoreIndex.from_vector_store(
@@ -279,7 +329,6 @@ class KlippyEngine:
         similarity_cutoff: float | None = None,
     ):
         """Executes a chat turn and returns the response object with timings."""
-        import time
 
         engine = self.get_chat_engine(
             chat_history=chat_history,
