@@ -7,7 +7,14 @@
 
 	let { children } = $props();
 
-	let isSidebarOpen = $state(false);
+	let isSidebarOpen = $state(
+		typeof localStorage !== 'undefined' ? localStorage.getItem('klippy_sidebar_open') === 'true' : false
+	);
+
+	$effect(() => {
+		localStorage.setItem('klippy_sidebar_open', String(isSidebarOpen));
+	});
+
 	let currentId = $derived(page.params.id ?? '');
 
 	onMount(() => {
@@ -50,19 +57,32 @@
 
 	<aside class="sidebar" class:closed={!isSidebarOpen}>
 		<header class="sidebar-header">
-			<div class="wordmark-wrap">
-				<span class="sidebar-wordmark">Chats</span>
+			<div class="header-top">
+				{#if isSidebarOpen}
+					<div class="wordmark-wrap">
+						<span class="sidebar-wordmark">Chats</span>
+					</div>
+				{/if}
+				<button
+					class="sidebar-toggle-inside"
+					onclick={() => (isSidebarOpen = !isSidebarOpen)}
+					title="Toggle Sidebar"
+					aria-label={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+				>
+					{#if isSidebarOpen}<ChevronLeft size={16} />{:else}<ChevronRight size={16} />{/if}
+				</button>
 			</div>
-			<button class="new-chat-btn" onclick={newChat}>
-				<Plus size={16} />
-				<span>New Chat</span>
-			</button>
+
 			<button
-				class="sidebar-close"
-				onclick={() => (isSidebarOpen = false)}
-				aria-label="Close sidebar"
+				class="new-chat-btn"
+				class:compact={!isSidebarOpen}
+				onclick={newChat}
+				title={isSidebarOpen ? undefined : 'New Chat'}
 			>
-				<ChevronLeft size={16} />
+				<Plus size={16} />
+				{#if isSidebarOpen}
+					<span>New Chat</span>
+				{/if}
 			</button>
 		</header>
 
@@ -73,17 +93,18 @@
 					tabindex="0"
 					class="session-item"
 					class:active={currentId === s.id}
+					title={isSidebarOpen ? undefined : s.title}
 					onclick={() => selectChat(s.id)}
 					onkeydown={(e) => e.key === 'Enter' && selectChat(s.id)}
 				>
 					<MessageSquare class="session-icon" size={14} />
-					<span class="session-title">{s.title}</span>
-					<div class="session-actions">
-						<button onclick={(e) => renameChat(s.id, e)} title="Rename"><Pencil size={12} /></button
-						>
-						<button onclick={(e) => deleteChat(s.id, e)} title="Delete"><Trash2 size={12} /></button
-						>
-					</div>
+					{#if isSidebarOpen}
+						<span class="session-title">{s.title}</span>
+						<div class="session-actions">
+							<button onclick={(e) => renameChat(s.id, e)} title="Rename"><Pencil size={12} /></button>
+							<button onclick={(e) => deleteChat(s.id, e)} title="Delete"><Trash2 size={12} /></button>
+						</div>
+					{/if}
 				</div>
 			{/each}
 		</div>
@@ -91,13 +112,12 @@
 
 	<div class="chat-content">
 		<button
-			class="sidebar-toggle"
-			onclick={() => (isSidebarOpen = !isSidebarOpen)}
-			title="Toggle Sidebar"
+			class="sidebar-toggle-mobile"
+			onclick={() => (isSidebarOpen = true)}
+			aria-label="Open sidebar"
 		>
-			{#if isSidebarOpen}<ChevronLeft size={14} />{:else}<ChevronRight size={14} />{/if}
+			<ChevronRight size={14} />
 		</button>
-
 		{@render children()}
 	</div>
 </div>
@@ -117,13 +137,12 @@
 		border-right: 1px solid var(--border);
 		display: flex;
 		flex-direction: column;
-		transition:
-			transform 0.3s ease,
-			margin-left 0.3s ease;
+		transition: width 0.25s ease;
+		overflow: hidden;
 	}
 
 	.sidebar.closed {
-		margin-left: -280px;
+		width: 56px;
 	}
 
 	.sidebar-header {
@@ -132,6 +151,13 @@
 		flex-direction: column;
 		gap: var(--size-4);
 		border-bottom: 1px solid var(--border);
+	}
+
+	.header-top {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		min-height: 32px;
 	}
 
 	.wordmark-wrap {
@@ -166,6 +192,13 @@
 
 	.new-chat-btn:hover {
 		background: var(--kings-red-light);
+	}
+
+	.new-chat-btn.compact {
+		padding: var(--size-2);
+		width: 32px;
+		height: 32px;
+		align-self: center;
 	}
 
 	.session-list {
@@ -246,6 +279,45 @@
 		}
 	}
 
+	.sidebar-toggle-inside {
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: var(--size-1);
+		color: var(--ink-2);
+		border-radius: 4px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: color 0.15s;
+	}
+
+	.sidebar-toggle-inside:hover {
+		color: var(--ink-0);
+	}
+
+	.sidebar.closed .sidebar-header {
+		align-items: center;
+		padding: var(--size-3) var(--size-2);
+	}
+
+	.sidebar.closed .header-top {
+		justify-content: center;
+	}
+
+	.sidebar.closed .session-item {
+		justify-content: center;
+		padding: var(--size-2);
+	}
+
+	.sidebar.closed :global(.session-icon) {
+		opacity: 0.6;
+	}
+
+	.sidebar-toggle-mobile {
+		display: none;
+	}
+
 	/* ── Content area ──────────────────────────── */
 	.chat-content {
 		flex: 1;
@@ -255,30 +327,7 @@
 		position: relative;
 	}
 
-	.sidebar-toggle {
-		position: absolute;
-		top: 20px;
-		left: 20px;
-		z-index: 110;
-		background: var(--surface);
-		border: 1px solid var(--border);
-		border-radius: 4px;
-		width: 32px;
-		height: 32px;
-		cursor: pointer;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 0.7rem;
-		color: var(--ink-2);
-		box-shadow: var(--shadow-2);
-	}
-
 	.sidebar-backdrop {
-		display: none;
-	}
-
-	.sidebar-close {
 		display: none;
 	}
 
@@ -287,13 +336,32 @@
 			padding-top: 60px;
 		}
 
+		.sidebar-toggle-mobile {
+			display: flex;
+			position: absolute;
+			top: 20px;
+			left: 20px;
+			z-index: 110;
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: 4px;
+			width: 32px;
+			height: 32px;
+			align-items: center;
+			justify-content: center;
+			color: var(--ink-2);
+			box-shadow: var(--shadow-2);
+		}
+
 		.sidebar {
 			position: fixed;
+			width: 280px;
 			height: 100%;
 			z-index: 200;
 		}
 
 		.sidebar.closed {
+			width: 280px;
 			transform: translateX(-100%);
 		}
 
@@ -303,22 +371,6 @@
 			inset: 0;
 			background: rgba(0, 0, 0, 0.4);
 			z-index: 199;
-		}
-
-		.sidebar-close {
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			background: none;
-			border: none;
-			cursor: pointer;
-			color: var(--ink-2);
-			padding: var(--size-2);
-			margin-left: auto;
-		}
-
-		.sidebar-close:hover {
-			color: var(--ink-0);
 		}
 	}
 
