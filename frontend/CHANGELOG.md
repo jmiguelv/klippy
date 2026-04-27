@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.0](https://github.com/jmiguelv/klippy/compare/frontend-v0.8.0...frontend-v0.9.0) (2026-04-27)
+
+
+### Features
+
+* **ui:** implement icon-only sidebar rail for desktop ([9797162](https://github.com/jmiguelv/klippy/commit/9797162849f6757b593eab4795019ee5388c020f))
+* **ui:** implement icon-only sidebar rail for desktop ([5141ca7](https://github.com/jmiguelv/klippy/commit/5141ca7d88056df560314a9ab1ba77fc71dc207e))
+
 ## [0.8.0](https://github.com/jmiguelv/klippy/compare/frontend-v0.7.0...frontend-v0.8.0) (2026-04-27)
 
 
