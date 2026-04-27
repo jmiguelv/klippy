@@ -2,11 +2,11 @@
 
 ## Todo
 
-- [ ] **`feat/sidebar-icons`** — redesign sidebar to show icon-only view when collapsed, similar to shadcn-svelte sidebar pattern (https://shadcn-svelte.com/docs/components/sidebar); each session item shows a chat icon when collapsed, expanding to show the full title
-
 ## In progress
 
 ## Done
+
+- [x] **`feat/sidebar-icons`** — redesign sidebar to show icon-only view when collapsed, similar to shadcn-svelte sidebar pattern (https://shadcn-svelte.com/docs/components/sidebar); each session item shows a chat icon when collapsed, expanding to show the full title
 
 - [x] **`fix/hardcoded-api-url`** — replace hardcoded `http://localhost:8000` in `frontend/src/routes/chats/+page.svelte` with a `PUBLIC_API_URL` env var
 - [x] **`test/engine-chat-coverage`** — add tests to `backend/tests/test_engine.py` for chat mode, session history persistence, and `MetadataFilters` application
