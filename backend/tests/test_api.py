@@ -7,7 +7,7 @@ with patch("qdrant_client.QdrantClient"), \
      patch("redis.Redis"), \
      patch("engine.IngestionCache"), \
      patch("engine.RedisCache"):
-    from main import app, engine
+    from main import app, engine, redis_client, _extract_payload_field, _aggregate_corpus_stats
 
 from fastapi.testclient import TestClient
 import json
@@ -145,3 +145,108 @@ def test_get_keywords_with_data(mocker):
     assert "Search" in keywords
     assert "Indexing" in keywords
     assert len(keywords) == 5
+
+# ── _extract_payload_field ────────────────────────────────────────────────────
+
+def test_extract_payload_field_top_level():
+    assert _extract_payload_field({"source": "GitHub"}, "source") == "GitHub"
+
+def test_extract_payload_field_node_content():
+    payload = {"_node_content": json.dumps({"metadata": {"source": "ClickUp"}})}
+    assert _extract_payload_field(payload, "source") == "ClickUp"
+
+def test_extract_payload_field_top_level_takes_precedence():
+    payload = {
+        "source": "TopLevel",
+        "_node_content": json.dumps({"metadata": {"source": "Nested"}}),
+    }
+    assert _extract_payload_field(payload, "source") == "TopLevel"
+
+def test_extract_payload_field_missing_returns_none():
+    assert _extract_payload_field({}, "source") is None
+    assert _extract_payload_field({"_node_content": json.dumps({"metadata": {}})}, "source") is None
+
+def test_extract_payload_field_invalid_json_returns_none():
+    assert _extract_payload_field({"_node_content": "not-json"}, "source") is None
+
+
+# ── _aggregate_corpus_stats ───────────────────────────────────────────────────
+
+def test_aggregate_corpus_stats_empty():
+    result = _aggregate_corpus_stats([])
+    assert result["overview"]["total_nodes"] == 0
+    assert result["overview"]["sources"] == []
+    assert result["overview"]["last_ingested"] is None
+    assert result["overview"]["date_range"] == {"from": None, "to": None}
+    assert result["keywords"]["top"] == []
+    assert result["by_source"] == {}
+    assert result["by_type"] == {}
+
+
+def _make_point(payload: dict):
+    pt = MagicMock()
+    pt.payload = payload
+    return pt
+
+
+def test_aggregate_corpus_stats_keyword_counting_string():
+    pt = _make_point({
+        "excerpt_keywords": "ai, machine learning, ai",
+        "source": "GitHub",
+        "type": "readme",
+        "last_modified_date": "2026-01-01",
+    })
+    result = _aggregate_corpus_stats([pt])
+    kw_map = {kw["keyword"]: kw["count"] for kw in result["keywords"]["top"]}
+    assert kw_map["Ai"] == 2
+    assert kw_map["Machine Learning"] == 1
+
+
+def test_aggregate_corpus_stats_keyword_counting_list():
+    pt = _make_point({
+        "excerpt_keywords": ["rag", "llm", "rag"],
+        "source": "GitHub",
+    })
+    result = _aggregate_corpus_stats([pt])
+    kw_map = {kw["keyword"]: kw["count"] for kw in result["keywords"]["top"]}
+    assert kw_map["Rag"] == 2
+    assert kw_map["Llm"] == 1
+
+
+def test_aggregate_corpus_stats_source_and_type_breakdown():
+    pts = [
+        _make_point({"source": "ClickUp", "type": "task", "last_modified_date": "2026-01-01", "excerpt_keywords": ""}),
+        _make_point({"source": "GitHub",  "type": "readme", "last_modified_date": "2026-02-01", "excerpt_keywords": ""}),
+        _make_point({"source": "ClickUp", "type": "doc", "last_modified_date": "2026-03-01", "excerpt_keywords": ""}),
+    ]
+    result = _aggregate_corpus_stats(pts)
+    assert result["overview"]["total_nodes"] == 3
+    assert result["by_source"]["ClickUp"]["nodes"] == 2
+    assert result["by_source"]["GitHub"]["nodes"] == 1
+    assert result["by_type"]["task"] == 1
+    assert result["by_type"]["readme"] == 1
+    assert result["by_type"]["doc"] == 1
+    assert result["overview"]["date_range"]["from"] == "2026-01-01"
+    assert result["overview"]["date_range"]["to"] == "2026-03-01"
+    assert result["overview"]["last_ingested"] == "2026-03-01"
+
+
+def test_aggregate_corpus_stats_top_30_keywords_global():
+    kws = ", ".join(f"kw{i}" for i in range(35))
+    pt = _make_point({"excerpt_keywords": kws, "source": "X"})
+    result = _aggregate_corpus_stats([pt])
+    assert len(result["keywords"]["top"]) == 30
+
+
+def test_aggregate_corpus_stats_top_5_keywords_per_source():
+    kws = ", ".join(f"kw{i}" for i in range(10))
+    pt = _make_point({"excerpt_keywords": kws, "source": "GitHub"})
+    result = _aggregate_corpus_stats([pt])
+    assert len(result["by_source"]["GitHub"]["top_keywords"]) == 5
+
+
+def test_aggregate_corpus_stats_keyword_title_case():
+    pt = _make_point({"excerpt_keywords": "machine learning", "source": "X"})
+    result = _aggregate_corpus_stats([pt])
+    assert result["keywords"]["top"][0]["keyword"] == "Machine Learning"
+    assert result["by_source"]["X"]["top_keywords"] == ["Machine Learning"]
