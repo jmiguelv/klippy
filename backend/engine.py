@@ -149,6 +149,7 @@ class KlippyEngine:
         limit: int | None = None,
         force: bool = False,
         extract_questions: bool = False,
+        extract_keywords: bool = False,
     ) -> None:
         """Loads markdown files and indexes them. If limit is set, samples a random subset. If force is True, ignores cache."""
         if not os.path.exists(self.data_dir):
@@ -200,14 +201,16 @@ class KlippyEngine:
         )
 
         transformations: list = [MarkdownNodeParser(include_metadata=True)]
-        if extract_questions:
-            logger.info("Enabling QuestionsAnsweredExtractor and KeywordExtractor...")
-            transformations.extend(
-                [
-                    QuestionsAnsweredExtractor(llm=Settings.llm, num_questions=3),
-                    KeywordExtractor(llm=Settings.llm, keywords=5),
-                ]
-            )
+        if extract_questions or extract_keywords:
+            if extract_questions:
+                logger.info("Enabling QuestionsAnsweredExtractor...")
+                transformations.append(
+                    QuestionsAnsweredExtractor(llm=Settings.llm, num_questions=3)
+                )
+            if extract_keywords:
+                logger.info("Enabling KeywordExtractor...")
+                transformations.append(KeywordExtractor(llm=Settings.llm, keywords=5))
+
         transformations.append(Settings.embed_model)
 
         pipeline = IngestionPipeline(
@@ -217,7 +220,7 @@ class KlippyEngine:
         )
 
         # Process in manual batches to avoid pickling errors and manage memory
-        batch_size = 20 if extract_questions else 100
+        batch_size = 20 if (extract_questions or extract_keywords) else 100
         for i in range(0, len(documents), batch_size):
             batch = documents[i : i + batch_size]
             logger.info(
@@ -226,12 +229,12 @@ class KlippyEngine:
             try:
                 pipeline.run(documents=batch, show_progress=False)
             except Exception as e:
-                if extract_questions:
+                if extract_questions or extract_keywords:
                     logger.warning(
-                        f"Question extraction failed for batch (likely LLM error: {e}). "
-                        "Retrying batch without extraction..."
+                        f"Metadata extraction failed for batch (likely LLM error: {e}). "
+                        "Retrying batch without extractions..."
                     )
-                    # Fallback pipeline without extractor
+                    # Fallback pipeline without extractors
                     fallback_pipeline = IngestionPipeline(
                         transformations=[
                             MarkdownNodeParser(include_metadata=True),

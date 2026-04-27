@@ -180,7 +180,7 @@ async def test_astream_chat(engine_with_index, mocker):
     mock_chat_engine.astream_chat.assert_called_once_with("Hi")
 
 
-def test_ingest_data_with_questions_extractor(engine, mocker):
+def test_ingest_data_with_extractors(engine, mocker):
     mock_pipeline = mocker.patch("engine.IngestionPipeline")
     mock_reader = mocker.patch("engine.SimpleDirectoryReader")
     mock_reader.return_value.load_data.return_value = [mocker.Mock(text="test content", metadata={"file_path": "test.md"})]
@@ -188,7 +188,8 @@ def test_ingest_data_with_questions_extractor(engine, mocker):
     mocker.patch("os.path.exists", return_value=True)
     mocker.patch("llama_index.core.VectorStoreIndex.from_vector_store")
 
-    engine.ingest_data(extract_questions=True)
+    # Test both enabled
+    engine.ingest_data(extract_questions=True, extract_keywords=True)
 
     _, kwargs = mock_pipeline.call_args
     transformations = kwargs["transformations"]
@@ -199,6 +200,30 @@ def test_ingest_data_with_questions_extractor(engine, mocker):
     assert any(isinstance(t, MarkdownNodeParser) for t in transformations)
     assert any(isinstance(t, QuestionsAnsweredExtractor) for t in transformations)
     assert any(isinstance(t, KeywordExtractor) for t in transformations)
+
+def test_ingest_data_with_independent_extractors(engine, mocker):
+    mock_pipeline = mocker.patch("engine.IngestionPipeline")
+    mock_reader = mocker.patch("engine.SimpleDirectoryReader")
+    mock_reader.return_value.load_data.return_value = [mocker.Mock(text="test content", metadata={"file_path": "test.md"})]
+    mocker.patch("engine.parse_frontmatter", return_value=("test content", {}))
+    mocker.patch("os.path.exists", return_value=True)
+    mocker.patch("llama_index.core.VectorStoreIndex.from_vector_store")
+
+    from llama_index.core.extractors import QuestionsAnsweredExtractor, KeywordExtractor
+
+    # Test only keywords
+    engine.ingest_data(extract_keywords=True)
+    _, kwargs = mock_pipeline.call_args
+    transformations = kwargs["transformations"]
+    assert any(isinstance(t, KeywordExtractor) for t in transformations)
+    assert not any(isinstance(t, QuestionsAnsweredExtractor) for t in transformations)
+
+    # Test only questions
+    engine.ingest_data(extract_questions=True)
+    _, kwargs = mock_pipeline.call_args
+    transformations = kwargs["transformations"]
+    assert any(isinstance(t, QuestionsAnsweredExtractor) for t in transformations)
+    assert not any(isinstance(t, KeywordExtractor) for t in transformations)
 
 def test_ingest_data_fallback_on_extractor_failure(engine, mocker):
     # Setup: 1st pipeline.run fails, 2nd (fallback) succeeds
@@ -212,7 +237,7 @@ def test_ingest_data_fallback_on_extractor_failure(engine, mocker):
     mocker.patch("llama_index.core.VectorStoreIndex.from_vector_store")
 
     # This should not raise an exception
-    engine.ingest_data(extract_questions=True)
+    engine.ingest_data(extract_keywords=True)
     
     # Verify it was called twice (once for initial fail, once for fallback)
     assert mock_pipeline.return_value.run.call_count == 2

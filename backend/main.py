@@ -53,6 +53,7 @@ class IngestRequest(BaseModel):
     limit: int = None
     force: bool = False
     extract_questions: bool = False
+    extract_keywords: bool = False
 
 
 class FeedbackRequest(BaseModel):
@@ -261,8 +262,13 @@ def invalidate_stats_cache():
     logger.info("Invalidated debug stats cache.")
 
 
-def _run_ingestion(limit, force, extract_questions):
-    engine.ingest_data(limit=limit, force=force, extract_questions=extract_questions)
+def _run_ingestion(limit, force, extract_questions, extract_keywords):
+    engine.ingest_data(
+        limit=limit,
+        force=force,
+        extract_questions=extract_questions,
+        extract_keywords=extract_keywords,
+    )
     invalidate_stats_cache()
 
 
@@ -274,12 +280,14 @@ async def trigger_ingestion(request: IngestRequest, background_tasks: Background
         limit=request.limit,
         force=request.force,
         extract_questions=request.extract_questions,
+        extract_keywords=request.extract_keywords,
     )
     return {
         "status": "Ingestion task started in background",
         "limit": request.limit,
         "force": request.force,
         "extract_questions": request.extract_questions,
+        "extract_keywords": request.extract_keywords,
     }
 
 
@@ -480,15 +488,23 @@ def main():
         action="store_true",
         help="Extract questions from nodes during ingestion",
     )
+    parser.add_argument(
+        "--extract-keywords",
+        action="store_true",
+        help="Extract keywords from nodes during ingestion",
+    )
 
     args, unknown = parser.parse_known_args()
 
     if args.ingest:
         logger.info(
-            f"CLI: Starting manual ingestion (limit={args.limit}, force={args.force}, extract_questions={args.extract_questions})..."
+            f"CLI: Starting manual ingestion (limit={args.limit}, force={args.force}, extract_questions={args.extract_questions}, extract_keywords={args.extract_keywords})..."
         )
         engine.ingest_data(
-            limit=args.limit, force=args.force, extract_questions=args.extract_questions
+            limit=args.limit,
+            force=args.force,
+            extract_questions=args.extract_questions,
+            extract_keywords=args.extract_keywords,
         )
         logger.info("CLI: Ingestion complete. Exiting.")
     else:
