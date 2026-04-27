@@ -283,6 +283,10 @@
 	}
 
 	@media (max-width: 768px) {
+		.chat-content {
+			padding-top: 60px;
+		}
+
 		.sidebar {
 			position: fixed;
 			height: 100%;

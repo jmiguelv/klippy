@@ -1327,6 +1327,7 @@
 
 	@media (max-width: 640px) {
 		.explore-page {
+			padding-top: 0;
 			padding-inline: var(--size-4);
 		}
 

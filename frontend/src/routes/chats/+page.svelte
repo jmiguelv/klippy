@@ -284,7 +284,7 @@
 
 	@media (max-width: 640px) {
 		.hero-section {
-			padding: var(--size-4);
+			padding: 0 var(--size-4) var(--size-4);
 		}
 
 		.composer-input {
