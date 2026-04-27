@@ -669,7 +669,7 @@
 					autocomplete="off"
 					oninput={handleInput}
 					onkeydown={handleKeydown}
-					onblur={() => setTimeout(() => (ac = { ...ac, visible: false }), 150)}
+					onblur={() => setTimeout(() => (ac = { ...ac, visible: false }), 300)}
 				/>
 			</div>
 
@@ -1052,10 +1052,12 @@
 		background: var(--canvas);
 		padding: var(--size-6) var(--size-4);
 		position: relative;
+		overflow: visible;
 	}
 
 	.composer .container {
 		position: relative;
+		overflow: visible;
 	}
 
 	.composer form {
@@ -1285,7 +1287,7 @@
 		border-radius: 4px;
 		box-shadow: var(--shadow-2);
 		overflow: hidden;
-		z-index: 200;
+		z-index: 1000;
 	}
 
 	.ac-option {
