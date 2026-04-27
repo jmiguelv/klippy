@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.6.0](https://github.com/jmiguelv/klippy/compare/backend-v0.5.1...backend-v0.6.0) (2026-04-27)
+
+
+### Features
+
+* **api:** add /keywords endpoint to sample indexed keywords ([f527528](https://github.com/jmiguelv/klippy/commit/f527528992362676254a0241ff9d1c9fd2ae65d0))
+* **ingest:** add KeywordExtractor to pipeline ([9c7b4cf](https://github.com/jmiguelv/klippy/commit/9c7b4cfd57cbd93bbe56d4befff879671a289b2a))
+* **ingest:** separate question and keyword extraction flags ([cb535e8](https://github.com/jmiguelv/klippy/commit/cb535e8da4e7ecf367f02392f0c0f05596fe748a))
+* **questions-endpoint:** extract and display representative questions ([7efd08d](https://github.com/jmiguelv/klippy/commit/7efd08d5115a38c3d30ca92eeb49171ee5f973c6))
+* **questions-endpoint:** representative question extraction and display ([0071589](https://github.com/jmiguelv/klippy/commit/00715896d630fc124a7bc8f7014a4715e62c86d2))
+
+
+### Bug Fixes
+
+* **ingest:** add fallback for question extraction failures ([806e35c](https://github.com/jmiguelv/klippy/commit/806e35c151a3440e00be950219445166e4718643))
+* **ingest:** replace existing documents to avoid duplicates ([199400e](https://github.com/jmiguelv/klippy/commit/199400e672134e889f6fe51a8dd5e0a2b6219088))
+* **questions-endpoint:** enhance question cleaning and filtering logic ([3566c2e](https://github.com/jmiguelv/klippy/commit/3566c2e720b94620e7e5d41cdf6b06ae60f2677f))
+* **questions-endpoint:** handle nested metadata in _node_content ([ca18ad3](https://github.com/jmiguelv/klippy/commit/ca18ad3f5b74eb1cada76804530d9b00c969c8e3))
+* **questions-endpoint:** more aggressive formatting and answer cleaning ([d8eb3a1](https://github.com/jmiguelv/klippy/commit/d8eb3a12d74061ad91fd43f159e81797d8833eef))
+* **questions-endpoint:** port strict question filtering logic ([7edf0cc](https://github.com/jmiguelv/klippy/commit/7edf0cca17bbc41d60acb9e15861d31067a2c31e))
+* **tests:** mock external clients to avoid CI connection errors ([73b84d7](https://github.com/jmiguelv/klippy/commit/73b84d7ef36867336c83ed5d6e27cc112f168e8c))
+
 ## [0.5.1](https://github.com/jmiguelv/klippy/compare/backend-v0.5.0...backend-v0.5.1) (2026-04-24)
 
 

@@ -1,5 +1,5 @@
 {
-  "backend": "0.5.1",
+  "backend": "0.6.0",
   "harvester": "0.2.1",
-  "frontend": "0.6.0"
+  "frontend": "0.7.0"
 }

@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.7.0](https://github.com/jmiguelv/klippy/compare/frontend-v0.6.0...frontend-v0.7.0) (2026-04-27)
+
+
+### Features
+
+* **frontend:** improve question chips UX with skeletons and labeling ([0f6bdbf](https://github.com/jmiguelv/klippy/commit/0f6bdbfacc9a5d816896588c3d866b8aa17055cd))
+* **questions-endpoint:** extract and display representative questions ([7efd08d](https://github.com/jmiguelv/klippy/commit/7efd08d5115a38c3d30ca92eeb49171ee5f973c6))
+* **questions-endpoint:** representative question extraction and display ([0071589](https://github.com/jmiguelv/klippy/commit/00715896d630fc124a7bc8f7014a4715e62c86d2))
+
+
+### Bug Fixes
+
+* **tests:** cast mock fetch response to satisfy svelte-check ([2c79a3c](https://github.com/jmiguelv/klippy/commit/2c79a3cc731d28c509d5d71b6b2f5ea0c743f23a))
+
 ## [0.6.0](https://github.com/jmiguelv/klippy/compare/frontend-v0.5.0...frontend-v0.6.0) (2026-04-24)
 
 ### Features
