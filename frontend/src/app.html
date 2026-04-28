@@ -5,10 +5,11 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />
 		<link rel="icon" href="/favicon.svg" />
-		<!-- Runs synchronously before first paint to prevent dark-mode FOUC -->
 		<script>
-			const t = localStorage.getItem('klippy_theme');
-			if (t) document.documentElement.dataset.theme = t;
+			(function() {
+				const theme = localStorage.getItem('klippy_theme') || 'light';
+				document.documentElement.dataset.theme = theme;
+			})();
 		</script>
 		%sveltekit.head%
 	</head>

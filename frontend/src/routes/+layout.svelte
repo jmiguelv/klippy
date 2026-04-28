@@ -8,7 +8,9 @@
 
 	let { children } = $props();
 
-	let theme = $state<'light' | 'dark'>('light');
+	let theme = $state<'light' | 'dark'>(
+		typeof localStorage !== 'undefined' ? (localStorage.getItem('klippy_theme') as 'light' | 'dark') || 'light' : 'light'
+	);
 	let userName = $state('');
 	let isSidebarOpen = $state(
 		typeof localStorage !== 'undefined' ? localStorage.getItem('klippy_sidebar_open') === 'true' : false
@@ -22,11 +24,6 @@
 	});
 
 	onMount(() => {
-		const savedTheme = localStorage.getItem('klippy_theme') as 'light' | 'dark' | null;
-		if (savedTheme) {
-			theme = savedTheme;
-			document.documentElement.dataset.theme = theme;
-		}
 		userName = localStorage.getItem('klippy_user_name') ?? '';
 		document.body.style.overflow = 'hidden';
 		chatState.loadSessions();
