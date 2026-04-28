@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.7.0](https://github.com/jmiguelv/klippy/compare/backend-v0.6.0...backend-v0.7.0) (2026-04-28)
+
+
+### Features
+
+* **corpus:** add _aggregate_corpus_stats helper with unit tests ([a4ea3db](https://github.com/jmiguelv/klippy/commit/a4ea3db87b084089c28bc021193b45db49f9e803))
+* **corpus:** add corpus explorer dashboard ([0a9ce3a](https://github.com/jmiguelv/klippy/commit/0a9ce3a6b5af2857936164a733511a4c022dfe31))
+* **corpus:** add GET /corpus/stats endpoint with Redis cache ([17909da](https://github.com/jmiguelv/klippy/commit/17909da01812e6a29e1f1202449d2128f7b64ddc))
+
 ## [0.6.0](https://github.com/jmiguelv/klippy/compare/backend-v0.5.1...backend-v0.6.0) (2026-04-27)
 
 
