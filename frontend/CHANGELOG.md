@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.10.0](https://github.com/jmiguelv/klippy/compare/frontend-v0.9.0...frontend-v0.10.0) (2026-04-28)
+
+
+### Features
+
+* **corpus:** add /explore dashboard page ([f0a2e7e](https://github.com/jmiguelv/klippy/commit/f0a2e7e2db7b6079cb81eb8c5e4ba68864c4ae52))
+* **corpus:** add /explore load function with tests ([3061c93](https://github.com/jmiguelv/klippy/commit/3061c933b9fb2c606b0e31834b9bfbce9e9a0d1f))
+* **corpus:** add corpus explorer dashboard ([0a9ce3a](https://github.com/jmiguelv/klippy/commit/0a9ce3a6b5af2857936164a733511a4c022dfe31))
+* **corpus:** add corpus-stats transform functions with unit tests ([71a13a0](https://github.com/jmiguelv/klippy/commit/71a13a0fcf4699b18adcf54339691e92c11b9bf0))
+* **corpus:** add Explore nav link to sidebar ([ca1d7f6](https://github.com/jmiguelv/klippy/commit/ca1d7f62e3c61dba99f2fce93b0cf2fbfb54304c))
+
+
+### Bug Fixes
+
+* **explore:** add non-null assertion for PageLoad void return type ([25905ae](https://github.com/jmiguelv/klippy/commit/25905ae48f26a84499af74e1d6c97ed48e12aabb))
+* **explore:** widen container to 1040px and use navy for breakdown bars ([4c803e1](https://github.com/jmiguelv/klippy/commit/4c803e131bf7921b1ee471b55cf8507b075fc721))
+* **frontend:** add fallback page for adapter-static SPA routing ([a7704e1](https://github.com/jmiguelv/klippy/commit/a7704e1b46bb388901b8b514e1472d554655f79f))
+
 ## [0.9.0](https://github.com/jmiguelv/klippy/compare/frontend-v0.8.0...frontend-v0.9.0) (2026-04-27)
 
 
