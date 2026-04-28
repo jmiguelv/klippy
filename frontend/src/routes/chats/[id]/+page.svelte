@@ -33,8 +33,6 @@
 	let activeFilters = $state<Record<string, string>>({});
 	let query = $state('');
 	let isLoading = $state(false);
-	let topK = $state(10);
-	let similarityCutoff = $state(0.3);
 	let modelName = $state('...');
 	let showSettings = $state(false);
 	let chatMainEl: HTMLElement;
@@ -311,7 +309,7 @@
 				},
 				{
 					label: 'Searching Qdrant',
-					detail: `top_k=${topK} · threshold=${similarityCutoff.toFixed(2)}`,
+					detail: `top_k=${chatState.topK} · threshold=${chatState.threshold.toFixed(2)}`,
 					t: null,
 					active: true
 				}
@@ -337,8 +335,8 @@
 					text,
 					session_id: sessionId,
 					filters: activeFilters,
-					top_k: topK,
-					similarity_cutoff: similarityCutoff > 0 ? similarityCutoff : null
+					top_k: chatState.topK,
+					similarity_cutoff: chatState.threshold > 0 ? chatState.threshold : null
 				})
 			});
 
@@ -695,8 +693,8 @@
 				<div class="composer-controls" transition:slide>
 					<label class="control" for="slider-topk">
 						<span class="control-lbl">Top K</span>
-						<input id="slider-topk" type="range" min="1" max="50" bind:value={topK} />
-						<span class="control-val">{topK}</span>
+						<input id="slider-topk" type="range" min="1" max="50" bind:value={chatState.topK} />
+						<span class="control-val">{chatState.topK}</span>
 					</label>
 					<label class="control" for="slider-threshold">
 						<span class="control-lbl">Threshold</span>
@@ -706,9 +704,9 @@
 							min="0"
 							max="1"
 							step="0.05"
-							bind:value={similarityCutoff}
+							bind:value={chatState.threshold}
 						/>
-						<span class="control-val">{similarityCutoff.toFixed(2)}</span>
+						<span class="control-val">{chatState.threshold.toFixed(2)}</span>
 					</label>
 				</div>
 			{/if}

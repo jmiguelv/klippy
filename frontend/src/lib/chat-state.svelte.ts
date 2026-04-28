@@ -37,10 +37,28 @@ function truncate(str: string, n: number) {
 }
 
 let sessions = $state<Session[]>([]);
+let topK = $state(10);
+let threshold = $state(0.3);
 
 export const chatState = {
 	get sessions() {
 		return sessions;
+	},
+
+	get topK() {
+		return topK;
+	},
+	set topK(val: number) {
+		topK = val;
+		if (typeof window !== 'undefined') localStorage.setItem('klippy_top_k', val.toString());
+	},
+
+	get threshold() {
+		return threshold;
+	},
+	set threshold(val: number) {
+		threshold = val;
+		if (typeof window !== 'undefined') localStorage.setItem('klippy_threshold', val.toString());
 	},
 
 	loadSessions() {
@@ -50,6 +68,10 @@ export const chatState = {
 			sessions = JSON.parse(stored);
 			sessions.sort((a, b) => b.updatedAt - a.updatedAt);
 		}
+		const storedTopK = localStorage.getItem('klippy_top_k');
+		if (storedTopK) topK = parseInt(storedTopK, 10);
+		const storedThreshold = localStorage.getItem('klippy_threshold');
+		if (storedThreshold) threshold = parseFloat(storedThreshold);
 	},
 
 	saveSessions() {
