@@ -308,7 +308,7 @@
 		chatState.loadSessions();
 		const session = chatState.sessions.find((s) => s.id === page.params.id);
 		if (!session) {
-			goto('/chats/');
+			goto('/');
 			return;
 		}
 

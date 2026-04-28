@@ -3,7 +3,7 @@
 	import { slide } from 'svelte/transition';
 	import { SlidersHorizontal } from 'lucide-svelte';
 	import { chatState } from '$lib/chat-state.svelte';
-	import { createAutocomplete } from '$lib/use-autocomplete';
+	import { createAutocomplete } from './use-autocomplete.svelte';
 	import { page } from '$app/state';
 
 	interface Props {

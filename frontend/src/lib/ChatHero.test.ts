@@ -83,7 +83,7 @@ describe('Chats Page', () => {
 		const chip = await screen.findByText('What is Klippy?');
 		chip.click();
 
-		expect(chatState.createNewChat).toHaveBeenCalledWith('What is Klippy?');
+		expect(chatState.createNewChat).toHaveBeenCalledWith('What is Klippy?', {});
 		expect(navigation.goto).toHaveBeenCalledWith(expect.stringContaining('test-id'));
 	});
 

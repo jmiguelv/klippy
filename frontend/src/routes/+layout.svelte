@@ -52,7 +52,7 @@
 		if (!confirm('Are you sure you want to delete this chat?')) return;
 		const nextId = chatState.deleteChat(id);
 		if (id === currentId) {
-			goto(nextId ? '/chats/' + nextId + '/' : '/chats/');
+			goto(nextId ? '/chats/' + nextId + '/' : '/');
 		}
 	}
 
@@ -75,7 +75,7 @@
 
 <nav class="main-nav">
 	<div class="container nav-inner">
-		<a href="/chats/" class="nav-wordmark">Klippy <span class="nav-org">King's Digital Lab</span></a>
+		<a href="/" class="nav-wordmark">Klippy <span class="nav-org">King's Digital Lab</span></a>
 		<div class="nav-links">
 			{#if chatState.userName}
 				<button class="nav-user" onclick={switchUser} title="Switch user">{chatState.userName}</button>
