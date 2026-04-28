@@ -255,6 +255,113 @@ _INTERNAL_FIELDS = {
 }
 
 
+def _extract_payload_field(payload: dict, field: str):
+    """Returns field value from top-level payload or from _node_content metadata."""
+    if field in payload:
+        return payload[field]
+    if "_node_content" in payload:
+        try:
+            return json.loads(payload["_node_content"]).get("metadata", {}).get(field)
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return None
+
+
+def _aggregate_corpus_stats(points: list) -> dict:
+    """Aggregates keyword/source/type/date stats from a list of Qdrant points."""
+    keyword_counts: Counter = Counter()
+    source_keyword_counts: dict[str, Counter] = defaultdict(Counter)
+    source_counts: Counter = Counter()
+    type_counts: Counter = Counter()
+    dates: list[str] = []
+
+    for point in points:
+        payload = point.payload or {}
+
+        source = str(_extract_payload_field(payload, "source") or "unknown")
+        doc_type = _extract_payload_field(payload, "type")
+        last_modified = _extract_payload_field(payload, "last_modified_date")
+        raw_keywords = _extract_payload_field(payload, "excerpt_keywords")
+
+        source_counts[source] += 1
+        if doc_type is not None:
+            type_counts[str(doc_type)] += 1
+        if last_modified is not None:
+            dates.append(str(last_modified))
+
+        if raw_keywords:
+            if isinstance(raw_keywords, str):
+                kws = [k.strip().lower() for k in raw_keywords.split(",") if k.strip()]
+            elif isinstance(raw_keywords, list):
+                kws = [str(k).strip().lower() for k in raw_keywords if str(k).strip()]
+            else:
+                kws = []
+            for kw in kws:
+                keyword_counts[kw] += 1
+                source_keyword_counts[source][kw] += 1
+
+    total = sum(source_counts.values())
+    sorted_dates = sorted(dates)
+
+    return {
+        "overview": {
+            "total_nodes": total,
+            "sources": list(source_counts.keys()),
+            "last_ingested": sorted_dates[-1] if sorted_dates else None,
+            "date_range": {
+                "from": sorted_dates[0] if sorted_dates else None,
+                "to": sorted_dates[-1] if sorted_dates else None,
+            },
+        },
+        "keywords": {
+            "top": [
+                {"keyword": kw.title(), "count": cnt}
+                for kw, cnt in keyword_counts.most_common(30)
+            ]
+        },
+        "by_source": {
+            src: {
+                "nodes": cnt,
+                "top_keywords": [kw.title() for kw, _ in source_keyword_counts[src].most_common(5)],
+            }
+            for src, cnt in source_counts.items()
+        },
+        "by_type": dict(type_counts),
+    }
+
+
+CORPUS_STATS_CACHE_KEY = "corpus_stats"
+
+
+@app.get("/corpus/stats")
+async def get_corpus_stats():
+    cached = redis_client.get(CORPUS_STATS_CACHE_KEY)
+    if cached:
+        return json.loads(cached)
+
+    try:
+        all_points = []
+        offset = None
+        while True:
+            result, offset = engine.client.scroll(
+                collection_name=engine.collection_name,
+                limit=1000,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False,
+            )
+            all_points.extend(result)
+            if offset is None:
+                break
+
+        stats = _aggregate_corpus_stats(all_points)
+        redis_client.setex(CORPUS_STATS_CACHE_KEY, STATS_CACHE_TTL, json.dumps(stats))
+        return stats
+    except Exception as e:
+        logger.error(f"Error fetching corpus stats: {e}")
+        raise HTTPException(status_code=503, detail="Qdrant unreachable")
+
+
 def invalidate_stats_cache():
     """Removes all cached debug/stats entries after ingestion."""
     for key in redis_client.scan_iter("debug_stats:*"):
