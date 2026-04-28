@@ -162,7 +162,7 @@
     }
 
     .explore-container {
-        max-width: 900px;
+        max-width: 1040px;
         padding-top: var(--size-8);
         padding-bottom: var(--size-10);
     }
@@ -314,7 +314,7 @@
 
     .breakdown-bar {
         height: 100%;
-        background: var(--teal);
+        background: #0a2d50;
         border-radius: 4px;
         transition: width 0.3s ease;
     }
