@@ -17,7 +17,7 @@ describe('load', () => {
         });
 
         const result = await load({ fetch: mockFetch } as any);
-        const stats = await result.statsPromise;
+        const stats = await result!.statsPromise;
         expect(stats.overview.total_nodes).toBe(42);
         expect(mockFetch).toHaveBeenCalledWith('http://localhost:8000/corpus/stats');
     });
@@ -26,6 +26,6 @@ describe('load', () => {
         const mockFetch = vi.fn().mockResolvedValue({ ok: false, status: 503 });
 
         const result = await load({ fetch: mockFetch } as any);
-        await expect(result.statsPromise).rejects.toThrow('HTTP 503');
+        await expect(result!.statsPromise).rejects.toThrow('HTTP 503');
     });
 });
