@@ -1,40 +1,26 @@
 <script lang="ts">
 	import { onMount, tick, untrack } from 'svelte';
-	import { slide } from 'svelte/transition';
 	import { PUBLIC_API_URL } from '$env/static/public';
-	import { KNOWN_FIELDS } from '$lib/filters';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { chatState } from '$lib/chat-state.svelte';
 	import { marked } from 'marked';
+	import Composer from '$lib/Composer.svelte';
 	import {
 		Trash2,
 		ChevronDown,
 		ThumbsUp,
 		ThumbsDown,
 		RotateCcw,
-		Search,
 		Code,
-		FileText,
-		SlidersHorizontal
+		FileText
 	} from 'lucide-svelte';
-
-	interface AcState {
-		visible: boolean;
-		mode: 'field' | 'value';
-		field: string;
-		partial: string;
-		options: string[];
-		activeIdx: number;
-	}
 
 	// Per-session UI state — reset when params.id changes
 	let expandedSources = $state<Set<number>>(new Set());
 	let activeFilters = $state<Record<string, string>>({});
-	let query = $state('');
 	let isLoading = $state(false);
 	let modelName = $state('...');
-	let showSettings = $state(false);
 	let chatMainEl: HTMLElement;
 
 	// Reset per-session state when navigating between sessions
@@ -44,19 +30,6 @@
 		activeFilters = session?.filters ? { ...session.filters } : {};
 		expandedSources = new Set();
 	});
-
-	// Autocomplete state
-	let ac = $state<AcState>({
-		visible: false,
-		mode: 'field',
-		field: '',
-		partial: '',
-		options: [],
-		activeIdx: 0
-	});
-	let acCache: Record<string, string[]> = {};
-	let allStatsReady: Promise<void> | null = null;
-	let statsOffline = $state(false);
 
 	function toggleSources(index: number) {
 		if (expandedSources.has(index)) {
@@ -91,140 +64,6 @@
 		return { text, filters };
 	}
 
-	function removeFilter(key: string) {
-		const { [key]: _, ...rest } = activeFilters;
-		activeFilters = rest;
-		const sIdx = chatState.sessions.findIndex((s) => s.id === page.params.id);
-		if (sIdx !== -1) {
-			chatState.sessions[sIdx].filters = activeFilters;
-			chatState.saveSessions();
-		}
-	}
-
-	// ── Autocomplete ────────────────────────────────────────────
-
-	const AC_CACHE_TTL_MS = 3_600_000;
-	const AC_CACHE_LS_KEY = 'klippy_ac_cache';
-
-	async function fetchAllStats(): Promise<void> {
-		try {
-			const stored = localStorage.getItem(AC_CACHE_LS_KEY);
-			if (stored) {
-				const { timestamp, stats } = JSON.parse(stored) as {
-					timestamp: number;
-					stats: Record<string, string[]>;
-				};
-				if (Date.now() - timestamp < AC_CACHE_TTL_MS) {
-					Object.assign(acCache, stats);
-					return;
-				}
-			}
-		} catch {
-			/* ignore */
-		}
-
-		try {
-			const res = await fetch(`${PUBLIC_API_URL}/debug/stats/all`);
-			const data = (await res.json()) as Record<string, Record<string, number>>;
-			const stats: Record<string, string[]> = {};
-			for (const [field, valueCounts] of Object.entries(data)) {
-				stats[field] = Object.keys(valueCounts);
-			}
-			Object.assign(acCache, stats);
-			localStorage.setItem(AC_CACHE_LS_KEY, JSON.stringify({ timestamp: Date.now(), stats }));
-		} catch {
-			statsOffline = true;
-		}
-	}
-
-	async function fetchValues(field: string): Promise<string[]> {
-		if (acCache[field] !== undefined) return acCache[field];
-		try {
-			const res = await fetch(`${PUBLIC_API_URL}/debug/stats?field=${field}`);
-			const data = await res.json();
-			acCache[field] = Object.keys(data.counts ?? {});
-		} catch {
-			acCache[field] = [];
-		}
-		return acCache[field];
-	}
-
-	async function showValueOptions(field: string, partial: string): Promise<void> {
-		if (acCache[field] === undefined && allStatsReady) await allStatsReady;
-		const values = acCache[field] !== undefined ? acCache[field] : await fetchValues(field);
-		const options = values.filter((v) => v.toLowerCase().includes(partial.toLowerCase()));
-		ac = { visible: options.length > 0, mode: 'value', field, partial, options, activeIdx: 0 };
-	}
-
-	async function handleInput(e: Event) {
-		const input = e.target as HTMLInputElement;
-		const before = input.value.slice(0, input.selectionStart ?? input.value.length);
-
-		const valueMatch = before.match(/@(\w+):(?:"([^"]*)"|([^"\s]*))$/);
-		const fieldMatch = !valueMatch && before.match(/@(\w*)$/);
-
-		if (valueMatch) {
-			const [, field, quoted, unquoted] = valueMatch;
-			const partial = quoted ?? unquoted;
-			if (acCache[field] !== undefined) {
-				await showValueOptions(field, partial);
-			} else {
-				await fetchValues(field);
-				const inputEl = e.target as HTMLInputElement;
-				const nowBefore = inputEl.value.slice(0, inputEl.selectionStart ?? inputEl.value.length);
-				const nowMatch = nowBefore.match(/@(\w+):(?:"([^"]*)"|([^"\s]*))$/);
-				if (nowMatch && nowMatch[1] === field) {
-					const nowPartial = nowMatch[2] ?? nowMatch[3];
-					await showValueOptions(field, nowPartial);
-				}
-			}
-		} else if (fieldMatch) {
-			const [, partial] = fieldMatch;
-			const options = KNOWN_FIELDS.filter((f) => f.toLowerCase().includes(partial.toLowerCase()));
-			ac = {
-				visible: options.length > 0,
-				mode: 'field',
-				field: '',
-				partial,
-				options,
-				activeIdx: 0
-			};
-		} else {
-			ac = { ...ac, visible: false };
-		}
-	}
-
-	function handleKeydown(e: KeyboardEvent) {
-		if (!ac.visible) return;
-		if (e.key === 'ArrowDown') {
-			e.preventDefault();
-			ac = { ...ac, activeIdx: (ac.activeIdx + 1) % ac.options.length };
-		} else if (e.key === 'ArrowUp') {
-			e.preventDefault();
-			ac = { ...ac, activeIdx: (ac.activeIdx - 1 + ac.options.length) % ac.options.length };
-		} else if (e.key === 'Enter' && ac.visible) {
-			e.preventDefault();
-			selectOption(ac.options[ac.activeIdx]);
-		} else if (e.key === 'Escape') {
-			ac = { ...ac, visible: false };
-		}
-	}
-
-	async function selectOption(opt: string) {
-		if (ac.mode === 'field') {
-			query = query.replace(/@\w*$/, `@${opt}:`);
-			ac = { ...ac, visible: false };
-			document.getElementById('chat-input')?.focus();
-			await showValueOptions(opt, '');
-		} else {
-			activeFilters = { ...activeFilters, [ac.field]: opt };
-			const quotedOpt = opt.includes(' ') ? `"${opt}"` : opt;
-			query = query.replace(new RegExp(`@${ac.field}:(?:"[^"]*"|[^"\\s]*)$`), '').trimEnd();
-			ac = { ...ac, visible: false };
-			document.getElementById('chat-input')?.focus();
-		}
-	}
-
 	// ── Send ────────────────────────────────────────────────────
 
 	async function sendFeedback(isPositive: boolean, sessionId: string) {
@@ -248,17 +87,27 @@
 	}
 
 	async function handleSend(textOverride?: string, isRefresh = false) {
-		const raw = textOverride || query.trim();
-		if (!raw) return;
+		const raw = textOverride?.trim();
+		if (!raw && !isRefresh) return;
 
-		const { text, filters: parsed } = parseFilters(raw);
-		activeFilters = { ...activeFilters, ...parsed };
-		ac = { ...ac, visible: false };
-
-		if (!textOverride) {
-			query = '';
+		// If we have a textOverride (from URL or Refresh), parse it for filters.
+		// If it comes from Composer, filters are already in activeFilters.
+		if (raw) {
+			const { text, filters: parsed } = parseFilters(raw);
+			activeFilters = { ...activeFilters, ...parsed };
+			// We use the cleaned text for the actual query
+			processSend(text, isRefresh);
+		} else if (isRefresh) {
+			// Refresh uses the previous message content which should already be clean text
+			const sIdx = chatState.sessions.findIndex((s) => s.id === page.params.id);
+			const lastUserMsg = chatState.sessions[sIdx].messages[chatState.sessions[sIdx].messages.length - 2];
+			if (lastUserMsg) {
+				processSend(lastUserMsg.content, true);
+			}
 		}
+	}
 
+	async function processSend(text: string, isRefresh: boolean) {
 		const sessionId = page.params.id;
 		const sIdx = chatState.sessions.findIndex((s) => s.id === sessionId);
 		if (sIdx === -1) return;
@@ -454,7 +303,6 @@
 	// Derived
 	let currentSession = $derived(chatState.sessions.find((s) => s.id === page.params.id));
 	let chatHistory = $derived(currentSession?.messages || []);
-	let hasFilters = $derived(Object.keys(activeFilters).length > 0);
 
 	onMount(() => {
 		chatState.loadSessions();
@@ -463,8 +311,6 @@
 			goto('/chats/');
 			return;
 		}
-
-		allStatsReady = fetchAllStats();
 
 		const savedModel = localStorage.getItem('klippy_model_name');
 		if (savedModel) modelName = savedModel;
@@ -612,114 +458,10 @@
 
 <section class="composer">
 	<div class="container">
-		{#if ac.visible}
-			<div class="ac-dropdown" role="listbox">
-				{#each ac.options as opt, i}
-					<button
-						type="button"
-						role="option"
-						aria-selected={i === ac.activeIdx}
-						class="ac-option"
-						class:ac-active={i === ac.activeIdx}
-						onmousedown={(e) => {
-							e.preventDefault();
-							selectOption(opt);
-						}}
-					>
-						{#if ac.mode === 'field'}
-							<span class="ac-prefix">@</span>{opt}<span class="ac-suffix">:</span>
-						{:else}
-							{opt}
-						{/if}
-					</button>
-				{/each}
-			</div>
-		{/if}
-
-		<form
-			onsubmit={(e) => {
-				e.preventDefault();
-				handleSend();
-			}}
-		>
-			<div class="composer-input">
-				{#if hasFilters}
-					<div class="filter-chips">
-						{#each Object.entries(activeFilters) as [key, value]}
-							<span class="chip">
-								<span class="chip-label">
-									<span class="chip-key">{key}</span><span class="chip-sep">:</span><span
-										class="chip-val">{value}</span
-									>
-								</span>
-								<button
-									type="button"
-									class="chip-remove"
-									onclick={() => removeFilter(key)}
-									aria-label="Remove {key} filter">×</button
-								>
-							</span>
-						{/each}
-					</div>
-				{/if}
-				<input
-					id="chat-input"
-					type="text"
-					bind:value={query}
-					placeholder="Ask Klippy… use @ to filter by field"
-					autocomplete="off"
-					oninput={handleInput}
-					onkeydown={handleKeydown}
-					onblur={() => setTimeout(() => (ac = { ...ac, visible: false }), 300)}
-				/>
-				<button
-					type="button"
-					class="settings-toggle"
-					class:active={showSettings}
-					onclick={async () => {
-						showSettings = !showSettings;
-						if (showSettings) {
-							await tick();
-							document.getElementById('slider-topk')?.focus();
-						}
-					}}
-					title="Tune search parameters"
-				>
-					<SlidersHorizontal size={18} />
-				</button>
-			</div>
-
-			{#if showSettings}
-				<div class="composer-controls" transition:slide>
-					<label class="control" for="slider-topk">
-						<span class="control-lbl">Top K</span>
-						<input id="slider-topk" type="range" min="1" max="50" bind:value={chatState.topK} />
-						<span class="control-val">{chatState.topK}</span>
-					</label>
-					<label class="control" for="slider-threshold">
-						<span class="control-lbl">Threshold</span>
-						<input
-							id="slider-threshold"
-							type="range"
-							min="0"
-							max="1"
-							step="0.05"
-							bind:value={chatState.threshold}
-						/>
-						<span class="control-val">{chatState.threshold.toFixed(2)}</span>
-					</label>
-				</div>
-			{/if}
-
-			<p class="composer-hint">
-				<span class="hint-items">
-					<kbd>↵</kbd> send · <kbd>@</kbd> filter field
-				</span>
-				<span class="composer-meta"
-					>session <b>{(page.params.id ?? '').toUpperCase().split('-')[0]}</b> · {modelName}</span
-				>
-			</p>
-		</form>
+		<Composer
+			onSend={(text) => processSend(text, false)}
+			bind:activeFilters
+		/>
 	</div>
 </section>
 
@@ -1064,288 +806,6 @@
 		overflow: visible;
 	}
 
-	.composer form {
-		background: var(--surface);
-		border: 1px solid var(--border);
-		border-top: 2px solid var(--kings-red);
-		border-radius: 2px;
-		padding: 0;
-		box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
-		max-width: 1040px;
-		margin: 0 auto;
-	}
-
-	.composer-input {
-		padding: var(--size-4) var(--size-6);
-		display: flex;
-		align-items: center;
-		gap: var(--size-4);
-		flex-wrap: wrap;
-	}
-
-	.composer-input input {
-		flex: 1;
-		border: none;
-		outline: none;
-		background: transparent;
-		color: var(--ink-0);
-		font-size: 1.1rem;
-		font-family: var(--font-sans);
-		font-weight: 400;
-		min-width: 200px;
-	}
-
-	.settings-toggle {
-		background: none;
-		border: none;
-		cursor: pointer;
-		padding: var(--size-2);
-		color: var(--ink-3);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 4px;
-		transition:
-			color 0.15s,
-			background 0.15s;
-	}
-
-	.settings-toggle:hover,
-	.settings-toggle.active {
-		color: var(--kings-red);
-		background: var(--kings-red-light);
-	}
-
-	.filter-chips {
-		display: flex;
-		flex-wrap: nowrap;
-		gap: var(--size-2);
-		padding-bottom: var(--size-3);
-		overflow-x: auto;
-		max-width: 100%;
-		scrollbar-width: none;
-	}
-
-	.filter-chips::-webkit-scrollbar {
-		display: none;
-	}
-
-	.chip {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--size-2);
-		background: var(--surface);
-		border: 1px solid var(--border);
-		border-radius: 4px;
-		padding: 2px 4px 2px 8px;
-		font-size: 0.72rem;
-		font-family: var(--font-mono);
-		line-height: 1.4;
-	}
-
-	.chip-key {
-		color: var(--kings-red);
-		font-weight: 600;
-	}
-
-	.chip-sep {
-		color: var(--ink-3);
-	}
-
-	.chip-val {
-		color: var(--ink-1);
-	}
-
-	.chip-remove {
-		background: none;
-		border: none;
-		cursor: pointer;
-		color: var(--ink-3);
-		padding: 0 2px;
-		font-size: 0.9rem;
-		line-height: 1;
-		display: flex;
-		align-items: center;
-	}
-
-	.chip-remove:hover {
-		color: var(--ink-0);
-	}
-
-	.composer-controls {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		border-top: 1px solid var(--border);
-		background: var(--surface);
-	}
-
-	.control {
-		display: flex;
-		align-items: center;
-		padding: var(--size-3) var(--size-6);
-	}
-
-	.control:first-child {
-		border-right: 1px solid var(--border);
-	}
-
-	.control-lbl {
-		font-family: var(--font-mono);
-		font-size: 0.65rem;
-		text-transform: uppercase;
-		color: var(--ink-2);
-		letter-spacing: 0.15em;
-		flex: 0 0 90px;
-	}
-
-	.control-val {
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
-		color: var(--ink-1);
-		flex: 0 0 30px;
-		text-align: right;
-		font-weight: 500;
-	}
-
-	.control input[type='range'] {
-		flex: 1;
-		appearance: none;
-		background: transparent;
-		cursor: pointer;
-		margin: 0 var(--size-4);
-	}
-
-	.control input[type='range']::-webkit-slider-runnable-track {
-		background: var(--border);
-		height: 2px;
-		border-radius: 1px;
-	}
-
-	.control input[type='range']::-webkit-slider-thumb {
-		appearance: none;
-		height: 12px;
-		width: 12px;
-		background: var(--kings-red);
-		border-radius: 50%;
-		margin-top: -5px;
-		transition: transform 0.1s ease;
-	}
-
-	.control input[type='range']::-moz-range-track {
-		background: var(--border);
-		height: 2px;
-		border-radius: 1px;
-	}
-
-	.control input[type='range']::-moz-range-thumb {
-		border: none;
-		height: 12px;
-		width: 12px;
-		background: var(--kings-red);
-		border-radius: 50%;
-	}
-
-	.composer-hint {
-		padding: var(--size-2) var(--size-6);
-		font-family: var(--font-mono);
-		font-size: 0.65rem;
-		color: var(--ink-3);
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		border-top: 1px solid var(--border);
-		letter-spacing: 0.02em;
-	}
-
-	.hint-items {
-		display: flex;
-		align-items: center;
-		gap: 2px;
-	}
-
-	.composer-hint kbd {
-		background: none;
-		border: 1px solid var(--border-dark);
-		border-radius: 3px;
-		padding: 0 4px;
-		color: var(--ink-2);
-		font-family: var(--font-sans);
-		font-size: 0.7rem;
-		margin-right: 4px;
-		font-weight: 500;
-	}
-
-	.settings-toggle {
-		background: none;
-		border: none;
-		cursor: pointer;
-		padding: 0;
-		color: var(--ink-2);
-		font-family: inherit;
-		font-size: inherit;
-		text-transform: inherit;
-		display: inline-flex;
-		align-items: center;
-		gap: 4px;
-		transition: color 0.15s;
-		margin-left: 2px;
-	}
-
-	.settings-toggle:hover {
-		color: var(--kings-red);
-	}
-
-	.composer-meta {
-		text-transform: uppercase;
-		letter-spacing: 0.08em;
-		opacity: 0.8;
-		font-weight: 500;
-	}
-
-	.composer-meta b {
-		color: var(--ink-1);
-	}
-
-	/* ── Autocomplete dropdown ──────────────────── */
-	.ac-dropdown {
-		position: absolute;
-		bottom: calc(100% + 8px);
-		left: 0;
-		right: 0;
-		background: var(--surface);
-		border: 1px solid var(--border);
-		border-radius: 4px;
-		box-shadow: var(--shadow-2);
-		overflow: hidden;
-		z-index: 1000;
-	}
-
-	.ac-option {
-		display: block;
-		width: 100%;
-		text-align: left;
-		padding: var(--size-2) var(--size-4);
-		background: none;
-		border: none;
-		cursor: pointer;
-		font-family: var(--font-mono);
-		font-size: 0.8rem;
-		color: var(--ink-1);
-		transition: background 0.1s;
-		text-shadow: none;
-	}
-
-	.ac-option:hover,
-	.ac-active {
-		background: var(--kings-red-light);
-		color: var(--kings-red);
-	}
-
-	.ac-prefix,
-	.ac-suffix {
-		opacity: 0.5;
-	}
-
 	/* ── Empty state ────────────────────────────── */
 	.empty-state {
 		text-align: center;
@@ -1415,43 +875,6 @@
 		.source-score {
 			display: none;
 		}
-
-		.composer-input {
-			padding: var(--size-3);
-		}
-
-		.composer-input input {
-			padding: var(--size-2) 0;
-		}
-
-		.filter-chips {
-			flex-wrap: wrap;
-		}
-
-		.composer-hint {
-			display: none;
-		}
-
-		.composer-controls {
-			grid-template-columns: 1fr;
-		}
-
-		.control {
-			padding: var(--size-3) var(--size-4);
-		}
-
-		.control-lbl {
-			flex: 0 0 70px;
-		}
-
-		.control input[type='range'] {
-			margin: 0 var(--size-2);
-			min-width: 0;
-		}
-
-		.control:first-child {
-			border-right: none;
-			border-bottom: 1px solid var(--border);
-		}
 	}
 </style>
+

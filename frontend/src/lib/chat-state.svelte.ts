@@ -37,12 +37,21 @@ function truncate(str: string, n: number) {
 }
 
 let sessions = $state<Session[]>([]);
+let userName = $state('');
 let topK = $state(10);
 let threshold = $state(0.3);
 
 export const chatState = {
 	get sessions() {
 		return sessions;
+	},
+
+	get userName() {
+		return userName;
+	},
+	set userName(val: string) {
+		userName = val;
+		if (typeof window !== 'undefined') localStorage.setItem('klippy_user_name', val);
 	},
 
 	get topK() {
@@ -63,6 +72,9 @@ export const chatState = {
 
 	loadSessions() {
 		if (typeof window === 'undefined') return;
+		const savedUser = localStorage.getItem('klippy_user_name');
+		if (savedUser) userName = savedUser;
+
 		const stored = localStorage.getItem('klippy_sessions');
 		if (stored) {
 			sessions = JSON.parse(stored);
@@ -79,14 +91,14 @@ export const chatState = {
 		localStorage.setItem('klippy_sessions', JSON.stringify(sessions));
 	},
 
-	createNewChat(initialQuery = '') {
+	createNewChat(initialQuery = '', initialFilters: Record<string, string> = {}) {
 		const newId = crypto.randomUUID();
 		sessions = [
 			{
 				id: newId,
 				title: initialQuery ? truncate(initialQuery, 30) : 'New Chat',
 				messages: [],
-				filters: {},
+				filters: { ...initialFilters },
 				updatedAt: Date.now()
 			},
 			...sessions

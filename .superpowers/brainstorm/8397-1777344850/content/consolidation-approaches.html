@@ -1,0 +1,66 @@
+<h2>Route Consolidation: Home & Chats Index</h2>
+<p class="subtitle">Goal: Remove the jarring transition between the identity check and the chat workspace.</p>
+
+<div class="options">
+  <div class="option" data-choice="approach-a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h4>Unified Root (<code>/</code>)</h4>
+      <p>Merge everything into the root route. If no name is found, show the Identity Form. Once named, show the Chat Hero. No redirects needed.</p>
+      <div class="mockup" style="margin-top:10px; height:80px;">
+        <div style="font-size:0.7rem; color:var(--ink-3);">URL: /</div>
+        <div style="display:flex; justify-content:center; align-items:center; height:40px; border:1px dashed #ccc;">[ Identity Form ] → [ Chat Hero ]</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="approach-b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h4>Identity as Global Gate</h4>
+      <p>Keep <code>/chats</code> as the home. If <code>userName</code> is missing, any route displays the Identity Form as a full-screen overlay. Supports deep-linking.</p>
+      <div class="mockup" style="margin-top:10px; height:80px;">
+        <div style="font-size:0.7rem; color:var(--ink-3);">URL: /chats/123 (Deep Link)</div>
+        <div style="background:rgba(0,0,0,0.1); display:flex; justify-content:center; align-items:center; height:40px;">[ Identity Overlay ]</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="approach-c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h4>Redirect & Render</h4>
+      <p>Keep <code>/</code> as a lightweight landing/redirect. <code>/chats</code> renders either the <code>IdentityForm</code> or <code>ChatHero</code> component based on local state.</p>
+      <div class="mockup" style="margin-top:10px; height:80px;">
+        <div style="font-size:0.7rem; color:var(--ink-3);">/ (Redirect) → /chats</div>
+        <div style="display:flex; gap:5px;">
+          <div style="flex:1; border:1px solid #ccc; padding:2px;">Identity</div>
+          <div style="flex:1; border:1px solid #ccc; padding:2px;">Hero</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Recommendation: Approach A (Unified Root)</h3>
+  <p>This is the cleanest from a user perspective. There's only one "home" URL. We can keep the sidebar visible but "de-emphasized" or empty during the identity phase to maintain structural continuity.</p>
+</div>
+
+<div class="pros-cons">
+  <div class="pros">
+    <h4>Pros of Approach A</h4>
+    <ul>
+      <li>Zero redirects = faster perceived load.</li>
+      <li>Consistent layout from second zero.</li>
+      <li>Simplifies <code>+layout.svelte</code> logic.</li>
+    </ul>
+  </div>
+  <div class="cons">
+    <h4>Cons</h4>
+    <ul>
+      <li>Requires moving <code>/chats</code> content to root.</li>
+      <li>Needs careful handling of the sidebar transition.</li>
+    </ul>
+  </div>
+</div>

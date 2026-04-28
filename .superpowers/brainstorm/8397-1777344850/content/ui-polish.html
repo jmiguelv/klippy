@@ -1,0 +1,64 @@
+<h2>Issue 3: UI/UX Refinement & Polish</h2>
+<p class="subtitle">Addressing the "last mile" details: Z-index, Dark Mode flashes, and Mobile UX.</p>
+
+<div class="section">
+  <h3>1. FOUC Prevention (Dark Mode)</h3>
+  <div class="split">
+    <div class="mockup">
+      <div class="mockup-header">Current (Svelte onMount)</div>
+      <div style="background:white; color:black; height:60px; display:flex; align-items:center; justify-content:center; border:1px solid #ccc;">
+        [ WHITE FLASH ]
+      </div>
+      <p style="font-size:0.8rem; margin-top:5px;">User sees light theme for ~100ms before JS loads.</p>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header">Proposed (Blocking Script)</div>
+      <div style="background:#1a1714; color:#f1ebe5; height:60px; display:flex; align-items:center; justify-content:center; border:1px solid #332d28;">
+        [ INSTANT DARK ]
+      </div>
+      <p style="font-size:0.8rem; margin-top:5px;">Theme script in <code>&lt;head&gt;</code> prevents the flash.</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>2. Z-Index Management</h3>
+  <p>Consolidating z-index into semantic CSS variables in <code>app.css</code>:</p>
+  <pre style="background:var(--surface); padding:10px; border:1px solid var(--border); font-size:0.8rem;">
+--z-hide: -1;
+--z-base: 1;
+--z-nav: 100;
+--z-sidebar: 200;
+--z-dropdown: 300;
+--z-modal: 400;
+--z-toast: 500;</pre>
+</div>
+
+<div class="section">
+  <h3>3. Mobile Sidebar Polish</h3>
+  <div class="mockup" style="max-width:300px; margin:auto;">
+    <div class="mockup-header">Mobile View (768px)</div>
+    <div class="mockup-body" style="position:relative; height:200px; background:#eee;">
+      <div style="position:absolute; inset:0; background:rgba(0,0,0,0.4);"></div> <!-- Backdrop -->
+      <div style="position:absolute; left:0; top:0; bottom:0; width:80%; background:white; padding:10px;">
+        <div style="display:flex; justify-content:space-between;">
+          <b>Chats</b>
+          <button style="border:none; background:none; cursor:pointer;">[X]</button>
+        </div>
+        <div style="margin-top:20px;">[ Session List ]</div>
+      </div>
+    </div>
+  </div>
+  <p style="text-align:center; font-size:0.8rem; margin-top:8px;">Adding a <b>dimmed backdrop</b> and <b>explicit close button</b> for mobile navigation.</p>
+</div>
+
+<div class="pros-cons">
+  <div class="pros">
+    <h4>Impact</h4>
+    <ul>
+      <li>Professional feel with instant theme loading.</li>
+      <li>Predictable UI layering (no more overlapping dropdowns).</li>
+      <li>Accessible and intuitive mobile experience.</li>
+    </ul>
+  </div>
+</div>

@@ -1,0 +1,79 @@
+<h2>Frontend Design Review: Inconsistencies & Improvements</h2>
+<p class="subtitle">An analysis of layout, components, and code structure across Klippy's frontend.</p>
+
+<div class="section">
+  <h3>1. Layout & Structural Inconsistency</h3>
+  <div class="split">
+    <div class="mockup">
+      <div class="mockup-header">Home / Identity Page (Centred)</div>
+      <div class="mockup-body">
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:150px; text-align:center;">
+          <h4 style="font-family:serif; margin-bottom:10px;">Ask anything about your research...</h4>
+          <div class="mock-input" style="width:80%;">Start typing your name...</div>
+        </div>
+      </div>
+      <p style="font-size:0.8rem; margin-top:8px;"><b>Note:</b> Centered layout, no sidebar, fixed width card.</p>
+    </div>
+    <div class="mockup">
+      <div class="mockup-header">Chat Interface (Sidebar + Content)</div>
+      <div class="mockup-body" style="display:flex;">
+        <div class="mock-sidebar" style="width:60px;">Nav</div>
+        <div class="mock-content" style="flex:1; padding:10px;">
+          <h4 style="border-bottom:1px solid #ccc; padding-bottom:5px;">Chat Title</h4>
+          <div style="height:80px; border-left:2px solid red; padding-left:10px; margin-top:10px;">Assistant response...</div>
+        </div>
+      </div>
+      <p style="font-size:0.8rem; margin-top:8px;"><b>Note:</b> Full-screen layout with sidebar, sticky composer at bottom.</p>
+    </div>
+  </div>
+  <p><b>Observation:</b> The transition between the home page and chat interface feels like entering a different application. The Home Page uses a centered card while Chat uses a full-width workspace with a sidebar.</p>
+</div>
+
+<div class="section">
+  <h3>2. Component Fragmentations</h3>
+  <div class="options">
+    <div class="option" data-choice="composer" onclick="toggleSelect(this)">
+      <div class="letter">A</div>
+      <div class="content">
+        <h4>Duplicated Composer Logic</h4>
+        <p>The query input, settings (Top K, Threshold), and filter handling are duplicated across <code>+page.svelte</code> (chats index) and <code>[id]/+page.svelte</code> (chat instance).</p>
+      </div>
+    </div>
+    <div class="option" data-choice="autocomplete" onclick="toggleSelect(this)">
+      <div class="letter">B</div>
+      <div class="content">
+        <h4>Autocomplete Variations</h4>
+        <p>Three different implementations of autocomplete/dropdown logic exist (Home, Chats Index, Chat Instance), leading to varying behavior and UI styles.</p>
+      </div>
+    </div>
+    <div class="option" data-choice="filters" onclick="toggleSelect(this)">
+      <div class="letter">C</div>
+      <div class="content">
+        <h4>Filter Chip Inconsistency</h4>
+        <p>Chat instance shows active filter chips; Chats Index does not, even though it parses them into the query string. User bubbles show filters differently than the composer.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>3. Key Proposed Improvements</h3>
+  <div class="pros-cons">
+    <div class="pros">
+      <h4>Refactorings</h4>
+      <ul>
+        <li><b>Componentize Composer:</b> Create a shared <code>Composer.svelte</code> to unify input logic, filters, and settings.</li>
+        <li><b>Unify Autocomplete:</b> Extract autocomplete into a reusable action or component with consistent styling.</li>
+        <li><b>Consolidate Routes:</b> Merge Home and Chat Index into a single workspace-style interface to reduce navigation hops.</li>
+      </ul>
+    </div>
+    <div class="cons">
+      <h4>UI/UX Fixes</h4>
+      <ul>
+        <li><b>Z-Index Audit:</b> Consolidate z-index values into CSS variables to prevent overlap bugs (e.g., autocomplete vs navbar).</li>
+        <li><b>FOUC Prevention:</b> Move theme detection to a blocking script in <code>app.html</code> to avoid white flashes in dark mode.</li>
+        <li><b>Mobile Polish:</b> Add backdrop and proper close buttons to the mobile sidebar.</li>
+      </ul>
+    </div>
+  </div>
+</div>

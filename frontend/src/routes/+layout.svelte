@@ -11,20 +11,18 @@
 	let theme = $state<'light' | 'dark'>(
 		typeof localStorage !== 'undefined' ? (localStorage.getItem('klippy_theme') as 'light' | 'dark') || 'light' : 'light'
 	);
-	let userName = $state('');
 	let isSidebarOpen = $state(
 		typeof localStorage !== 'undefined' ? localStorage.getItem('klippy_sidebar_open') === 'true' : false
 	);
 
 	let currentId = $derived(page.params.id ?? '');
-	let showSidebar = $derived(page.url.pathname !== '/');
+	let showSidebar = $derived(page.url.pathname !== '/' || chatState.userName);
 
 	$effect(() => {
 		localStorage.setItem('klippy_sidebar_open', String(isSidebarOpen));
 	});
 
 	onMount(() => {
-		userName = localStorage.getItem('klippy_user_name') ?? '';
 		document.body.style.overflow = 'hidden';
 		chatState.loadSessions();
 	});
@@ -36,7 +34,7 @@
 	}
 
 	function switchUser() {
-		localStorage.removeItem('klippy_user_name');
+		chatState.userName = '';
 		goto('/');
 	}
 
@@ -79,8 +77,8 @@
 	<div class="container nav-inner">
 		<a href="/chats/" class="nav-wordmark">Klippy <span class="nav-org">King's Digital Lab</span></a>
 		<div class="nav-links">
-			{#if userName}
-				<button class="nav-user" onclick={switchUser} title="Switch user">{userName}</button>
+			{#if chatState.userName}
+				<button class="nav-user" onclick={switchUser} title="Switch user">{chatState.userName}</button>
 			{/if}
 			<button class="nav-theme-toggle" onclick={toggleTheme} title="Toggle Dark/Light Mode">
 				{#if theme === 'light'}<Moon size={16} />{:else}<Sun size={16} />{/if}
