@@ -200,7 +200,7 @@
 		padding: var(--size-6) var(--size-4);
 		position: sticky;
 		bottom: 0;
-		z-index: 100;
+		z-index: var(--z-nav);
 		overflow: visible;
 	}
 

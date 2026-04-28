@@ -441,7 +441,7 @@
 		border-radius: 4px;
 		box-shadow: var(--shadow-2);
 		overflow: hidden;
-		z-index: 1000;
+		z-index: var(--z-dropdown);
 	}
 
 	.ac-option {

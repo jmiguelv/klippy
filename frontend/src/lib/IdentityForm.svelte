@@ -216,7 +216,7 @@
 		list-style: none;
 		padding: var(--size-1) 0;
 		margin: 0;
-		z-index: 100;
+		z-index: var(--z-dropdown);
 		max-height: 220px;
 		overflow-y: auto;
 	}
