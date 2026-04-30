@@ -3,31 +3,26 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Sun, Moon, Plus, MessageSquare, Pencil, Trash2, ChevronLeft, ChevronRight, Map } from 'lucide-svelte';
+	import { Sun, Moon, Plus, MessageSquare, Pencil, Trash2, ChevronLeft, ChevronRight, Map, X } from 'lucide-svelte';
 	import { chatState } from '$lib/chat-state.svelte';
 
 	let { children } = $props();
 
-	let theme = $state<'light' | 'dark'>('light');
-	let userName = $state('');
+	let theme = $state<'light' | 'dark'>(
+		typeof localStorage !== 'undefined' ? (localStorage.getItem('klippy_theme') as 'light' | 'dark') || 'light' : 'light'
+	);
 	let isSidebarOpen = $state(
 		typeof localStorage !== 'undefined' ? localStorage.getItem('klippy_sidebar_open') === 'true' : false
 	);
 
 	let currentId = $derived(page.params.id ?? '');
-	let showSidebar = $derived(page.url.pathname !== '/');
+	let showSidebar = $derived(page.url.pathname !== '/' || chatState.userName);
 
 	$effect(() => {
 		localStorage.setItem('klippy_sidebar_open', String(isSidebarOpen));
 	});
 
 	onMount(() => {
-		const savedTheme = localStorage.getItem('klippy_theme') as 'light' | 'dark' | null;
-		if (savedTheme) {
-			theme = savedTheme;
-			document.documentElement.dataset.theme = theme;
-		}
-		userName = localStorage.getItem('klippy_user_name') ?? '';
 		document.body.style.overflow = 'hidden';
 		chatState.loadSessions();
 	});
@@ -39,7 +34,7 @@
 	}
 
 	function switchUser() {
-		localStorage.removeItem('klippy_user_name');
+		chatState.userName = '';
 		goto('/');
 	}
 
@@ -57,7 +52,7 @@
 		if (!confirm('Are you sure you want to delete this chat?')) return;
 		const nextId = chatState.deleteChat(id);
 		if (id === currentId) {
-			goto(nextId ? '/chats/' + nextId + '/' : '/chats/');
+			goto(nextId ? '/chats/' + nextId + '/' : '/');
 		}
 	}
 
@@ -80,10 +75,10 @@
 
 <nav class="main-nav">
 	<div class="container nav-inner">
-		<a href="/chats/" class="nav-wordmark">Klippy <span class="nav-org">King's Digital Lab</span></a>
+		<a href="/" class="nav-wordmark">Klippy <span class="nav-org">King's Digital Lab</span></a>
 		<div class="nav-links">
-			{#if userName}
-				<button class="nav-user" onclick={switchUser} title="Switch user">{userName}</button>
+			{#if chatState.userName}
+				<button class="nav-user" onclick={switchUser} title="Switch user">{chatState.userName}</button>
 			{/if}
 			<button class="nav-theme-toggle" onclick={toggleTheme} title="Toggle Dark/Light Mode">
 				{#if theme === 'light'}<Moon size={16} />{:else}<Sun size={16} />{/if}
@@ -113,6 +108,14 @@
 						aria-label={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
 					>
 						{#if isSidebarOpen}<ChevronLeft size={16} />{:else}<ChevronRight size={16} />{/if}
+					</button>
+					<button
+						class="sidebar-close-mobile"
+						onclick={() => (isSidebarOpen = false)}
+						title="Close Sidebar"
+						aria-label="Close sidebar"
+					>
+						<X size={16} />
 					</button>
 				</div>
 
@@ -185,7 +188,7 @@
 		background: var(--canvas);
 		position: sticky;
 		top: 0;
-		z-index: 100;
+		z-index: var(--z-nav);
 	}
 
 	.nav-inner {
@@ -421,6 +424,8 @@
 
 	.sidebar-toggle-inside:hover { color: var(--ink-0); }
 
+	.sidebar-close-mobile { display: none; }
+
 	.sidebar.closed .sidebar-header {
 		align-items: center;
 		padding: var(--size-3) var(--size-2);
@@ -471,7 +476,7 @@
 			position: absolute;
 			top: 20px;
 			left: 20px;
-			z-index: 110;
+			z-index: calc(var(--z-nav) + 10);
 			background: var(--surface);
 			border: 1px solid var(--border);
 			border-radius: 4px;
@@ -487,7 +492,7 @@
 			position: fixed;
 			width: 280px;
 			height: 100%;
-			z-index: 200;
+			z-index: var(--z-sidebar);
 		}
 
 		.sidebar.closed {
@@ -500,7 +505,23 @@
 			position: fixed;
 			inset: 0;
 			background: rgba(0, 0, 0, 0.4);
-			z-index: 199;
+			z-index: calc(var(--z-sidebar) - 1);
+		}
+
+		.sidebar-close-mobile {
+			display: flex;
+			background: none;
+			border: none;
+			cursor: pointer;
+			padding: var(--size-1);
+			color: var(--ink-2);
+			border-radius: 4px;
+			align-items: center;
+			justify-content: center;
+		}
+
+		.sidebar-toggle-inside {
+			display: none;
 		}
 	}
 

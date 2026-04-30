@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/svelte';
-import Page from './+page.svelte';
+import ChatHero from './ChatHero.svelte';
 import { chatState } from '$lib/chat-state.svelte';
 import * as navigation from '$app/navigation';
 
@@ -35,7 +35,7 @@ describe('Chats Page', () => {
 			json: async () => ({ questions: ['What is Klippy?', 'How it works?'] })
 		} as Response);
 
-		render(Page);
+		render(ChatHero);
 
 		// Check for contextual label
 		expect(screen.getByText(/Sample queries/i)).toBeInTheDocument();
@@ -54,7 +54,7 @@ describe('Chats Page', () => {
 
 		global.fetch = vi.fn().mockReturnValue(fetchPromise);
 
-		const { container } = render(Page);
+		const { container } = render(ChatHero);
 
 		// Skeletons should be present
 		const skeletons = container.querySelectorAll('.skeleton');
@@ -78,19 +78,19 @@ describe('Chats Page', () => {
 			json: async () => ({ questions: ['What is Klippy?'] })
 		} as Response);
 
-		render(Page);
+		render(ChatHero);
 
 		const chip = await screen.findByText('What is Klippy?');
 		chip.click();
 
-		expect(chatState.createNewChat).toHaveBeenCalledWith('What is Klippy?');
+		expect(chatState.createNewChat).toHaveBeenCalledWith('What is Klippy?', {});
 		expect(navigation.goto).toHaveBeenCalledWith(expect.stringContaining('test-id'));
 	});
 
 	it('should handle fetch failure gracefully', async () => {
 		global.fetch = vi.fn().mockRejectedValue(new Error('Fetch failed'));
 
-		render(Page);
+		render(ChatHero);
 
 		// Should not show chips and not crash
 		await new Promise((r) => setTimeout(r, 100));

@@ -37,19 +37,53 @@ function truncate(str: string, n: number) {
 }
 
 let sessions = $state<Session[]>([]);
+let userName = $state('');
+let topK = $state(10);
+let threshold = $state(0.3);
 
 export const chatState = {
 	get sessions() {
 		return sessions;
 	},
 
+	get userName() {
+		return userName;
+	},
+	set userName(val: string) {
+		userName = val;
+		if (typeof window !== 'undefined') localStorage.setItem('klippy_user_name', val);
+	},
+
+	get topK() {
+		return topK;
+	},
+	set topK(val: number) {
+		topK = val;
+		if (typeof window !== 'undefined') localStorage.setItem('klippy_top_k', val.toString());
+	},
+
+	get threshold() {
+		return threshold;
+	},
+	set threshold(val: number) {
+		threshold = val;
+		if (typeof window !== 'undefined') localStorage.setItem('klippy_threshold', val.toString());
+	},
+
 	loadSessions() {
 		if (typeof window === 'undefined') return;
+		const savedUser = localStorage.getItem('klippy_user_name');
+		if (savedUser) userName = savedUser;
+
 		const stored = localStorage.getItem('klippy_sessions');
 		if (stored) {
 			sessions = JSON.parse(stored);
 			sessions.sort((a, b) => b.updatedAt - a.updatedAt);
 		}
+		const storedTopK = localStorage.getItem('klippy_top_k');
+		if (storedTopK) topK = parseInt(storedTopK, 10);
+		const storedThreshold = localStorage.getItem('klippy_threshold');
+		if (storedThreshold) threshold = parseFloat(storedThreshold);
 	},
 
 	saveSessions() {
@@ -57,14 +91,14 @@ export const chatState = {
 		localStorage.setItem('klippy_sessions', JSON.stringify(sessions));
 	},
 
-	createNewChat(initialQuery = '') {
+	createNewChat(initialQuery = '', initialFilters: Record<string, string> = {}) {
 		const newId = crypto.randomUUID();
 		sessions = [
 			{
 				id: newId,
 				title: initialQuery ? truncate(initialQuery, 30) : 'New Chat',
 				messages: [],
-				filters: {},
+				filters: { ...initialFilters },
 				updatedAt: Date.now()
 			},
 			...sessions

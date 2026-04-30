@@ -40,8 +40,16 @@
 	--font-display: 'Cormorant Garamond', Georgia, serif;
 	--font-sans: 'IBM Plex Sans', system-ui, sans-serif;
 	--font-mono: 'IBM Plex Mono', 'Courier New', monospace;
-}
 
+	/* Z-index */
+	--z-hide: -1;
+	--z-base: 1;
+	--z-nav: 100;
+	--z-sidebar: 200;
+	--z-dropdown: 300;
+	--z-modal: 400;
+	--z-toast: 500;
+	}
 :root[data-theme='dark'] {
 	--canvas: #1a1714;
 	--surface: #221e1a;
