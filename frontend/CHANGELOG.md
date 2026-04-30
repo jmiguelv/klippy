@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.11.0](https://github.com/jmiguelv/klippy/compare/frontend-v0.10.0...frontend-v0.11.0) (2026-04-30)
+
+
+### Features
+
+* extract autocomplete logic and unify search settings state ([8235147](https://github.com/jmiguelv/klippy/commit/82351475a521827971005a50994ac34f1450311d))
+
+
+### Bug Fixes
+
+* prevent theme FOUC with blocking script ([1667e17](https://github.com/jmiguelv/klippy/commit/1667e17bdcbe9750d0c6f10f6c81f2f62e9e02ac))
+
 ## [0.10.0](https://github.com/jmiguelv/klippy/compare/frontend-v0.9.0...frontend-v0.10.0) (2026-04-28)
 
 
