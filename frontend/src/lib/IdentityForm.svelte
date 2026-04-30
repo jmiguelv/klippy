@@ -141,7 +141,7 @@
 
 	.heading {
 		font-family: var(--font-display);
-		font-size: clamp(2.4rem, 6vw, 3.6rem);
+		font-size: var(--text-hero-lg);
 		font-weight: 500;
 		line-height: 1.05;
 		color: var(--ink-0);
@@ -150,7 +150,7 @@
 	}
 
 	.hero-description {
-		font-size: 0.95rem;
+		font-size: var(--text-md);
 		line-height: 1.6;
 		color: var(--ink-2);
 		font-weight: 300;
@@ -169,9 +169,9 @@
 
 	.form-label {
 		font-family: var(--font-mono);
-		font-size: 0.7rem;
+		font-size: var(--text-xs);
 		text-transform: uppercase;
-		letter-spacing: 0.1em;
+		letter-spacing: 0.12em;
 		color: var(--ink-2);
 	}
 
@@ -191,13 +191,13 @@
 		background: var(--surface);
 		border: 1px solid var(--border);
 		border-top: 2px solid var(--kings-red);
-		border-radius: 2px;
+		border-radius: var(--radius-1);
 		font-family: var(--font-sans);
-		font-size: 1.1rem;
+		font-size: var(--text-xl);
 		font-weight: 400;
 		color: var(--ink-0);
 		outline: none;
-		box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+		box-shadow: var(--shadow-xs);
 	}
 
 	.input-wrap input::placeholder {
@@ -211,7 +211,7 @@
 		right: 0;
 		background: var(--surface);
 		border: 1px solid var(--border);
-		border-radius: 4px;
+		border-radius: var(--radius-2);
 		box-shadow: var(--shadow-2);
 		list-style: none;
 		padding: var(--size-1) 0;
@@ -224,10 +224,10 @@
 	.dropdown-option {
 		padding: var(--size-2) var(--size-5);
 		font-family: var(--font-sans);
-		font-size: 0.95rem;
+		font-size: var(--text-md);
 		color: var(--ink-1);
 		cursor: pointer;
-		transition: background 0.1s;
+		transition: background var(--ease-fast);
 	}
 
 	.dropdown-option:hover,
@@ -240,14 +240,14 @@
 		align-self: flex-start;
 		padding: var(--size-3) var(--size-6);
 		background: var(--kings-red);
-		color: #fff;
+		color: white;
 		border: none;
-		border-radius: 2px;
+		border-radius: var(--radius-1);
 		font-family: var(--font-sans);
-		font-size: 0.9rem;
+		font-size: var(--text-md);
 		font-weight: 500;
 		cursor: pointer;
-		transition: opacity 0.15s;
+		transition: opacity var(--ease-base);
 		letter-spacing: 0.02em;
 	}
 

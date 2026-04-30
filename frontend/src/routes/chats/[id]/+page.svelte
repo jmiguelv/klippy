@@ -331,9 +331,9 @@
 </svelte:head>
 
 <main class="chat-main" bind:this={chatMainEl}>
-	<section class="explore-page container">
+	<section class="chat-page container">
 		{#if currentSession}
-			<h2 class="chat-title">{currentSession.title}</h2>
+			<h2 class="page-heading">{currentSession.title}</h2>
 		{/if}
 
 		<div class="chat-history">
@@ -459,7 +459,7 @@
 	</section>
 </main>
 
-<section class="composer">
+<section class="composer-section">
 	<div class="container">
 		<Composer
 			onSend={(text) => processSend(text, false)}
@@ -476,19 +476,10 @@
 		overflow-y: auto;
 	}
 
-	.explore-page {
-		padding: var(--size-12) var(--size-6) var(--size-32);
+	.chat-page {
+		padding: var(--size-8) var(--size-6) var(--size-12);
 	}
 
-	.chat-title {
-		font-family: var(--font-display);
-		font-size: 1.6rem;
-		font-weight: 500;
-		color: var(--ink-0);
-		margin-bottom: var(--size-8);
-		padding-bottom: var(--size-4);
-		border-bottom: 1px solid var(--border);
-	}
 
 	.chat-history {
 		display: flex;
@@ -527,8 +518,8 @@
 		padding: var(--size-1);
 		color: var(--ink-2);
 		transition:
-			opacity 0.15s,
-			color 0.15s;
+			opacity var(--ease-base),
+			color var(--ease-base);
 		flex-shrink: 0;
 	}
 
@@ -544,8 +535,8 @@
 		background: var(--u-bg);
 		color: var(--u-fg);
 		padding: var(--size-4) var(--size-6);
-		border-radius: 16px 16px 2px 16px;
-		font-size: 1rem;
+		border-radius: var(--radius-bubble);
+		font-size: var(--text-lg);
 		font-weight: 300;
 		box-shadow: var(--shadow-2);
 	}
@@ -568,7 +559,7 @@
 
 	.bubble-chip {
 		font-family: var(--font-mono);
-		font-size: 0.68rem;
+		font-size: var(--text-xs);
 		opacity: 0.75;
 	}
 
@@ -582,8 +573,8 @@
 	}
 
 	.klippy-answer {
-		padding: 2px 0 2px 24px;
-		margin: 32px 0;
+		padding: 2px 0 2px var(--size-5);
+		margin: var(--size-7) 0;
 		border-left: 2px solid var(--kings-red);
 		max-width: 90%;
 	}
@@ -591,16 +582,16 @@
 	.retrieval-steps {
 		list-style: none;
 		padding: 0;
-		margin: 0 0 20px;
+		margin: 0 0 var(--size-4);
 		font-family: var(--font-mono);
-		font-size: 0.7rem;
+		font-size: var(--text-sm);
 		color: var(--ink-2);
 	}
 
 	.step {
 		display: grid;
 		grid-template-columns: 16px 1fr auto;
-		gap: 10px;
+		gap: var(--size-2);
 		padding: 1px 0;
 		align-items: center;
 	}
@@ -612,7 +603,7 @@
 
 	.step--active .step-mark {
 		color: var(--kings-red);
-		animation: pulse 1.1s ease-in-out infinite;
+		animation: step-pulse 1.1s ease-in-out infinite;
 	}
 
 	.step-label b {
@@ -622,15 +613,15 @@
 
 	.step-detail {
 		color: var(--ink-2);
-		font-size: 0.66rem;
+		font-size: var(--text-2xs);
 	}
 
 	.step-time {
 		color: var(--ink-3);
-		font-size: 0.62rem;
+		font-size: var(--text-2xs);
 	}
 
-	@keyframes pulse {
+	@keyframes step-pulse {
 		50% {
 			opacity: 0.2;
 		}
@@ -638,7 +629,7 @@
 
 	.answer-prose {
 		font-family: var(--font-display);
-		font-size: 1.28rem;
+		font-size: var(--text-2xl);
 		font-weight: 400;
 		line-height: 1.55;
 		color: var(--ink-0);
@@ -658,7 +649,7 @@
 		background: var(--kings-red-light);
 		color: var(--kings-red);
 		padding: 1px 6px;
-		border-radius: 2px;
+		border-radius: var(--radius-1);
 	}
 
 	.streaming-caret {
@@ -680,10 +671,10 @@
 	.answer-actions {
 		display: flex;
 		align-items: center;
-		gap: 10px;
-		margin-top: 18px;
+		gap: var(--size-2);
+		margin-top: var(--size-4);
 		font-family: var(--font-mono);
-		font-size: 0.64rem;
+		font-size: var(--text-2xs);
 		color: var(--ink-2);
 	}
 
@@ -694,7 +685,7 @@
 		padding: 3px;
 		cursor: pointer;
 		display: inline-flex;
-		border-radius: 2px;
+		border-radius: var(--radius-1);
 	}
 
 	.answer-actions .iconbtn:hover {
@@ -706,7 +697,7 @@
 		width: 1px;
 		height: 14px;
 		background: var(--border-dark);
-		margin: 0 4px;
+		margin: 0 var(--size-1);
 	}
 
 	.answer-actions .answer-time {
@@ -715,9 +706,9 @@
 	}
 
 	.answer-sources {
-		margin-top: 18px;
+		margin-top: var(--size-4);
 		border-top: 1px dashed var(--border-dark);
-		padding-top: 14px;
+		padding-top: var(--size-3);
 	}
 
 	.sources-toggle {
@@ -726,13 +717,13 @@
 		padding: 0;
 		cursor: pointer;
 		font-family: var(--font-mono);
-		font-size: 0.64rem;
+		font-size: var(--text-2xs);
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
 		color: var(--ink-2);
 		display: flex;
 		align-items: center;
-		gap: 8px;
+		gap: var(--size-2);
 	}
 
 	.sources-toggle:hover {
@@ -742,7 +733,7 @@
 	.sources-toggle .sources-count {
 		color: var(--kings-red);
 		letter-spacing: 0;
-		font-size: 0.7rem;
+		font-size: var(--text-sm);
 	}
 
 	.sources-toggle :global(.rotated) {
@@ -752,7 +743,7 @@
 	.sources-list {
 		list-style: none;
 		padding: 0;
-		margin: 10px 0 0;
+		margin: var(--size-2) 0 0;
 		display: flex;
 		flex-direction: column;
 		gap: 1px;
@@ -761,11 +752,11 @@
 	.sources-list a {
 		display: grid;
 		grid-template-columns: 22px 16px 1fr auto;
-		gap: 10px;
+		gap: var(--size-2);
 		align-items: center;
-		padding: 7px 10px;
-		border-radius: 2px;
-		font-size: 0.82rem;
+		padding: var(--size-2) var(--size-2);
+		border-radius: var(--radius-1);
+		font-size: var(--text-base-sm);
 		color: var(--ink-1);
 		text-decoration: none;
 		border: 1px solid transparent;
@@ -778,7 +769,7 @@
 
 	.source-num {
 		font-family: var(--font-mono);
-		font-size: 0.64rem;
+		font-size: var(--text-2xs);
 		color: var(--kings-red);
 	}
 
@@ -790,23 +781,8 @@
 
 	.source-score {
 		font-family: var(--font-mono);
-		font-size: 0.62rem;
+		font-size: var(--text-2xs);
 		color: var(--ink-3);
-	}
-
-	/* ── Composer ─────────────────────────────── */
-	.composer {
-		background: var(--canvas);
-		padding: var(--size-6) var(--size-4);
-		position: sticky;
-		bottom: 0;
-		z-index: var(--z-nav);
-		overflow: visible;
-	}
-
-	.composer .container {
-		position: relative;
-		overflow: visible;
 	}
 
 	/* ── Empty state ────────────────────────────── */
@@ -815,13 +791,13 @@
 		padding: 10vh 0;
 		color: var(--ink-2);
 		font-family: var(--font-display);
-		font-size: 1.5rem;
+		font-size: var(--text-3xl);
 		font-style: italic;
 		opacity: 0.5;
 	}
 
 	@media (max-width: 640px) {
-		.explore-page {
+		.chat-page {
 			padding-top: 0;
 			padding-inline: var(--size-4);
 		}
@@ -838,7 +814,7 @@
 		.klippy-answer {
 			max-width: 100%;
 			padding-left: var(--size-4);
-			margin: 24px 0;
+			margin: var(--size-5) 0;
 		}
 
 		.retrieval-steps {
@@ -849,7 +825,7 @@
 
 		.step {
 			display: flex;
-			gap: 8px;
+			gap: var(--size-2);
 			padding: var(--size-1) 0;
 		}
 
@@ -859,11 +835,11 @@
 		}
 
 		.step-mark {
-			font-size: 0.8rem;
+			font-size: var(--text-base-sm);
 		}
 
 		.answer-prose {
-			font-size: 1.15rem;
+			font-size: var(--text-xl);
 		}
 
 		.answer-time {
