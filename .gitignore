@@ -25,5 +25,8 @@ frontend-astro/
 # Local Docker Compose overrides (machine-specific, not committed)
 docker-compose.override.yml
 
+# OS files
+.DS_Store
+
 # Brainstorming artifacts
 .superpowers/

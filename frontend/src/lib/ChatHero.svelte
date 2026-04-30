@@ -26,7 +26,7 @@
 
 	function submitQuestion(text: string) {
 		const id = chatState.createNewChat(text, activeFilters);
-		goto(`/chats/${id}/`); 
+		goto(`/chats/${id}/?q=${encodeURIComponent(text)}`); 
 	}
 </script>
 

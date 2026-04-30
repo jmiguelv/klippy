@@ -312,6 +312,9 @@
 			return;
 		}
 
+		// Ensure filters are loaded before handleSend(q)
+		activeFilters = session.filters ? { ...session.filters } : {};
+
 		const savedModel = localStorage.getItem('klippy_model_name');
 		if (savedModel) modelName = savedModel;
 

@@ -113,8 +113,8 @@
 	{/if}
 
 	<form onsubmit={handleSend}>
-		<div class="composer-input">
-			{#if hasFilters}
+		{#if hasFilters}
+			<div class="filter-row">
 				<div class="filter-chips">
 					{#each Object.entries(activeFilters) as [key, value]}
 						<span class="chip">
@@ -132,7 +132,9 @@
 						</span>
 					{/each}
 				</div>
-			{/if}
+			</div>
+		{/if}
+		<div class="composer-input">
 			<input
 				id="composer-input-el"
 				type="text"
@@ -147,6 +149,7 @@
 				onkeydown={handleKeydown}
 				onblur={() => setTimeout(() => ac.close(), 300)}
 			/>
+			<button type="submit" style="display: none;" aria-hidden="true"></button>
 			{#if canShowSettings}
 				<button
 					type="button"
@@ -225,7 +228,6 @@
 		display: flex;
 		align-items: center;
 		gap: var(--size-4);
-		flex-wrap: wrap;
 	}
 
 	.composer-input input {
@@ -259,6 +261,11 @@
 	.settings-toggle.active {
 		color: var(--kings-red);
 		background: var(--kings-red-light);
+	}
+
+	.filter-row {
+		padding: var(--size-3) var(--size-6) 0;
+		border-bottom: 1px dashed var(--border);
 	}
 
 	.filter-chips {
