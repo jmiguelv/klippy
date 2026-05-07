@@ -321,3 +321,75 @@ def test_get_corpus_stats_qdrant_unreachable(mocker):
 
     response = client.get("/corpus/stats")
     assert response.status_code == 503
+
+
+# ── /query-stream chat history persistence ───────────────────────────────────
+
+def test_query_stream_saves_history_to_redis(mocker):
+    """After fully consuming a streamed response, chat history must be in Redis."""
+    session_id = "test-stream-persist"
+
+    async def _fake_gen():
+        yield "hello "
+        yield "world"
+
+    mock_stream_response = MagicMock()
+    mock_stream_response.source_nodes = []
+    mock_stream_response.async_response_gen = _fake_gen
+
+    mocker.patch.object(engine, "astream_chat", return_value=mock_stream_response)
+    mocker.patch.object(redis_client, "get", return_value=None)
+    setex_mock = mocker.patch.object(redis_client, "setex")
+
+    response = client.post(
+        "/query-stream",
+        json={"text": "What is Klippy?", "session_id": session_id},
+    )
+    assert response.status_code == 200
+
+    body = response.text
+
+    setex_mock.assert_called_once()
+    args = setex_mock.call_args[0]
+    assert args[0] == f"chat_history:{session_id}"
+
+    saved_history = json.loads(args[2])
+    assert len(saved_history) == 2
+    assert saved_history[0] == {"role": "user", "content": "What is Klippy?"}
+    assert saved_history[1] == {"role": "assistant", "content": "hello world"}
+
+
+def test_query_stream_saves_history_on_error(mocker):
+    """Chat history must persist even when streaming fails mid-response."""
+    session_id = "test-stream-error"
+
+    async def _failing_gen():
+        yield "partial "
+        raise RuntimeError("LLM connection lost")
+
+    mock_stream_response = MagicMock()
+    mock_stream_response.source_nodes = []
+    mock_stream_response.async_response_gen = _failing_gen
+
+    mocker.patch.object(engine, "astream_chat", return_value=mock_stream_response)
+    mocker.patch.object(redis_client, "get", return_value=None)
+    setex_mock = mocker.patch.object(redis_client, "setex")
+
+    response = client.post(
+        "/query-stream",
+        json={"text": "Tell me about projects", "session_id": session_id},
+    )
+    assert response.status_code == 200
+
+    body = response.text
+    assert "error" in body.lower()
+
+    setex_mock.assert_called_once()
+    args = setex_mock.call_args[0]
+    assert args[0] == f"chat_history:{session_id}"
+
+    saved_history = json.loads(args[2])
+    assert len(saved_history) == 2
+    assert saved_history[0] == {"role": "user", "content": "Tell me about projects"}
+    assert saved_history[1]["role"] == "assistant"
+    assert "partial" in saved_history[1]["content"]
