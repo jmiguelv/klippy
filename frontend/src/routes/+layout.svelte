@@ -200,7 +200,7 @@
 
 	.nav-wordmark {
 		font-family: var(--font-display);
-		font-size: 1.4rem;
+		font-size: var(--text-3xl);
 		font-weight: 600;
 		color: var(--ink-0);
 		letter-spacing: 0.02em;
@@ -211,7 +211,7 @@
 
 	.nav-org {
 		font-family: var(--font-mono);
-		font-size: 0.62rem;
+		font-size: var(--text-2xs);
 		font-weight: 400;
 		text-transform: uppercase;
 		letter-spacing: 0.12em;
@@ -235,13 +235,13 @@
 		border: none;
 		cursor: pointer;
 		font-family: var(--font-mono);
-		font-size: 0.68rem;
+		font-size: var(--text-xs);
 		text-transform: uppercase;
 		letter-spacing: 0.1em;
 		color: var(--ink-2);
 		padding: var(--size-1) var(--size-2);
-		border-radius: 3px;
-		transition: color 0.15s;
+		border-radius: var(--radius-1);
+		transition: color var(--ease-base);
 	}
 
 	.nav-user:hover { color: var(--kings-red); }
@@ -255,8 +255,8 @@
 		justify-content: center;
 		padding: var(--size-2);
 		color: var(--ink-2);
-		border-radius: 4px;
-		transition: background 0.15s, color 0.15s;
+		border-radius: var(--radius-2);
+		transition: background var(--ease-base), color var(--ease-base);
 	}
 
 	.nav-theme-toggle:hover {
@@ -287,7 +287,7 @@
 		border-right: 1px solid var(--border);
 		display: flex;
 		flex-direction: column;
-		transition: width 0.25s ease;
+		transition: width var(--ease-slow);
 		overflow: hidden;
 	}
 
@@ -312,7 +312,7 @@
 
 	.sidebar-wordmark {
 		font-family: var(--font-display);
-		font-size: 1.4rem;
+		font-size: var(--text-3xl);
 		font-weight: 600;
 		color: var(--ink-0);
 		letter-spacing: 0.02em;
@@ -323,17 +323,17 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 8px;
-		padding: 10px;
+		gap: var(--size-2);
+		padding: var(--size-2);
 		background: var(--surface);
 		border: 1px dashed var(--kings-red);
 		color: var(--kings-red);
-		border-radius: 4px;
+		border-radius: var(--radius-2);
 		font-family: var(--font-sans);
-		font-size: 0.85rem;
+		font-size: var(--text-base);
 		font-weight: 500;
 		cursor: pointer;
-		transition: background 0.15s;
+		transition: background var(--ease-base);
 	}
 
 	.new-chat-btn:hover { background: var(--kings-red-light); }
@@ -351,7 +351,7 @@
 		padding: var(--size-2);
 		display: flex;
 		flex-direction: column;
-		gap: 4px;
+		gap: var(--size-1);
 	}
 
 	.session-item {
@@ -361,10 +361,10 @@
 		padding: var(--size-2) var(--size-3);
 		background: none;
 		border: none;
-		border-radius: 4px;
+		border-radius: var(--radius-2);
 		cursor: pointer;
 		text-align: left;
-		transition: background 0.15s;
+		transition: background var(--ease-base);
 		position: relative;
 	}
 
@@ -373,7 +373,7 @@
 	.session-item.active {
 		border-left: 2px solid var(--kings-red);
 		color: var(--kings-red);
-		border-radius: 0 4px 4px 0;
+		border-radius: 0 var(--radius-2) var(--radius-2) 0;
 	}
 
 	:global(.session-icon) {
@@ -382,7 +382,7 @@
 	}
 
 	.session-title {
-		font-size: 0.85rem;
+		font-size: var(--text-base);
 		font-weight: 400;
 		white-space: nowrap;
 		overflow: hidden;
@@ -390,14 +390,14 @@
 		flex: 1;
 	}
 
-	.session-actions { display: none; gap: 4px; }
+	.session-actions { display: none; gap: var(--size-1); }
 	.session-item:hover .session-actions { display: flex; }
 
 	.session-actions button {
 		background: none;
 		border: none;
 		cursor: pointer;
-		font-size: 0.8rem;
+		font-size: var(--text-base-sm);
 		padding: 2px;
 		color: var(--ink-2);
 		opacity: 0.6;
@@ -415,11 +415,11 @@
 		cursor: pointer;
 		padding: var(--size-1);
 		color: var(--ink-2);
-		border-radius: 4px;
+		border-radius: var(--radius-2);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		transition: color 0.15s;
+		transition: color var(--ease-base);
 	}
 
 	.sidebar-toggle-inside:hover { color: var(--ink-0); }
@@ -450,12 +450,12 @@
 		align-items: center;
 		gap: var(--size-2);
 		padding: var(--size-2) var(--size-3);
-		border-radius: 4px;
+		border-radius: var(--radius-2);
 		color: var(--ink-2);
 		text-decoration: none;
 		font-family: var(--font-sans);
-		font-size: 0.85rem;
-		transition: background 0.15s, color 0.15s;
+		font-size: var(--text-base);
+		transition: background var(--ease-base), color var(--ease-base);
 	}
 
 	.sidebar-nav-link:hover { background: var(--canvas); color: var(--ink-0); }
@@ -479,7 +479,7 @@
 			z-index: calc(var(--z-nav) + 10);
 			background: var(--surface);
 			border: 1px solid var(--border);
-			border-radius: 4px;
+			border-radius: var(--radius-2);
 			width: 32px;
 			height: 32px;
 			align-items: center;
@@ -504,7 +504,7 @@
 			display: block;
 			position: fixed;
 			inset: 0;
-			background: rgba(0, 0, 0, 0.4);
+			background: var(--backdrop);
 			z-index: calc(var(--z-sidebar) - 1);
 		}
 
@@ -515,7 +515,7 @@
 			cursor: pointer;
 			padding: var(--size-1);
 			color: var(--ink-2);
-			border-radius: 4px;
+			border-radius: var(--radius-2);
 			align-items: center;
 			justify-content: center;
 		}

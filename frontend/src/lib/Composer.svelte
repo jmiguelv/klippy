@@ -216,9 +216,9 @@
 		background: var(--surface);
 		border: 1px solid var(--border);
 		border-top: 2px solid var(--kings-red);
-		border-radius: 2px;
+		border-radius: var(--radius-1);
 		padding: 0;
-		box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+		box-shadow: var(--shadow-xs);
 		max-width: 1040px;
 		margin: 0 auto;
 	}
@@ -236,7 +236,7 @@
 		outline: none;
 		background: transparent;
 		color: var(--ink-0);
-		font-size: 1.1rem;
+		font-size: var(--text-xl);
 		font-family: var(--font-sans);
 		font-weight: 400;
 		min-width: 200px;
@@ -251,10 +251,10 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		border-radius: 4px;
+		border-radius: var(--radius-2);
 		transition:
-			color 0.15s,
-			background 0.15s;
+			color var(--ease-base),
+			background var(--ease-base);
 	}
 
 	.settings-toggle:hover,
@@ -288,9 +288,9 @@
 		gap: var(--size-2);
 		background: var(--surface);
 		border: 1px solid var(--border);
-		border-radius: 4px;
-		padding: 2px 4px 2px 8px;
-		font-size: 0.72rem;
+		border-radius: var(--radius-2);
+		padding: 2px var(--size-1) 2px var(--size-2);
+		font-size: var(--text-sm);
 		font-family: var(--font-mono);
 		line-height: 1.4;
 	}
@@ -314,7 +314,7 @@
 		cursor: pointer;
 		color: var(--ink-3);
 		padding: 0 2px;
-		font-size: 0.9rem;
+		font-size: var(--text-md);
 		line-height: 1;
 		display: flex;
 		align-items: center;
@@ -343,16 +343,16 @@
 
 	.control-lbl {
 		font-family: var(--font-mono);
-		font-size: 0.65rem;
+		font-size: var(--text-xs);
 		text-transform: uppercase;
 		color: var(--ink-2);
-		letter-spacing: 0.15em;
+		letter-spacing: 0.12em;
 		flex: 0 0 90px;
 	}
 
 	.control-val {
 		font-family: var(--font-mono);
-		font-size: 0.75rem;
+		font-size: var(--text-sm);
 		color: var(--ink-1);
 		flex: 0 0 30px;
 		text-align: right;
@@ -380,7 +380,7 @@
 		background: var(--kings-red);
 		border-radius: 50%;
 		margin-top: -5px;
-		transition: transform 0.1s ease;
+		transition: transform var(--ease-fast);
 	}
 
 	.control input[type='range']::-moz-range-track {
@@ -400,7 +400,7 @@
 	.composer-hint {
 		padding: var(--size-2) var(--size-6);
 		font-family: var(--font-mono);
-		font-size: 0.65rem;
+		font-size: var(--text-xs);
 		color: var(--ink-3);
 		display: flex;
 		justify-content: space-between;
@@ -418,12 +418,12 @@
 	.composer-hint kbd {
 		background: none;
 		border: 1px solid var(--border-dark);
-		border-radius: 3px;
-		padding: 0 4px;
+		border-radius: var(--radius-1);
+		padding: 0 var(--size-1);
 		color: var(--ink-2);
 		font-family: var(--font-sans);
-		font-size: 0.7rem;
-		margin-right: 4px;
+		font-size: var(--text-sm);
+		margin-right: var(--size-1);
 		font-weight: 500;
 	}
 
@@ -445,7 +445,7 @@
 		right: 0;
 		background: var(--surface);
 		border: 1px solid var(--border);
-		border-radius: 4px;
+		border-radius: var(--radius-2);
 		box-shadow: var(--shadow-2);
 		overflow: hidden;
 		z-index: var(--z-dropdown);
@@ -460,9 +460,9 @@
 		border: none;
 		cursor: pointer;
 		font-family: var(--font-mono);
-		font-size: 0.8rem;
+		font-size: var(--text-base-sm);
 		color: var(--ink-1);
-		transition: background 0.1s;
+		transition: background var(--ease-fast);
 		text-shadow: none;
 	}
 

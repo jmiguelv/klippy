@@ -64,7 +64,7 @@
 	</section>
 </main>
 
-<section class="composer">
+<section class="composer-section">
 	<div class="container">
 		<Composer
 			onSend={submitQuestion}
@@ -83,7 +83,7 @@
 	.hero-section {
 		width: 100%;
 		max-width: 1040px;
-		padding-top: var(--size-10);
+		padding-top: var(--size-8);
 		padding-bottom: var(--size-8);
 	}
 
@@ -93,37 +93,32 @@
 		align-items: flex-start;
 	}
 
-	.empty-greeting {
+	.empty-greeting,
+	.empty-heading {
 		font-family: var(--font-display);
-		font-size: clamp(1.8rem, 4vw, 2.8rem);
+		font-size: var(--text-hero);
 		font-weight: 500;
 		line-height: 1.1;
 		color: var(--ink-0);
 		letter-spacing: -0.01em;
+		margin-bottom: var(--size-3);
+	}
+
+	.empty-greeting {
 		margin-bottom: var(--size-2);
 	}
 
 	.empty-subheading {
 		font-family: var(--font-display);
-		font-size: 1.1rem;
+		font-size: var(--text-xl);
 		font-weight: 300;
 		font-style: italic;
 		color: var(--ink-1);
 		margin-bottom: var(--size-3);
 	}
 
-	.empty-heading {
-		font-family: var(--font-display);
-		font-size: clamp(1.8rem, 4vw, 2.8rem);
-		font-weight: 500;
-		line-height: 1.1;
-		color: var(--ink-0);
-		letter-spacing: -0.01em;
-		margin-bottom: var(--size-3);
-	}
-
 	.empty-description {
-		font-size: 0.95rem;
+		font-size: var(--text-md);
 		line-height: 1.6;
 		color: var(--ink-2);
 		max-width: 480px;
@@ -137,10 +132,10 @@
 	}
 
 	.suggestions-label {
-		font-family: var(--font-sans);
-		font-size: 0.75rem;
+		font-family: var(--font-mono);
+		font-size: var(--text-sm);
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
+		letter-spacing: 0.12em;
 		color: var(--ink-3);
 		margin-bottom: var(--size-2);
 		font-weight: 600;
@@ -155,15 +150,15 @@
 	.question-chip {
 		background: var(--surface);
 		border: 1px solid var(--border);
-		border-radius: 999px;
+		border-radius: var(--radius-pill);
 		padding: var(--size-2) var(--size-4);
 		font-family: var(--font-sans);
-		font-size: 0.8rem;
+		font-size: var(--text-base-sm);
 		color: var(--ink-1);
 		cursor: pointer;
 		transition:
-			border-color 0.15s,
-			color 0.15s;
+			border-color var(--ease-base),
+			color var(--ease-base);
 		text-align: left;
 		line-height: 1.4;
 	}
@@ -174,39 +169,9 @@
 	}
 
 	.question-chip.skeleton {
-		background: var(--border);
 		border: none;
 		cursor: default;
 		pointer-events: none;
-		animation: pulse 1.5s infinite ease-in-out;
-		opacity: 0.5;
-	}
-
-	@keyframes pulse {
-		0% {
-			opacity: 0.3;
-		}
-		50% {
-			opacity: 0.6;
-		}
-		100% {
-			opacity: 0.3;
-		}
-	}
-
-	/* ── Composer ─────────────────────────────── */
-	.composer {
-		background: var(--canvas);
-		padding: var(--size-6) var(--size-4);
-		position: sticky;
-		bottom: 0;
-		z-index: var(--z-nav);
-		overflow: visible;
-	}
-
-	.composer .container {
-		position: relative;
-		overflow: visible;
 	}
 
 	@media (max-width: 640px) {

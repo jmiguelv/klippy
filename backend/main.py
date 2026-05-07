@@ -187,6 +187,8 @@ async def query_klippy_stream(request: QueryRequest):
 
     async def event_stream():
         yield f"data: {json.dumps({'type': 'meta', 'session_id': session_id, 'model': engine.llm_model})}\n\n"
+        chat_history = []
+        answer_parts = []
         try:
             now = datetime.now().isoformat()
             chat_history = get_history_from_redis(session_id)
@@ -200,23 +202,14 @@ async def query_klippy_stream(request: QueryRequest):
                 similarity_cutoff=request.similarity_cutoff,
             )
 
-            # Signal that retrieval is complete and LLM synthesis is starting
             num_sources = len(streaming_response.source_nodes)
             yield f"data: {json.dumps({'type': 'retrieved', 'num_sources': num_sources})}\n\n"
 
-            answer_parts = []
             async for token in streaming_response.async_response_gen():
                 answer_parts.append(token)
                 yield f"data: {json.dumps({'type': 'chunk', 'text': token})}\n\n"
 
-            answer = "".join(answer_parts)
             total_time_ms = int((time.time() - start) * 1000)
-
-            updated_history = [{"role": m.role.value, "content": m.content or ""} for m in chat_history]
-            updated_history.append({"role": "user", "content": request.text})
-            updated_history.append({"role": "assistant", "content": answer})
-            save_history_to_redis(session_id, updated_history)
-
             sources, context_length = format_sources(streaming_response.source_nodes)
 
             yield f"data: {json.dumps({'type': 'done', 'sources': sources, 'total_time_ms': total_time_ms, 'context_length': context_length, 'cached_at': now})}\n\n"
@@ -224,6 +217,14 @@ async def query_klippy_stream(request: QueryRequest):
         except Exception as e:
             logger.error(f"Streaming error: {e}")
             yield f"data: {json.dumps({'type': 'error', 'detail': str(e)})}\n\n"
+
+        finally:
+            answer = "".join(answer_parts)
+            if answer or chat_history:
+                updated_history = [{"role": m.role.value, "content": m.content or ""} for m in chat_history]
+                updated_history.append({"role": "user", "content": request.text})
+                updated_history.append({"role": "assistant", "content": answer})
+                save_history_to_redis(session_id, updated_history)
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 

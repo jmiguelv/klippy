@@ -11,7 +11,7 @@
 
 <main class="explore-main">
 	<div class="container explore-container">
-		<h1 class="page-title">Corpus Explorer</h1>
+		<h1 class="page-heading">Corpus Explorer</h1>
 
 		{#await data.statsPromise}
 			<div class="dashboard" aria-busy="true">
@@ -151,15 +151,6 @@
 		padding-bottom: var(--size-10);
 	}
 
-	.page-title {
-		font-family: var(--font-display);
-		font-size: clamp(1.6rem, 3vw, 2.2rem);
-		font-weight: 500;
-		color: var(--ink-0);
-		letter-spacing: -0.01em;
-		margin-bottom: var(--size-8);
-	}
-
 	.dashboard {
 		display: flex;
 		flex-direction: column;
@@ -170,13 +161,13 @@
 	.card {
 		background: var(--surface);
 		border: 1px solid var(--border);
-		border-radius: 4px;
+		border-radius: var(--radius-2);
 		padding: var(--size-5) var(--size-6);
 	}
 
 	.section-label {
 		font-family: var(--font-mono);
-		font-size: 0.65rem;
+		font-size: var(--text-xs);
 		text-transform: uppercase;
 		letter-spacing: 0.12em;
 		color: var(--ink-3);
@@ -195,12 +186,12 @@
 		padding: var(--size-3) var(--size-4);
 		background: var(--canvas);
 		border: 1px solid var(--border);
-		border-radius: 4px;
+		border-radius: var(--radius-2);
 	}
 
 	.stat dt {
 		font-family: var(--font-mono);
-		font-size: 0.6rem;
+		font-size: var(--text-2xs);
 		text-transform: uppercase;
 		letter-spacing: 0.1em;
 		color: var(--ink-3);
@@ -208,7 +199,7 @@
 
 	.stat dd {
 		font-family: var(--font-sans);
-		font-size: 1rem;
+		font-size: var(--text-lg);
 		font-weight: 500;
 		color: var(--ink-0);
 		margin-top: var(--size-1);
@@ -232,7 +223,7 @@
 
 	.kw-label {
 		font-family: var(--font-sans);
-		font-size: 0.82rem;
+		font-size: var(--text-base-sm);
 		color: var(--ink-1);
 		white-space: nowrap;
 		overflow: hidden;
@@ -241,7 +232,7 @@
 
 	.kw-count {
 		font-family: var(--font-mono);
-		font-size: 0.72rem;
+		font-size: var(--text-sm);
 		color: var(--ink-3);
 		text-align: right;
 	}
@@ -272,21 +263,21 @@
 
 	.bd-label {
 		font-family: var(--font-sans);
-		font-size: 0.85rem;
+		font-size: var(--text-base);
 		font-weight: 500;
 		color: var(--ink-1);
 	}
 
 	.bd-count {
 		font-family: var(--font-mono);
-		font-size: 0.72rem;
+		font-size: var(--text-sm);
 		color: var(--ink-2);
 		text-align: right;
 	}
 
 	.bd-pct {
 		font-family: var(--font-mono);
-		font-size: 0.72rem;
+		font-size: var(--text-sm);
 		color: var(--ink-3);
 		text-align: right;
 	}
@@ -295,7 +286,7 @@
 	.bar-track {
 		height: 7px;
 		background: var(--border);
-		border-radius: 3px;
+		border-radius: var(--radius-1);
 		overflow: hidden;
 		display: block;
 	}
@@ -303,12 +294,12 @@
 	.bar {
 		display: block;
 		height: 100%;
-		border-radius: 3px;
-		transition: width 0.3s ease;
+		border-radius: var(--radius-1);
+		transition: width var(--ease-bar);
 	}
 
 	.bar-red  { background: var(--kings-red); }
-	.bar-navy { background: #0a2d50; }
+	.bar-navy { background: var(--navy); }
 
 	/* ── Source keyword chips ─────────────────── */
 	.kw-chips {
@@ -321,55 +312,43 @@
 
 	.kw-chip {
 		font-family: var(--font-sans);
-		font-size: 0.75rem;
+		font-size: var(--text-sm);
 		padding: 2px var(--size-2);
 		background: var(--canvas);
 		border: 1px solid var(--border);
-		border-radius: 999px;
+		border-radius: var(--radius-pill);
 		color: var(--ink-2);
 	}
 
 	/* ── States ───────────────────────────────── */
-	.skeleton {
-		display: block;
-		background: var(--border);
-		border-radius: 2px;
-		animation: pulse 1.4s ease-in-out infinite;
-	}
-
-	@keyframes pulse {
-		0%, 100% { opacity: 0.4; }
-		50%       { opacity: 0.7; }
-	}
-
 	.empty-state {
 		background: var(--surface);
 		border: 1px solid var(--border);
-		border-radius: 4px;
+		border-radius: var(--radius-2);
 		padding: var(--size-10) var(--size-8);
 		text-align: center;
 		font-family: var(--font-sans);
-		font-size: 0.9rem;
+		font-size: var(--text-md);
 		color: var(--ink-2);
 		line-height: 1.8;
 	}
 
 	.empty-state code {
 		font-family: var(--font-mono);
-		font-size: 0.8rem;
+		font-size: var(--text-base-sm);
 		background: var(--canvas);
 		padding: 2px 6px;
-		border-radius: 3px;
+		border-radius: var(--radius-1);
 		color: var(--kings-red);
 	}
 
 	.error-banner {
 		background: var(--surface);
 		border: 1px solid var(--kings-red);
-		border-radius: 4px;
+		border-radius: var(--radius-2);
 		padding: var(--size-4) var(--size-6);
 		font-family: var(--font-sans);
-		font-size: 0.9rem;
+		font-size: var(--text-md);
 		color: var(--kings-red);
 	}
 
