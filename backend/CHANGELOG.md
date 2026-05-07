@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/jmiguelv/klippy/compare/backend-v0.7.0...backend-v0.7.1) (2026-05-07)
+
+
+### Bug Fixes
+
+* **api:** persist chat history in finally block to survive stream errors ([2fe3308](https://github.com/jmiguelv/klippy/commit/2fe33085b8644e9a60b7aba8a2151bbb4dc5b12f))
+
 ## [0.7.0](https://github.com/jmiguelv/klippy/compare/backend-v0.6.0...backend-v0.7.0) (2026-04-28)
 
 
