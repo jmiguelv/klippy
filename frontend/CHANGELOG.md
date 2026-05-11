@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.1](https://github.com/jmiguelv/klippy/compare/frontend-v0.11.0...frontend-v0.11.1) (2026-05-07)
+
+
+### Bug Fixes
+
+* **frontend:** disable SSR on explore page to avoid eager fetch ([2ac1187](https://github.com/jmiguelv/klippy/commit/2ac1187e55deecf1173850bc016bbcea0f5ac601))
+
 ## [0.11.0](https://github.com/jmiguelv/klippy/compare/frontend-v0.10.0...frontend-v0.11.0) (2026-04-30)
 
 
