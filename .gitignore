@@ -30,3 +30,6 @@ docker-compose.override.yml
 
 # Brainstorming artifacts
 .superpowers/
+
+# Claude Code local settings
+.claude/
