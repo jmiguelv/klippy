@@ -1,23 +1,25 @@
-FROM python:3.12-slim
+# Builder stage: install dependencies into an isolated venv
+FROM python:3.12-slim AS builder
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 WORKDIR /app
-
-# Copy configuration files
 COPY pyproject.toml uv.lock ./
 
-# Install dependencies
-RUN uv sync --frozen --no-dev
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
 
-# Copy source code
+# Runtime stage: no build tools, just the venv and source
+FROM python:3.12-slim
+
+WORKDIR /app
+COPY --from=builder /app/.venv /app/.venv
 COPY . .
 
-# Environment variables
 ENV PYTHONUNBUFFERED=1
 ENV QDRANT_HOST=qdrant
 ENV REDIS_HOST=redis
 ENV DATA_DIR=/app/data
+ENV PATH="/app/.venv/bin:$PATH"
 
 EXPOSE 8000
-
-CMD ["uv", "run", "python", "main.py"]
+CMD ["python", "main.py"]

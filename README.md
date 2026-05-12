@@ -114,26 +114,26 @@ Access the interface at [http://localhost:5173](http://localhost:5173).
 Run both ClickUp and GitHub harvesters:
 
 ```bash
-docker compose run --rm harvester uv run python main.py --all
+docker compose run --rm harvester python main.py --all
 ```
 
 Run only one source:
 
 ```bash
-docker compose run --rm harvester uv run python main.py --clickup
-docker compose run --rm harvester uv run python main.py --github
+docker compose run --rm harvester python main.py --clickup
+docker compose run --rm harvester python main.py --github
 ```
 
 Harvest ClickUp docs and pages only (skips tasks and GitHub):
 
 ```bash
-docker compose run --rm harvester uv run python main.py --docs-only
+docker compose run --rm harvester python main.py --docs-only
 ```
 
 Force a full re-harvest (ignores saved task sync state):
 
 ```bash
-docker compose run --rm harvester uv run python main.py --all --force
+docker compose run --rm harvester python main.py --all --force
 ```
 
 ### 4. Updating the Index
@@ -146,16 +146,16 @@ This is the recommended way to run ingestion manually with full control over fla
 
 ```bash
 # Ingest all documents
-docker compose run --rm backend uv run python main.py --ingest
+docker compose run --rm backend python main.py --ingest
 
 # Ingest and extract sample questions & keywords
-docker compose run --rm backend uv run python main.py --ingest --extract-questions --extract-keywords
+docker compose run --rm backend python main.py --ingest --extract-questions --extract-keywords
 
 # Force re-index (clears and rebuilds the Qdrant collection)
-docker compose run --rm backend uv run python main.py --ingest --force
+docker compose run --rm backend python main.py --ingest --force
 
 # Ingest a random sample for testing
-docker compose run --rm backend uv run python main.py --ingest --limit 100
+docker compose run --rm backend python main.py --ingest --limit 100
 ```
 
 #### Option B: API (curl)
