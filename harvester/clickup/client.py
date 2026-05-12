@@ -159,7 +159,7 @@ class ClickUpClient:
                         break
 
                     if response.status_code >= 500:
-                        logger.warning(f"  get_pages({pid}): {response.status_code} — {response.text[:200]}, retrying without depth")
+                        logger.debug(f"  get_pages({pid}): {response.status_code} — retrying without depth")
                         params_limited = {"content_format": "text/md"}
                         if cursor:
                             params_limited["cursor"] = cursor
@@ -187,8 +187,9 @@ class ClickUpClient:
                 if all_pages: return all_pages
                 continue
 
-        logger.warning(f"  Could not retrieve pages for doc {doc_id} after all retries.")
-        return []
+        msg = f"get_pages({doc_id}): all retries failed"
+        logger.warning(msg)
+        raise requests.HTTPError(msg)
 
     def get_spaces(self, team_id: str) -> list:
         """Lists all spaces in a team/workspace."""

@@ -138,6 +138,7 @@ class Orchestrator:
             return ids
 
         # BFS: harvest pages and discover sub-docs via page listing
+        failed_docs: list[str] = []
         while queue:
             d = queue.pop(0)
             doc_id = d["id"]
@@ -146,6 +147,7 @@ class Orchestrator:
                 pages = self.clickup.get_pages(workspace_id, doc_id)
             except Exception as e:
                 logger.warning(f"Could not harvest pages for doc {doc_id}: {e}")
+                failed_docs.append(doc_id)
                 pages = []
 
             # Use page listing to discover sub-docs and fill depth gaps in get_pages
@@ -170,6 +172,8 @@ class Orchestrator:
                     self._save_markdown(f"clickup_page_{p['id']}.md", md)
                     page_count += 1
 
+        if failed_docs:
+            logger.warning(f"{len(failed_docs)} doc(s) fell back to page-by-page fetch: {failed_docs}")
         logger.info(f"Final: {page_count} pages from {doc_count} docs ({len(seen_doc_ids)} total discovered).")
 
     def run_github(self, org_names: list[str] | None = None, user_names: list[str] | None = None,
