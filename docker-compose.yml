@@ -1,6 +1,6 @@
 services:
   qdrant:
-    image: qdrant/qdrant:latest
+    image: qdrant/qdrant:v1.18.0
     container_name: klippy-qdrant
     ports:
       - "6333:6333"
@@ -9,13 +9,13 @@ services:
       - ./data/qdrant:/qdrant/storage
 
   redis:
-    image: redis:alpine
+    image: redis:7-alpine
     container_name: klippy-redis
     ports:
       - "6379:6379"
 
   redis-insight:
-    image: redis/redisinsight:latest
+    image: redis/redisinsight:3.4.2
     container_name: klippy-redis-insight
     ports:
       - "5540:5540"
@@ -23,7 +23,7 @@ services:
       - redis
 
   phoenix:
-    image: arizephoenix/phoenix:latest
+    image: arizephoenix/phoenix:15.6.0
     container_name: klippy-phoenix
     ports:
       - "6006:6006" # Arize Phoenix UI

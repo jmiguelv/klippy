@@ -177,6 +177,44 @@ def test_get_page_listing_paginates_with_next_cursor(mocker):
     assert len(listing["pages"]) == 2
     assert {p["id"] for p in listing["pages"]} == {"p1", "p2"}
 
+def test_get_pages_500_retries_without_depth_and_succeeds(mocker):
+    error_response = mocker.MagicMock()
+    error_response.status_code = 500
+    error_response.text = '{"err":"Unexpected token \'L\'","status":500}'
+    error_response.ok = False
+
+    success_response = mocker.MagicMock()
+    success_response.status_code = 200
+    success_response.ok = True
+    success_response.json.return_value = {"pages": [{"id": "p1", "name": "Page"}]}
+
+    mock_get = mocker.patch("requests.get", side_effect=[error_response, success_response])
+
+    client = ClickUpClient(api_key="fake_key")
+    pages = client.get_pages(workspace_id="ws1", doc_id="doc1")
+
+    assert len(pages) == 1
+    assert pages[0]["id"] == "p1"
+    assert mock_get.call_count == 2
+    assert "max_page_depth" not in mock_get.call_args_list[1][1]["params"]
+
+
+def test_get_pages_500_on_both_retries_raises(mocker):
+    error_response = mocker.MagicMock()
+    error_response.status_code = 500
+    error_response.text = '{"err":"Unexpected token \'L\'","status":500}'
+    error_response.ok = False
+
+    mock_get = mocker.patch("requests.get", return_value=error_response)
+
+    client = ClickUpClient(api_key="fake_key")
+
+    import requests as req
+    import pytest
+    with pytest.raises(req.HTTPError):
+        client.get_pages(workspace_id="ws1", doc_id="doc1")
+
+
 def test_get_docs_supports_parent_filters(mocker):
     mock_response = {"docs": [{"id": "doc1"}]}
     mock_get = mocker.patch("requests.get")

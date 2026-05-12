@@ -1,22 +1,23 @@
-FROM python:3.12-slim
+# Builder stage: install dependencies into an isolated venv
+FROM python:3.12-slim AS builder
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 WORKDIR /app
-
-# Copy configuration files
 COPY pyproject.toml uv.lock ./
 
-# Install dependencies
-RUN uv sync --frozen --no-dev
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
 
-# Copy source code
+# Runtime stage: no build tools, just the venv and source
+FROM python:3.12-slim
+
+WORKDIR /app
+COPY --from=builder /app/.venv /app/.venv
 COPY . .
 
-# Environment variables for the harvester
 ENV PYTHONUNBUFFERED=1
 ENV DATA_DIR=/app/data/raw
 ENV STATE_FILE=/app/data/state.json
+ENV PATH="/app/.venv/bin:$PATH"
 
-# Default command: run all harvesters
-# In a real setup, this might be a while loop or a scheduler
-CMD ["uv", "run", "python", "main.py", "--all"]
+CMD ["python", "main.py", "--all"]
